@@ -1,6 +1,6 @@
 #a Copyright
 #  
-#  This file 'Makefile' copyright Gavin J Stark 2003, 2004
+#  This file 'Makefile' copyright Gavin J Stark 2003, 2004, 2020
 #  
 #  This is free software; you can redistribute it and/or modify it however you wish,
 #  with no obligations
@@ -9,10 +9,9 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
-#a Global variables
-CYCLICITY = ..
+include ${CDL_ROOT}/Makefile_build_config
 PREREQS = 
-include ${CYCLICITY}/scripts/makefile_hdr
+include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Source files
 BASIC_LIB_SRCS := \
@@ -34,22 +33,31 @@ BASIC_LIB_SRCS := \
 		sl_pthread_barrier.cpp \
 		sl_general.cpp
 
+INCLUDES = c_sl_error.h \
+			sl_debug.h
+
 SRCS = ${BASIC_LIB_SRCS}
+OBJ_DIR = ${CDL_BUILD_ROOT}/support_libraries
 
 #a Objects
+objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
 BASIC_LIB_OBJS  := $(call objs_from_srcs,${BASIC_LIB_SRCS})
-PLAIN_LIB_OBJS  := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file.o ${OS_DIR}/sl_option.o 
-PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file_python.o ${OS_DIR}/sl_option_python.o
+PLAIN_LIB_OBJS  := ${BASIC_LIB_OBJS} ${OBJ_DIR}/sl_exec_file.o        ${OBJ_DIR}/sl_option.o 
+PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OBJ_DIR}/sl_exec_file_python.o ${OBJ_DIR}/sl_option_python.o
 
 #a Resultant 'libraries'
-PLAIN_LIBRARY  := ${OS_DIR}/sl_support.o
-PYTHON_LIBRARY := ${OS_DIR}/sl_support_with_python.o
+PLAIN_LIBRARY  := ${CDL_LIB_DIR}/sl_support.o
+PYTHON_LIBRARY := ${CDL_LIB_DIR}/sl_support_with_python.o
 ifeq ($(BUILD_PYTHON),no)
 PYTHON_LIBRARY :=
 endif
 
 #a Dependencies and build requirements
-ALL: ${PLAIN_LIBRARY} ${PYTHON_LIBRARY}
+clean:
+	@rm -f ${PLAIN_LIBRARY} ${PYTHON_LIBRARY} ${PLAIN_LIB_OBJS} ${PLAIN_LIB_OBJS} ${PYTHON_LIB_OBJS} ${OBJ_DIR}/*.P core.*
+	mkdir -p ${OBJ_DIR}
+
+build: ${PLAIN_LIBRARY} ${PYTHON_LIBRARY}
 
 ${PLAIN_LIBRARY}: ${PLAIN_LIB_OBJS}
 	${LINKASOBJ} ${PLAIN_LIBRARY} ${PLAIN_LIB_OBJS}
@@ -58,23 +66,19 @@ ${PYTHON_LIBRARY}: ${PYTHON_LIB_OBJS}
 	${LINKASOBJ} ${PYTHON_LIBRARY} ${PYTHON_LIB_OBJS}
 
 #a Special build objects
-${OS_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
-	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_exec_file.cpp -o ${OS_DIR}/sl_exec_file_python.o
-${OS_DIR}/sl_option_python.o: sl_option.cpp
-	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_option.cpp -o ${OS_DIR}/sl_option_python.o
+${OBJ_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
+	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_exec_file.cpp -o ${OBJ_DIR}/sl_exec_file_python.o
+${OBJ_DIR}/sl_option_python.o: sl_option.cpp
+	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_option.cpp -o ${OBJ_DIR}/sl_option_python.o
 
 #a Clean etc
-clean:
-	rm -f ${PLAIN_LIBRARY} ${PYTHON_LIBRARY} ${PLAIN_LIB_OBJS} ${PLAIN_LIB_OBJS} ${PYTHON_LIB_OBJS} ${OS_DIR}/*.P core.*
+-include $(SRCS:%.cpp=${CDL_BUILD_OBJ_DIR}/%.P)
 
-backup:
-	tar zcvf backups/backup_`date +%y%m%d%H%M`.tgz Makefile ${SRCS} ${HDRS} ${UIS}
+#a Default patterns
+${OBJ_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
--include $(SRCS:%.cpp=${OS_DIR}/%.P)
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
-# End: ***
-
+#a Include make - copy relevant header files
+include:${INCLUDES}
+	cp ${INCLUDES} ${CDL_INCLUDE_DIR}

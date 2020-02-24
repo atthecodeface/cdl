@@ -12,10 +12,9 @@
 #  for more details.
 
 #a Global variables
-CYCLICITY = ..
+include ${CDL_ROOT}/Makefile_build_config
 PREREQS = S
-
-include ${CYCLICITY}/scripts/makefile_hdr
+include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 SPECIFIC_INCLUDES =
 ifeq ("$(BUILD_PYTHON)","yes")
@@ -45,34 +44,40 @@ ENGINE_SRCS = \
 		c_se_engine__log.cpp \
 		c_se_engine.cpp
 
+INCLUDES = se_cmodel_assist.h \
+			c_se_engine.h \
+			se_errors.h \
+			se_external_module.h
+
 SRCS = ${ENGINE_SRCS}
+OBJ_DIR = ${CDL_BUILD_ROOT}/simulation_engine
 
 #a Objects
+objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
 ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
 #a Resultant 'libraries'
-SE_LIB = ${OS_DIR}/se_simulation_engine.o
+SE_LIB = ${CDL_LIB_DIR}/se_simulation_engine.o
 LIBRARIES = ${SE_LIB}
 
 #a Dependencies and build requirements
-ALL: ${LIBRARIES}
+build: ${LIBRARIES}
 
 ${SE_LIB}: ${ENGINE_OBJS}
 	${LINKASOBJ} $@ ${ENGINE_OBJS}
-	#	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_WITH_PYTHON_OBJECTS}
+
+#a Default patterns
+${OBJ_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
 #a Clean, depend, etc
 clean:
-	rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${ENGINE_OBJS} ${OS_DIR}/*.P core.*
+	@rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${ENGINE_OBJS} ${OBJ_DIR}/*.P core.*
+	mkdir -p ${OBJ_DIR}
 
-backup:
-	tar zcvf backups/backup_`date +%y%m%d%H%M`.tgz Makefile ${SRCS}
+-include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
--include $(SRCS:%.cpp=${OS_DIR}/%.P)
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
-# End: ***
-
+#a Include make - copy relevant header files
+include:${INCLUDES}
+	cp ${INCLUDES} ${CDL_INCLUDE_DIR}

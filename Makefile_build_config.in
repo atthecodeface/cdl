@@ -1,0 +1,51 @@
+#a Copyright
+#  
+#  This file 'Makefile' copyright Gavin J Stark 2020
+#  
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# @file  Makefile_build_config.in
+# @brief Autoconf/makefile variable setting for build of CDL (not installed version)
+#
+
+#a Global variables
+
+#CDL_ROOT = @CDL_ROOT@
+CDL_ROOT  ?= $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+#CDL_ROOT  = .
+YACC     = @YACC_INST@
+PYTHON_INCLUDES = @PYTHON_INCLUDE@
+
+CDL_BUILD_ROOT    := ${CDL_ROOT}/build
+CDL_BUILD_OBJ_DIR := ${CDL_BUILD_ROOT}/lib
+CDL_BUILD_BIN_DIR := ${CDL_BUILD_ROOT}/bin
+CDL_SCRIPTS_DIR   := ${CDL_ROOT}/scripts
+CREATE_MAKE := ${CDL_SCRIPTS_DIR}/create_make
+
+LINKASOBJ := ld -r -o
+BUILD_VPI := no
+BISON_VERSION := 2.3
+BISON_TAIL := .h
+LINKASOBJ  := g++ -nostdlib -r ${LINKFLAGS} -o
+LINKDYNLIB := g++ -shared -export-dynamic ${LINKFLAGS} -o 
+LINKDYNLIB := g++ -dynamiclib ${LINKFLAGS} -o 
+LINKASBIN  := g++ ${LINKFLAGS} -o
+#		PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o 

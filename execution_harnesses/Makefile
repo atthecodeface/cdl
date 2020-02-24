@@ -10,9 +10,9 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
 #a Global variables
-CYCLICITY = ..
+include ${CDL_ROOT}/Makefile_build_config
 PREREQS = sei
-include ${CYCLICITY}/scripts/makefile_hdr
+include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Source files
 CMDLINE_SRCS = \
@@ -25,6 +25,8 @@ PYTHON_SRCS = \
 
 VPI_SRCS = eh_vpi.cpp
 
+INCLUDES = eh_scripting.h
+
 SRCS := ${CMDLINE_SRCS}
 ifneq ($(BUILD_PYTHON),no)
 SRCS := ${SRCS} ${PYTHON_SRCS}
@@ -32,16 +34,18 @@ endif
 ifneq ($(BUILD_VPI),no)
 SRCS := ${SRCS} ${VPI_SRCS}
 endif
+OBJ_DIR = ${CDL_BUILD_ROOT}/execution_harnesses
 
 #a Objects
+objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
 CMDLINE_OBJS = $(call objs_from_srcs,${CMDLINE_SRCS})
-PYTHON_OBJS = $(call objs_from_srcs,${PYTHON_SRCS})
-VPI_OBJS = $(call objs_from_srcs,${VPI_SRCS})
+PYTHON_OBJS  = $(call objs_from_srcs,${PYTHON_SRCS})
+VPI_OBJS     = $(call objs_from_srcs,${VPI_SRCS})
 
 #a Resultant 'libraries'
-CMDLINE_LIB := ${OS_DIR}/eh_batch_scripting_harness.o
-PYTHON_LIB := ${OS_DIR}/eh_python_scripting_harness.o
-VPI_LIB := ${OS_DIR}/eh_vpi_harness.o
+CMDLINE_LIB := ${OBJ_DIR}/eh_batch_scripting_harness.o
+PYTHON_LIB  := ${OBJ_DIR}/eh_python_scripting_harness.o
+VPI_LIB     := ${OBJ_DIR}/eh_vpi_harness.o
 ifeq ($(BUILD_PYTHON),no)
 	PYTHON_LIB =
 endif
@@ -52,7 +56,11 @@ endif
 LIBRARIES = ${PYTHON_LIB} ${CMDLINE_LIB} ${VPI_LIB}
 
 #a Dependencies and build requirements
-ALL: ${LIBRARIES}
+clean:
+	@rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${VPI_OBJS} ${OBJ_DIR}/*.P core.*
+	mkdir -p ${OBJ_DIR}
+
+build: ${LIBRARIES}
 
 SPECIFIC_INCLUDES := 
 ifneq ($(BUILD_PYTHON),no)
@@ -72,17 +80,14 @@ ${VPI_LIB}: $(VPI_OBJS)
 	${LINKASOBJ} $@ ${VPI_OBJS}
 
 #a Clean etc
-clean:
-	rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${VPI_OBJS} ${OS_DIR}/*.P core.*
 
-backup:
-	tar zcvf backups/backup_`date +%y%m%d%H%M`.tgz Makefile ${SRCS}
+-include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
--include $(SRCS:%.cpp=${OS_DIR}/%.P)
+#a Default patterns
+${OBJ_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
-# End: ***
-
+#a Include make - copy relevant header files
+include:${INCLUDES}
+	cp ${INCLUDES} ${CDL_INCLUDE_DIR}

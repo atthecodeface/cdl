@@ -10,7 +10,7 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
 #a Documentation
-# ${CYCLICITY} should point at cvstree/hardware/cyclicity (set in parent makefile)
+# ${CDL_ROOT} should point at cvstree/hardware/cyclicity (set in parent makefile)
 # ${arch} should be cygwin or linux (set in a user's .login or equivalent)
 # $(PREREQS) should be a list of letters including:
 #   b if backend includes are required
@@ -24,19 +24,6 @@
 #   H if execution harness objects are required
 
 #a Determine OS subdirectories - required for includes and objects for builds
-include ${CYCLICITY}/scripts/makefile.config
-OS_DIR := linux
-ifeq (${BUILD_ARCH},cygwin)
-    OS_DIR := cygwin
-endif
-ifeq (${BUILD_ARCH},osx)
-    OS_DIR := osx
-endif
-
-TARGET_DIR := $(PREFIX_OBJ_DIR)$(OS_DIR)
-CYCLICITY_OBJ_DIR := ${CYCLICITY}/lib/${OS_DIR}
-CYCLICITY_BIN_DIR := ${CYCLICITY}/bin/${OS_DIR}
-CREATE_MAKE := ${CYCLICITY}/scripts/create_make
 objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OS_DIR}/%.o,${SRC:.y=.cpp}))
 
 #a Set up correct includes and objects for builds
@@ -54,42 +41,41 @@ HARNESS_BATCH_OBJECTS :=
 HARNESS_GUI_OBJECTS := 
 
 ifneq (,$(findstring b,${PREREQS}))
-BACKEND_INCLUDES := -I ${CYCLICITY}/backend
+BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
 endif
 ifneq (,$(findstring B,${PREREQS}))
-BACKEND_INCLUDES := -I ${CYCLICITY}/backend
-BACKEND_OBJECTS := ${CYCLICITY_OBJ_DIR}/be_backend.o
+BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
+BACKEND_OBJECTS := ${CDL_BUILD_OBJ_DIR}/be_backend.o
 endif
 
 ifneq (,$(findstring e,${PREREQS}))
-ENGINE_INCLUDES := -I ${CYCLICITY}/simulation_engine
+ENGINE_INCLUDES := -I ${CDL_ROOT}/simulation_engine
 endif
 ifneq (,$(findstring E,${PREREQS}))
-ENGINE_INCLUDES := -I ${CYCLICITY}/simulation_engine
-ENGINE_LIBFILE := se_simulation_engine
-#ENGINE_LIBS := -l${ENGINE_LIBFILE}
-ENGINE_LIBS := ${CYCLICITY_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
-ENGINE_OBJECTS := ${CYCLICITY_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
+ENGINE_INCLUDES   := -I ${CDL_ROOT}/simulation_engine
+ENGINE_LIBFILE    := se_simulation_engine
+ENGINE_LIBS       := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
+ENGINE_OBJECTS    := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
 endif
 
 ifneq (,$(findstring s,${PREREQS}))
-SUPPORT_INCLUDES := -I ${CYCLICITY}/support_libraries
+SUPPORT_INCLUDES := -I ${CDL_ROOT}/support_libraries
 endif
 ifneq (,$(findstring S,${PREREQS}))
-SUPPORT_INCLUDES := -I ${CYCLICITY}/support_libraries
-SUPPORT_OBJECTS := ${CYCLICITY_OBJ_DIR}/sl_support.o
-SUPPORT_WITH_PYTHON_OBJECTS := ${CYCLICITY_OBJ_DIR}/sl_support_with_python.o
+SUPPORT_INCLUDES            := -I ${CDL_ROOT}/support_libraries
+SUPPORT_OBJECTS             := ${CDL_LIB_DIR}/sl_support.o
+SUPPORT_WITH_PYTHON_OBJECTS := ${CDL_LIB_DIR}/sl_support_with_python.o
 SUPPORT_LIBS := -lpthread
 endif
 
 ifneq (,$(findstring h,${PREREQS}))
-HARNESS_INCLUDES := -I ${CYCLICITY}/execution_harnesses
+HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
 endif
 ifneq (,$(findstring H,${PREREQS}))
-HARNESS_INCLUDES := -I ${CYCLICITY}/execution_harnesses
-HARNESS_BATCH_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_batch_scripting_harness.o
-HARNESS_GUI_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_python_scripting_harness.o
-HARNESS_VPI_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_vpi_harness.o
+HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
+HARNESS_BATCH_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_batch_scripting_harness.o
+HARNESS_GUI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_python_scripting_harness.o
+HARNESS_VPI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_vpi_harness.o
 ifeq ($(BUILD_PYTHON),no)
 HARNESS_GUI_OBJECTS := 
 endif
@@ -99,13 +85,13 @@ endif
 endif
 
 ifneq (,$(findstring i,${PREREQS}))
-EXPORTED_INCLUDES := -I ${CYCLICITY}/include
+EXPORTED_INCLUDES := -I ${CDL_ROOT}/include
 endif
 
 #a Default linux environment
 # Use '=' here as SPECIFIC_INCLUDES is set AFTER this file is included
 BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
-CYCLICITY_INCLUDES     = ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
+CYCLICITY_INCLUDES     = -I ${CDL_INCLUDE_DIR} ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
 CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
 CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
 CYCLICITY_LIBS         = ${ENGINE_LIBS} ${SUPPORT_LIBS}
@@ -128,82 +114,16 @@ endif
 
 CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CFLAGS}    ${LOCAL_CFLAGS}
 CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
-LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CYCLICITY}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
+LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
 LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
 
 #a Os-specific overrides - libs for python and DLL generation issues
 ifndef PYTHON_ROOT
   PYTHON_ROOT := /usr
 endif
-os_lib_hdr = 
-CC := g++
-LINK := g++
-LINKASOBJ := g++ -nostdlib -r ${LINKFLAGS} -o
-LINKDYNLIB := ${LINK} -shared -export-dynamic ${LINKFLAGS} -o 
-LINKASBIN := ${LINK} ${LINKFLAGS} -o
-BISON_TAIL := .h
-PYTHON_INCLUDES := ${PYTHON_ROOT}/include/${PYTHON}
-PYTHONLINKLIB := ${LINK} ${LINKFLAGS} -shared -export-dynamic -o 
-VPI_INCLUDES := ${VERILOG_ROOT}/include
-ifeq (${BUILD_ARCH},cygwin)
-	LIBS = -L /usr/lib/${PYTHON}/config -lc
-	LIB_EXT = dll
-	LIB_DEP_EXT = dll.a
-	os_lib_hdr = -Wl,--out-implib=$(1).a -Wl,--enable-auto-import
-
-	CC := gcc
-	LINK := g++
-	LINKASOBJ := ${LINK} -o
-	LINKASBIN := ${LINK} ${LINKFLAGS} -o
-	LINKDYNLIB := ${LINK} -r ${LINKFLAGS} -o 
-	BISON_TAIL := .h
-endif
-ifeq (${BUILD_ARCH},osx)
-	# We require macports
-	# We use port install python, port install gtk2
-	# We need X11 for this to work
-	# For Gavins machine changed this from gcc-4.0 to gcc
-	GCC = gcc-4.0
-	GPP = g++-4.0
-	GCC = gcc
-	GPP = g++
-	ifndef FRAMEWORK_PATH
-          FRAMEWORK_PATH = /opt/local/Library/Frameworks
-        endif
-	BISON_TAIL := .h
-	BISON_VERSION := 2.5
-	ifeq (${BUILD_SUBARCH},tiger)
-	  PYTHON_INCLUDES := /opt/local/include/python2.5
-	else
-	  PYTHON_INCLUDES := ${FRAMEWORK_PATH}/Python.framework/Versions/Current/include/${PYTHON}
-	endif
-	CC := ${GCC} -dynamic
-	LINK := ${GCC}
-	LINKASOBJ := ld -r -o
-	# Python requires -bundle and a .so, with fred.so containing a function _initfred
-	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
-	ifeq (${BUILD_SUBARCH},snowleopard)
-		CC := ${GCC} -dynamic -fno-strict-aliasing  -fno-common -fwrapv
-		CXX := ${GCC} -dynamic -fno-strict-aliasing -fno-common -fwrapv
-		LINK := ${GCC}
-		LINKASOBJ := ld -r -o
-		LINKASBIN := ${GPP} ${LINKFLAGS} -o
-		LINKDYNLIB := ${GPP} ${LINKFLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := ${GPP} -L/opt/local/lib -bundle -undefined dynamic_lookup ${LOCAL_LINKFLAGS} -o
-	else
-		LINKDYNLIB := ${GPP} ${LINKFLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o 
-	endif
-endif
 
 #a Default patterns
 ${OS_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"
 	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OS_DIR}/$*.P $< -o $@
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
-# End: ***
 
