@@ -48,6 +48,24 @@ typedef struct {
      t_sl_option_list env_options;
 } t_py_engine_PyObject;
 
+/*f Python3 wrappers
+ */
+#if PY_MAJOR_VERSION >= 3
+#define PyInt_FromLong  PyLong_FromLong
+#define PyInt_AsLong    PyLong_AsLong
+#define PyInt_Check     PyLong_Check
+#define PyInt_AsSsize_t PyLong_AsSsize_t
+#define PyString_Check      PyUnicode_Check
+#define PyString_FromFormat PyUnicode_FromFormat
+#define PyString_FromString PyUnicode_FromString
+static const char *PyString_AsString(PyObject *obj) {
+    const char *c;
+    Py_ssize_t size;
+    c = PyUnicode_AsUTF8AndSize(obj, &size);
+    return c;
+}
+#endif
+
 /*a Declarations
  */
 /*b Declarations of engine class methods
@@ -89,7 +107,7 @@ static PyObject *py_engine_repr( PyObject *self );
 static PyObject *py_engine_str( PyObject *self );
 static PyObject *py_engine_new( PyObject* self, PyObject* args );
 static PyObject *py_engine_debug( PyObject* self, PyObject* args, PyObject *kwds );
-static PyObject *py_engine_getattr( PyObject *self, char *name);
+static PyObject *py_engine_getattro( PyObject *self, PyObject* name );
 
 /*a Statics for engine class
  */
@@ -179,23 +197,15 @@ static PyMethodDef engine_methods[] =
 /*v py_engine_PyTypeObject_frame
  */
 static PyTypeObject py_engine_PyTypeObject_frame = {
-    PyObject_HEAD_INIT(NULL)
-    0,
-    "Engine", // for printing
-    sizeof( t_py_engine_PyObject ), // basic size
-    0, // item size
-    py_engine_dealloc, /*tp_dealloc*/
-    py_engine_print,   /*tp_print*/
-    py_engine_getattr,          /*tp_getattr*/
-    0,          /*tp_setattr*/
-    0,          /*tp_compare*/
-    py_engine_repr,          /*tp_repr*/
-    0,          /*tp_as_number*/
-    0,          /*tp_as_sequence*/
-    0,          /*tp_as_mapping*/
-    0,          /*tp_hash */
-	0,			/* tp_call - called if the object itself is invoked as a method */
-	py_engine_str, /*tp_str */
+    PyVarObject_HEAD_INIT(NULL,0)
+    .tp_name = "Engine", // for printing
+    .tp_basicsize = sizeof( t_py_engine_PyObject ), // basic size
+    .tp_dealloc = py_engine_dealloc, /*tp_dealloc*/
+    .tp_print = py_engine_print,   /*tp_print*/
+    .tp_repr = py_engine_repr,          /*tp_repr*/
+	.tp_str = py_engine_str, /*tp_str */
+    //.tp_getattro = py_engine_getattro, /*tp_getattro*/
+    .tp_methods = engine_methods,
 };
 
 /*a Statics for py_engine module
@@ -205,7 +215,7 @@ static PyTypeObject py_engine_PyTypeObject_frame = {
 //static PyObject *py_engine_error;
 static PyObject *result;
 
-/*v py_engine_methods
+/*v py_engine_methods - Methods of the py_engine Module
  */
 static PyMethodDef py_engine_methods[] =
 {
@@ -942,40 +952,30 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
     char *kwdlist[] = { module_s, state_s, what_s, NULL };
     const char *module, *state_name = NULL;
     PyObject *state, *what;
-    Py_ssize_t start, stop, step, length;
     t_engine_state_desc_type state_desc_type;
     t_se_signal_value *data;
     t_sl_uint64 datamask;
     int sizes[4];
-    int idx, err, id = 0;
+    int idx, id = 0;
 
     py_engine_method_enter( py_eng, "get_state", args );
 
     what = NULL;
-    if (PyArg_ParseTupleAndKeywords( args, kwds, "sO|O", kwdlist, &module, &state, &what ))
-    {
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "sO|O", kwdlist, &module, &state, &what )) {
         /*b Validate parameters - state is string => state_name, state is int/long -> id, 'what' - just check if it is int/long/slice
          */
-        if (PyInt_Check(state))
-        {
+        if (PyInt_Check(state)) {
             id = PyInt_AsLong(state);
-        }
-        else if (PyString_Check(state))
-        {
+        } else if (PyString_Check(state)) {
             state_name = PyString_AsString( state );
-        }
-        else
-        {
+        } else {
             PyErr_SetString( PyExc_TypeError, "argument 2 must be string or int" );
             return py_engine_method_error( py_eng );
         }
 
-        if (what == Py_None)
-        {
+        if (what == Py_None) {
             what = NULL;
-        }
-        else if (what && !PyInt_Check(what) && !PySlice_Check(what))
-        {
+        } else if (what && !PyInt_Check(what) && !PySlice_Check(what)) {
             PyErr_SetString( PyExc_TypeError, "argument 3 must be int or slice" );
             return py_engine_method_error( py_eng );
         }
@@ -983,57 +983,52 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
         /*b Get details of the state from the module name and state name / id
          */
         state_desc_type = find_data_info_from_module_and_state_or_id( py_eng, module, state_name, id, &data, sizes );
-        if (state_desc_type == engine_state_desc_type_none)
-        {
+        if (state_desc_type == engine_state_desc_type_none) {
             return py_engine_method_error( py_eng );
         }
 
         /*b Retrieve state and produce return value(s)
          */
-        if (sizes[0] == 64)
-        {
+        if (sizes[0] == 64) {
             datamask = ~0ULL;
-        }
-        else
-        {
+        } else {
             datamask = (1ULL << sizes[0]) - 1;
         }
 
-        if (state_desc_type == engine_state_desc_type_bits)
-        {
+        if (state_desc_type == engine_state_desc_type_bits) {
             /* Ignore 'what' parameter if state is a single value */
             py_engine_method_result_add_int( NULL, data[0] & datamask );
             return py_engine_method_return( py_eng, NULL );
-        }
-        else if (state_desc_type == engine_state_desc_type_array)
-        {
-            if (!what)
-            {
+        } else if (state_desc_type == engine_state_desc_type_array) {
+            if (!what) {
                 /* Return whole array */
-                for (idx = 0; idx < sizes[1]; idx++)
-                {
+                for (idx = 0; idx < sizes[1]; idx++) {
                     py_engine_method_result_add_int( NULL, data[idx] & datamask );
                 }
                 return py_engine_method_return( py_eng, NULL );
-            }
-            else if (PyInt_Check( what ))
-            {
+            } else if (PyInt_Check( what )) {
                 /* Return a single value in array */
                 idx = PyInt_AsLong( what );
-                if (idx >= sizes[1])
-                {
+                if (idx >= sizes[1]) {
                     PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state index out of range: %d", idx) );
                     return py_engine_method_error( py_eng );
                 }
                 py_engine_method_result_add_int( NULL, data[idx] & datamask );
                 return py_engine_method_return( py_eng, NULL );
-            }
-            else
-            {
+            } else {
+                Py_ssize_t start, stop, step;
                 /* Return slice of array */
-                err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
-                if (err)
+                if (PySlice_Unpack(what, &start, &stop, &step) < 0) {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("Could not unpack slice"));
                     return py_engine_method_error( py_eng );
+                }
+                if ((start<0) || (start>=sizes[1]) || (stop<0) || (stop>sizes[1])) {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state slice out of range: %d,%d,%d", start, stop, step) );
+                    return py_engine_method_error( py_eng );
+                }
+                // err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
+                // if (err)
+                //    return py_engine_method_error( py_eng );
 
                 /* Make sure we always return a list type */
                 py_engine_method_result_empty_list( NULL );
@@ -1043,9 +1038,7 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
                 }
                 return py_engine_method_return( py_eng, NULL );
             }
-        }
-        else
-        {
+        } else {
             PyErr_SetString( PyExc_RuntimeError, "state interrogation failed" );
             return py_engine_method_error( py_eng );
         }
@@ -1167,12 +1160,12 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
     char *kwdlist[] = { module_s, state_s, value_s, mask_s, what_s, NULL };
     const char *module, *state_name = NULL;
     PyObject *state, *value, *mask, *what;
-    Py_ssize_t start, stop, step, length;
+    Py_ssize_t length;
     t_engine_state_desc_type state_desc_type;
     t_se_signal_value *data;
     t_sl_uint64 datamask, dataval, maskval = 0;
     int sizes[4];
-    int idx, n, err, id = 0;
+    int idx, n, id = 0;
 
     py_engine_method_enter( py_eng, "get_state", args );
 
@@ -1339,33 +1332,42 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
 
                 data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 return py_engine_method_return( py_eng, NULL );
-            }
-            else
-            {
+            } else {
+                Py_ssize_t start, stop, step;
                 /* Modify slice of array */
-                err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
-                if (err)
-                    return py_engine_method_error( py_eng );
-
-                if (PyList_Size( value ) != length)
-                {
-                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list must be %ld entries", length) );
+                if (PySlice_Unpack(what, &start, &stop, &step) < 0) {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("Could not unpack slice"));
                     return py_engine_method_error( py_eng );
                 }
-                for (idx = start, n = 0; idx < stop; idx += step, n++)
-                {
+                if ((start<0) || (start>=sizes[1]) || (stop<0) || (stop>sizes[1])) {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state slice out of range: %d,%d,%d", start, stop, step) );
+                    return py_engine_method_error( py_eng );
+                }
+                // err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
+                // if (err)
+                //    return py_engine_method_error( py_eng );
+
+                /* Make sure we always return a list type */
+                if ((stop-start)>step*PyList_Size(value)) {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list must be same as slice %d,%d,%d length", start, stop, length) );
+                    return py_engine_method_error( py_eng );
+                }
+                for (idx = start, n = 0; idx < stop; idx += step, n++) {
                     py_engine_method_int64_from_obj( PyList_GetItem( value, n ), &dataval);
-                    if (mask && PyList_Check( mask ))
-                    {
+                    if (mask && PyList_Check( mask )) {
                         py_engine_method_int64_from_obj( PyList_GetItem( mask, n ), &maskval);
                     }
                     data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 }
+
+                py_engine_method_result_empty_list( NULL );
+                for (idx = start; idx < stop; idx += step)
+                {
+                    py_engine_method_result_add_int( NULL, data[idx] & datamask );
+                }
                 return py_engine_method_return( py_eng, NULL );
             }
-        }
-        else
-        {
+        } else {
             PyErr_SetString( PyExc_RuntimeError, "state interrogation failed" );
             return py_engine_method_error( py_eng );
         }
@@ -1560,12 +1562,12 @@ static PyObject *py_engine_method_checkpoint_restore( t_py_engine_PyObject *py_e
 
 /*a Python-callled engine class functions
  */
-/*f py_engine_getattr
- */
-static PyObject *py_engine_getattr( PyObject *self, char *name)
+/*f py_engine_getattro
+static PyObject *py_engine_getattro( PyObject *self, char *name)
 {
     return Py_FindMethod( engine_methods, self, name);
 }
+ */
 
 /*f py_engine_print
  */
@@ -1637,12 +1639,29 @@ static void py_engine_dealloc( PyObject* self )
 
 /*a C code for py_engine
  */
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "py_engine",     /* m_name */
+        "Python interface to CDL simulation engine",  /* m_doc */
+        -1,                  /* m_size */
+        py_engine_methods,    /* m_methods */
+        NULL,                /* m_reload */
+        NULL,                /* m_traverse */
+        NULL,                /* m_clear */
+        NULL,                /* m_free */
+    };
+#endif
 extern "C" void initpy_engine( void )
 {
     PyObject *m;
     int i;
     se_c_engine_init();
+#if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&moduledef);
+#else
     m = Py_InitModule3("py_engine", py_engine_methods, "Python interface to CDL simulation engine" );
+#endif
 
     // This creates the class py_engine.exec_file, defined in sl_exec_file.cpp
     sl_exec_file_python_add_class_object( m );

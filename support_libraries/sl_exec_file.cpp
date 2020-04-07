@@ -3320,7 +3320,7 @@ typedef struct t_py_thread_data
 {
     // This is inside the barrier thread data
     PyThreadState *py_thread;
-    PyObject *barrier_thread_object; // A CObject that contains a pointer to this barrier thread, so this can be used as an element of a tuple arg to a PyMethod bound to this thread
+    PyObject *barrier_thread_object; // A Capsule that contains a pointer to this barrier thread, so this can be used as an element of a tuple arg to a PyMethod bound to this thread
     t_sl_exec_file_thread_execution_data execution;
 } t_py_thread_data;
 
@@ -3374,6 +3374,23 @@ static t_sl_exec_file_fn py_internal_fns[] =
      {cmd_pypassed,                   "pypassed",            'i', "", "pypassed()", py_fn_handler_pypassed },
      {sl_exec_file_fn_none, NULL,     0,   NULL, NULL },
 };
+
+/*f Python3 wrappers
+ */
+#if PY_MAJOR_VERSION >= 3
+#define PyInt_FromLong  PyLong_FromLong
+#define PyInt_AsLong    PyLong_AsLong
+#define PyInt_AsSsize_t PyLong_AsSsize_t
+static const char *PyString_AsString(PyObject *obj) {
+    const char *c;
+    Py_ssize_t size;
+    c = PyUnicode_AsUTF8AndSize(obj, &size);
+    return c;
+}
+static PyObject *PyString_FromString(const char *s) {
+    return PyUnicode_FromString(s);
+}
+#endif
 
 /*f static py_cmd_handler_cb
  */
@@ -3672,11 +3689,11 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
         if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_die)
         {
             WHERE_I_AM_TH_STR2("exit", pthread_self(), barrier_thread, "PyBoWt");
-            PyEval_ReleaseThread(barrier_thread_data->py_thread);
+            PyEval_ReleaseThread(barrier_thread_data->py_thread); // GIL must be held, releases GIL
             PyEval_AcquireLock();
-            Py_DECREF(barrier_thread_data->barrier_thread_object);
-            PyThreadState_Clear(barrier_thread_data->py_thread);
-            PyThreadState_Delete(barrier_thread_data->py_thread);
+            Py_DECREF(barrier_thread_data->barrier_thread_object); // GIL must be held
+            PyThreadState_Clear(barrier_thread_data->py_thread);   // GIL must be held
+            PyThreadState_Delete(barrier_thread_data->py_thread);  // GIL not required
             // sl_pthread_barrier_thread_delete can cause barrier_thread to be freed; barrier_thread_data is potentially part of barrier_thread
             // It seems best to finish using barrier_thread_data before deleting the pthread_barrier_thread, therefore :-)
             sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
@@ -3739,7 +3756,8 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     {
         // If called from the main thread during init then barrier_thread_obj is Py_None
         WHERE_I_AM_TH_STR2("thread_obj", pthread_self(), barrier_thread_obj, "PyEnCb");
-        barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
+        // barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
+        barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCapsule_GetPointer(barrier_thread_obj, NULL);
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
         WHERE_I_AM_TH_STR2("thread?", pthread_self(), barrier_thread, "PyEnCb");
@@ -3896,7 +3914,7 @@ static void py_exec_file_library_dealloc( PyObject* py_ef_lib_obj )
  */
 static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObject *attr_name )
 {
-    char *name = PyString_AsString(attr_name);
+    const char *name = PyString_AsString(attr_name);
     t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
     t_sl_exec_file_lib_desc *lib_desc;
     int call_type; // 0 for function
@@ -3946,7 +3964,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     barrier_thread_object = Py_None;
     if (py_ef_lib->py_object->clocked)
     {
-        py_thread = PyThreadState_Get();
+        py_thread = PyThreadState_Get(); // GIL must be held
         find_thread.py_thread = py_thread;
         find_thread.barrier_thread_data = NULL;
         sl_pthread_barrier_thread_iter( &py_ef_lib->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
@@ -3972,7 +3990,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
  */
 static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject *attr_name )
 {
-    char *name = PyString_AsString(attr_name);
+    const char *name = PyString_AsString(attr_name);
     t_py_object_exec_file_object *py_ef_obj = (t_py_object_exec_file_object *)py_ef_obj_obj;
     t_sl_exec_file_object_desc *obj_desc;
     int call_type; // 0 for function
@@ -4008,7 +4026,7 @@ static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject
     barrier_thread_object = Py_None;
     if (py_ef_obj->py_object->clocked)
     {
-        py_thread = PyThreadState_Get();
+        py_thread = PyThreadState_Get(); // GIL must be held
         find_thread.py_thread = py_thread;
         find_thread.barrier_thread_data = NULL;
         sl_pthread_barrier_thread_iter( &py_ef_obj->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
@@ -4037,8 +4055,9 @@ static PyMethodDef py_object_methods[] = { {NULL} };
 /*v py_class_object__exec_file
  */
 static PyTypeObject py_class_object__exec_file = {
-    PyObject_HEAD_INIT(&PyType_Type)
-    0,                         /*ob_size*/
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(&PyType_Type,0)
     "py_engine.exec_file",             /*tp_name*/
     sizeof(t_py_object), /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -4058,8 +4077,8 @@ static PyTypeObject py_class_object__exec_file = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE | 
-    Py_TPFLAGS_HAVE_CLASS,        /*tp_flags*/
+//     | Py_TPFLAGS_HAVE_CLASS        /*tp_flags*/
+    Py_TPFLAGS_BASETYPE,
     "exec_file objects",           /* tp_doc */
     0, /* tp_traverse*/
     0, /*tp_clear */
@@ -4096,8 +4115,9 @@ static PyTypeObject py_class_object__exec_file = {
  */
 static PyTypeObject py_object_exec_file_library =
 {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(NULL,0)
     "exec_file_library", // for printing
     sizeof( t_py_object_exec_file_library ), // basic size
     0, // item size
@@ -4123,8 +4143,9 @@ static PyTypeObject py_object_exec_file_library =
  */
 static PyTypeObject py_object_exec_file_object =
 {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(NULL,0)
     "exec_file_object", // for printing
     sizeof( t_py_object_exec_file_object ), // basic size
     0, // item size
@@ -4151,7 +4172,7 @@ static PyTypeObject py_object_exec_file_object =
   The py_start_data contains the mutex and condition for the thread start synchronization
   and the py_callable that should be invoked for the thread
  */
-static void barrier_thread_object_destroy_callback( void *p )
+static void barrier_thread_object_destroy_callback( PyObject *p )
 {
     WHERE_I_AM_TH_STR2("thread#", pthread_self(), p, "PyThDst");
 }
@@ -4185,11 +4206,12 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     WHERE_I_AM_TH_STR2("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_AcquireLock();
     WHERE_I_AM_TH_STR2("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
-    py_thread = PyThreadState_New(py_object->py_interp);
-    PyThreadState_Clear(py_thread);
+    py_thread = PyThreadState_New(py_object->py_interp);// GIL need not be held
+    PyThreadState_Clear(py_thread); // GIL must be held
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
-    barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, barrier_thread_object_destroy_callback ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
+    // barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, barrier_thread_object_destroy_callback ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
+    barrier_thread_data->barrier_thread_object = PyCapsule_New( (void *)barrier_thread, NULL, barrier_thread_object_destroy_callback );
     WHERE_I_AM_TH_STR2("ref+", pthread_self(), barrier_thread_data->barrier_thread_object, "PyThrd");
     WHERE_I_AM_TH_STR2("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_ReleaseLock();
@@ -4224,7 +4246,7 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     }
     WHERE_I_AM;
     WHERE_I_AM_TH_STR2("gilthrd-", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_ReleaseThread(py_thread);
+    PyEval_ReleaseThread(py_thread); // GIL must be held, releases GIL
 
     // Save the thread object because we're about to deallocate where it lives.
     barrier_thread_object = barrier_thread_data->barrier_thread_object;
@@ -4238,9 +4260,11 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
     Py_DECREF(barrier_thread_object);
     Py_DECREF(py_object);
-    PyThreadState_Clear(py_thread);
-    PyThreadState_Delete(py_thread);
-    PyEval_ReleaseLock();
+    PyThreadState_Clear(py_thread); // GIL must be held
+    PyThreadState_Swap(NULL); // GIL must be held
+    PyThreadState_Delete(py_thread); // GIL need not be held
+    // PyEval_ReleaseThread(py_thread); // GIL must be held, releases GIL
+    PyEval_ReleaseLock(); // GIL must be held - deprecated
     WHERE_I_AM;
 
     // Free the start data

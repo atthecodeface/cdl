@@ -15,9 +15,9 @@ if test -z "$YACC_INST"; then
 fi
 
 
-AM_PATH_PYTHON
-AC_ARG_VAR([PYTHON_INCLUDE], [Include flags for python, bypassing python-config])
-AC_ARG_VAR([PYTHON_CONFIG],  [Path to python-config])
+AM_PATH_PYTHON([3])
+AC_ARG_VAR([PYTHON_INCLUDE], [Include flags for python, bypassing python3-config])
+AC_ARG_VAR([PYTHON_CONFIG],  [Path to python3-config])
 AS_IF([test -z "$PYTHON_INCLUDE"], [
   AS_IF([test -z "$PYTHON_CONFIG"], [
     AC_PATH_PROGS([PYTHON_CONFIG],

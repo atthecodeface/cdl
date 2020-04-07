@@ -298,19 +298,16 @@ c_lexical_analyzer::~c_lexical_analyzer()
 
      for (file=file_list; file; file=next_file)
      {
-          //printf("Freeing file %p\n",file);
-          if (file->filename)
-          {
+         //printf("Freeing file %p\n",file);
+         if (file->filename) {
                free(file->filename);
-          }
-          if (file->file_data);
-          {
-               free(file->file_data);
-          }
-          if (file->line_starts)
-          {
-               free(file->line_starts);
-          }
+         }
+         if (file->file_data) {
+             free(file->file_data);
+         }
+         if (file->line_starts) {
+             free(file->line_starts);
+         }
           if (file->terminal_entries)
           {
                for (i=0; i<file->number_terminal_entries; i++)
