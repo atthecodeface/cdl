@@ -12,14 +12,18 @@
 #  for more details.
 
 #a Global variables
-CYCLICITY := $(CURDIR)/../../
-SRC_ROOT := ../
-MODEL_LIST := $(CURDIR)/../tests/model_list
-MODELS_MAKE := $(CURDIR)/models.make
-PREFIX_OBJ_DIR := 
+BUILD_DIR    = $(abspath $(CURDIR)/build)
+MODELS_MAKE := $(BUILD_DIR)/models.make
+TARGET_DIR  := $(BUILD_DIR)
+MODEL_LIST  := $(CURDIR)/../tests/model_list
+SRC_ROOT    := $(CURDIR)/../
+PYTHON_DIR  := ${SRC_ROOT}/python
+ROM_DIR     := ${SRC_ROOT}/roms
+PREFIX_OBJ_DIR := $(CURDIR)/build/
+DEBUG_BUILD := no
 
 #a Include standard build makefile
-include ${CYCLICITY}/scripts/simulation_build_make
+include ${CDL_ROOT}/lib/cdl/simulation_build_make
 
 verilog: ${VERILOG_FILES}
 
