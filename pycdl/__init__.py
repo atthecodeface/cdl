@@ -25,7 +25,7 @@ code to CDL's py_engine interface.
 import sys, os
 import itertools, collections
 import traceback
-from c_python_telnetd import c_python_telnet_server
+from .c_python_telnetd import c_python_telnet_server
 
 version_info = (1,4,13,"",0)
 
@@ -71,7 +71,7 @@ class _namegiver(object):
             for i in range(len(value)):
                 self._give_name("%s_%d" % (name, i), value[i])
         elif isinstance(value, dict):
-            for i in value.keys():
+            for i in list(value.keys()):
                 self._give_name("%s_%s" % (name, str(i)), value[i])
 
     def __setattr__(self, name, value):
@@ -230,22 +230,22 @@ class wire(_nameable):
 
     def _connectivity_upwards(self, index):
         if self._driven_by:
-            print "%sDriven by %s" % (" "*index, repr(self._driven_by))
+            print("%sDriven by %s" % (" "*index, repr(self._driven_by)))
             return self._driven_by._connectivity_upwards(index+2)
         else:
-            print "%sROOT AT %s" % (" "*index, repr(self))
+            print("%sROOT AT %s" % (" "*index, repr(self)))
             return self
 
     def _connectivity_downwards(self, index):
-        print "%sAt %s, CDL signal %s" % (" "*index, repr(self), repr(self._cdl_signal))
+        print("%sAt %s, CDL signal %s" % (" "*index, repr(self), repr(self._cdl_signal)))
         for i in self._drives:
-            print "%sDrives %s" % (" "*index, repr(i))
+            print("%sDrives %s" % (" "*index, repr(i)))
             i._connectivity_downwards(index+2)
     
     def print_connectivity(self):
-        print "Finding connectivity tree for %s:" % repr(self)
+        print("Finding connectivity tree for %s:" % repr(self))
         root = self._connectivity_upwards(0)
-        print
+        print()
         root._connectivity_downwards(0)
 
     def size(self):
@@ -498,7 +498,7 @@ class th(_instantiable):
                 else:
                     outdict.update(self._flatten_names(inobj[i], "%s_%d" % (inname, i)))
         elif isinstance(inobj, dict):
-            for i in inobj.keys():
+            for i in list(inobj.keys()):
                 if inname is None:
                     outdict.update(self._flatten_names(inobj[i], "%s" % str(i)))
                 else:
@@ -702,7 +702,7 @@ class _hwexfile(py_engine.exec_file):
                 i._name = "__anon%3d" % anonid
                 anonid += 1
             if isinstance(i, module):
-                for j in i._forces.keys():
+                for j in list(i._forces.keys()):
                     (submodule,s,option) = j.rpartition(".")
                     if isinstance(i._forces[j], str):
                         self.cdlsim_instantiation.module_force_option_string(i._name+"."+submodule, option, i._forces[j])
@@ -723,7 +723,7 @@ class _hwexfile(py_engine.exec_file):
                 i._ports = i._ports_from_ios(ios, None)
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
-                self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
+                self.cdlsim_instantiation.option_string("clock", " ".join(list(i._clocks.keys())))
                 self.cdlsim_instantiation.option_string("inputs", " ".join([" ".join(i._inputs[x]._name_list(x)) for x in i._inputs]))
                 #print "INPUTS %s" % " ".join([" ".join(i._inputs[x]._name_list(x)) for x in i._inputs])
                 self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs]))
@@ -815,12 +815,12 @@ class hw(_clockable):
 
         if thread_mapping is not None:
             self._engine.thread_pool_init()
-            for x in thread_mapping.keys():
+            for x in list(thread_mapping.keys()):
                 self._engine.thread_pool_add(x)
-            for x in thread_mapping.keys():
+            for x in list(thread_mapping.keys()):
                 for module_name in thread_mapping[x]:
                     r = self._engine.thread_pool_map_module(x,module_name)
-                    print "Map returned",r
+                    print("Map returned",r)
 
         self.display_all_errors()
         self._hwex = _hwexfile(self)
@@ -831,9 +831,9 @@ class hw(_clockable):
         for i in self._children:
             if isinstance(i, th) and not isinstance(i, _internal_th):
                 if not i.passed():
-                    print "Test harness %s not PASSED" % str(th)
+                    print("Test harness %s not PASSED" % str(th))
                     return False
-        print "ALL TEST HARNESSES PASSED"
+        print("ALL TEST HARNESSES PASSED")
         return True
 
     def display_all_errors( self, max=10000 ):
@@ -841,7 +841,7 @@ class hw(_clockable):
             x = self._engine.get_error(i)
             if x==None:
                 break
-            print >>sys.stderr, "CDL SIM ERROR %2d %s"%(i+1,x)
+            print("CDL SIM ERROR %2d %s"%(i+1,x), file=sys.stderr)
         self._engine.reset_errors()
 
     class _waves(object):
@@ -852,7 +852,7 @@ class hw(_clockable):
         def __init__(self, hw):
             self._cdl_obj = None
             self._hw = hw
-	    self._waves_enabled = 0
+            self._waves_enabled = 0
             if hw._hwex and hw._hwex._running:
                 self._connect_waves()
                 
@@ -887,7 +887,7 @@ class hw(_clockable):
                 if isinstance(x, list):
                     self._add(x)
                 elif isinstance(x, dict):
-                    self._add([x[i] for i in x.keys()])
+                    self._add([x[i] for i in list(x.keys())])
                 else:
                     self._cdl_obj.add(x._name)
 
@@ -899,7 +899,7 @@ class hw(_clockable):
                 if isinstance(x, list):
                     self._add_hierarchy(x)
                 elif isinstance(x, dict):
-                    self._add_hierarchy([x[i] for i in x.keys()])
+                    self._add_hierarchy([x[i] for i in list(x.keys())])
                 else:
                     self._cdl_obj.add_hierarchy(x._name)
 
@@ -960,10 +960,10 @@ def save_mif(array, filename, length=0, width=64):
     """
     fd = open(filename, "w")
     for val in array:
-        print >>fd, "%0*.*x" % (width/4, width/4, val)
+        print("%0*.*x" % (width/4, width/4, val), file=fd)
     # Finally, zero-pad the list.
     if len(array) < length:
         for i in range(length-len(array)):
-            print >>fd, "%0*.*x" % (width/4, width/4, 0)
+            print("%0*.*x" % (width/4, width/4, 0), file=fd)
     fd.close()
 

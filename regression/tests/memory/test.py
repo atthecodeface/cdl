@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import sys, os, unittest
 
-cwd = os.getcwd()
-print("Using CDL from", os.environ["CYCLICITY_ROOT"], file=sys.stderr)
-sys.path.insert( 0, os.environ["CYCLICITY_ROOT"] )
-sys.path.insert( 0, cwd+"/../../build/osx" )
+import inspect
+class x: pass
+module_root = os.path.dirname(inspect.getfile(x))
 
 import pycdl
 
@@ -307,7 +306,7 @@ class dual_port_memory_hw(pycdl.hw):
 
 class TestMemory(unittest.TestCase):
     def do_memory_test(self, memory_type, bits_per_enable, mif_filename, tv_filename):
-        hw = memory_type(bits_per_enable, mif_filename, tv_filename)
+        hw = memory_type(bits_per_enable, os.path.join(module_root,mif_filename), os.path.join(module_root,tv_filename))
         hw.reset()
         hw.step(1000)
         hw.step(1000)
@@ -318,8 +317,6 @@ class TestMemory(unittest.TestCase):
         hw.reset()
         hw.step(50)
         self.assertTrue(hw.passed())
-
-    # FINISHME/FIXME: Gavin's code has added some sim_message stuff that we don't have in PyCDL.
 
     # This is the first single-port test: 1024x16, rnw, no additional enables
     def test_1024x16_srw_rnw_no_enables(self):

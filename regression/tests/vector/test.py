@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import sys, os, unittest
 import pycdl
+import inspect
+class x: pass
+module_root = os.path.dirname(inspect.getfile(x))
 
 class vector_test_harness(pycdl.th):
     def __init__(self, clocks, inputs, outputs, vectors_filename):
@@ -17,7 +20,7 @@ class vector_test_harness(pycdl.th):
         self.vector_input_1.drive(self.test_vectors[vector_number*4+1])
         tv_0 = self.test_vectors[vector_number*4+2]
         tv_1 = self.test_vectors[vector_number*4+3]
-        print("   info: expected %x %x got %x %x" % (tv_0, tv_1, self.vector_output_0.value(), self.vector_output_1.value()))
+        print("   info: expected %x %x got %x %x" % (tv_0, tv_1, self.vector_output_0.value().value(), self.vector_output_1.value().value()))
         if tv_0 != self.vector_output_0.value() or tv_1 != self.vector_output_1.value():
             print("Test failed, vector number %d" % vector_number)
             self.failtest(vector_number,  "**************************************************************************** Test failed")
@@ -72,7 +75,7 @@ class vector_hw(pycdl.hw):
 
 class TestVector(unittest.TestCase):
     def do_vector_test(self, width, module_name, module_mif_filename, inst_forces={} ):
-        hw = vector_hw(width, module_name, module_mif_filename, inst_forces=inst_forces)
+        hw = vector_hw(width, module_name, os.path.join(module_root,module_mif_filename), inst_forces=inst_forces)
         waves = hw.waves()
         waves.open(module_name+".vcd")
         waves.add_hierarchy(hw.dut_0)

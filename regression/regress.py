@@ -18,16 +18,15 @@ import sys, os, unittest
 #a Variables
 bin_directory = "build/build"
 pycdl_directory = "../build/lib/cdl/python"
-#test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
-test_dirs = [ "vector" ]
+test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
+test_dirs = [ "simple", "vector", "instantiation", "memory"]
 debug_level = 0
 
 #a Find the tests
 # We assume that there is a file 'test.py' in each subdirectory, containing
 # all the tests. The code below grabs it and imports it.
-test_dirs = [ os.path.join("tests", i) for i in test_dirs]  + ["."]
+test_dirs = [ os.path.join("tests", i) for i in test_dirs] # + ["."]
 sys.path = ["", os.path.abspath(bin_directory)] + [os.path.abspath(pycdl_directory)] + sys.path[1:]
-print(sys.path)
 test_modules = {}
 suite = unittest.TestSuite()
 for i in test_dirs:

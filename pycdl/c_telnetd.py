@@ -1,9 +1,9 @@
 #!/usr/bin/env python2.7
 
 #a Imports
-import Queue
+import queue
 import threading
-import SocketServer
+import socketserver
 import socket
 import time
 import sys
@@ -185,7 +185,7 @@ class c_telnet_input_stream( object ):
             pass
 
 #c c_telnet_server
-class c_telnet_server(SocketServer.BaseRequestHandler):
+class c_telnet_server(socketserver.BaseRequestHandler):
     """
     A simple telnet server
 
@@ -217,10 +217,10 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
         self.sbdataq = ''    # Sub-Neg string
         self.eof = 0        # Has EOF been reached?
         self.OQUEUELOCK = threading.Lock()
-        self.input_queue = Queue.Queue()
+        self.input_queue = queue.Queue()
         self.input_text_buffer = ""
 
-        SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
+        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     #f input_data_callback
     def input_data_callback( self, text=None, eof=None, sb_seq=None, iac_seq=None ):
@@ -279,7 +279,7 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
         """
         Send a telnet will/wont command
         """
-        if not self.server_options_sent.has_key(opt):
+        if opt not in self.server_options_sent:
             self.server_options_sent[opt] = ''
             pass
         if (will and (self.server_options_sent[opt] != True)):
@@ -298,7 +298,7 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
         """
         Send a telnet do/dont command
         """
-        if not self.client_options_sent.has_key(opt):
+        if opt not in self.client_options_sent:
             self.client_options_sent[opt] = ''
             pass
         if (do and (self.client_options_sent[opt] != True)):
@@ -329,7 +329,7 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
 
     #f send_options
     def send_options( self ):
-        for (k, (srv, cln)) in self.supported_options.iteritems():
+        for (k, (srv, cln)) in self.supported_options.items():
             if srv is not None:
                 self.send_server_command( opt=k, will=srv )
                 pass
@@ -343,12 +343,12 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
     def handle_iac_seq( self, iac_seq ):
         (cmd, opt) = iac_seq
         if cmd in [c_telnet_protocol_codes.WILL,c_telnet_protocol_codes.WONT]:
-            if self.client_options_sent.has_key(opt):
+            if opt in self.client_options_sent:
                 self.send_client_command( opt, self.client_options_sent[opt] )
             else:
                 self.send_client_command( opt, do=False )
         elif cmd in [c_telnet_protocol_codes.DO,c_telnet_protocol_codes.DONT]:
-            if self.server_options_sent.has_key(opt):
+            if opt in self.server_options_sent:
                 self.send_server_command( opt, will=self.server_options_sent[opt] )
             else:
                 self.send_client_command( opt, will=False )
@@ -425,7 +425,7 @@ class c_telnet_server(SocketServer.BaseRequestHandler):
             if self.DOECHO:
                 self.write( "c_telnet_server > ")
             cmdlist = [item.strip() for item in self.readline().split()]
-            print cmdlist
+            print(cmdlist)
 
 #a Toplevel
 import code
@@ -455,18 +455,18 @@ class c_python_telnet_server(c_telnet_server):
         except SystemExit:
             pass
         except:
-            print >>std_files[2], traceback.format_exc()
+            print(traceback.format_exc(), file=std_files[2])
             pass
         (sys.stdin, sys.stdout, sys.stderr) = std_files
         
 if __name__ == '__main__':
     "Testing - Accept a single connection"
-    class TNS(SocketServer.TCPServer):
+    class TNS(socketserver.TCPServer):
         allow_reuse_address = True
 
     #tns = SocketServer.TCPServer(("127.0.0.1", 8023), c_python_telnet_server)
     tns = TNS(("127.0.0.1", 8023), c_python_telnet_server)
     while 1:
-        print "Tns server loop start"
+        print("Tns server loop start")
         tns.handle_request()
-    print "Tns server complete"
+    print("Tns server complete")

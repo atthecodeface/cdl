@@ -3,8 +3,8 @@
 #a Imports
 import sys, copy
 import code
-import c_telnetd
-import SocketServer
+from . import c_telnetd
+import socketserver
 
 #a Classes
 #c c_telnet_python_interactive_console
@@ -43,22 +43,22 @@ class c_python_telnet_server_handler(c_telnetd.c_telnet_server):
         except SystemExit:
             pass
         except:
-            print >>std_files[2], traceback.format_exc()
+            print(traceback.format_exc(), file=std_files[2])
             pass
         (sys.stdin, sys.stdout, sys.stderr) = std_files
 
 #c c_python_telnet_server
-class c_python_telnet_server( SocketServer.TCPServer ):
+class c_python_telnet_server( socketserver.TCPServer ):
     allow_reuse_address = True
     def __init__( self, ip_address="127.0.0.1", port=8745, locals={} ):
         self.locals = copy.copy(locals)
-        SocketServer.TCPServer.__init__( self, (ip_address, port), c_python_telnet_server_handler )
+        socketserver.TCPServer.__init__( self, (ip_address, port), c_python_telnet_server_handler )
     def serve( self ):
         self.running = True
         while self.running:
-            print "c_python_telnet_server loop start"
+            print("c_python_telnet_server loop start")
             self.handle_request()
-        print "c_python_telnet_server complete"
+        print("c_python_telnet_server complete")
         
 #a Toplevel
 if __name__ == '__main__':
