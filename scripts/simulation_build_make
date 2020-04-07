@@ -12,10 +12,52 @@
 #  for more details.
 
 #a Global variables
-#CYCLICITY := /cygdrive/d/cycl_cvs
-CYCLICITY := $(CYCLICITY_ROOT)
-PREREQS = SEHi
-include ${CYCLICITY}/scripts/makefile_hdr
+CDL_ROOT ?= /set/cdl/root/please
+LINKASBIN     = g++ -o 
+LINKDYNLIB    = linkdynlib
+PYTHONLINKLIB = pythonlinklib
+CREATE_MAKE   = ${CDL_ROOT}/lib/cdl/create_make
+BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
+CDL_INCLUDE_DIR = ${CDL_ROOT}/include/cdl
+CYCLICITY_BIN_DIR      = ${CDL_ROOT}/bin
+CYCLICITY_INCLUDES     = -I ${CDL_INCLUDE_DIR} ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
+CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
+CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
+CYCLICITY_LIBS          = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl
+CYCLICITY_PYTHON_LIBS   = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl_python
+GPP = g++
+FRAMEWORK_PATH = /Library/Frameworks
+PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o
+
+${OS_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OS_DIR}/$*.P $< -o $@
+
+${TARGET_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${TARGET_DIR}/$*.P $< -o $@
+
+
+LIBS = 
+LIB_DEP_EXT = so
+LIB_EXT = so
+
+#a Makefile flags
+# for verbose builds use Q:=
+Q:=@
+
+#a Compiler flags
+COMPILE_OPTIMIZATION_FLAGS := -O2 -Wall
+LINK_OPTIMIZATION_FLAGS := 
+ifeq (${DEBUG_BUILD},yes)
+	COMPILE_OPTIMIZATION_FLAGS := -DDEBUG_ENABLED -g -Wall
+	LINK_OPTIMIZATION_FLAGS := -g
+endif
+
+CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CFLAGS}    ${LOCAL_CFLAGS}
+CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
+LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
+LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
 
 ifeq ($(BUILD_PYTHON),no)
 SUPPORT_COMMAND_OBJS := ${HARNESS_BATCH_OBJECTS} ${CYCLICITY_OBJS}
@@ -29,12 +71,8 @@ endif
 
 CMDLINE_PROG := ${TARGET_DIR}/sim
 PYTHON_LIB := 
-VPI_LIB :=
 ifneq ($(BUILD_PYTHON),no)
 PYTHON_LIB := ${TARGET_DIR}/py_engine.so
-endif
-ifneq ($(BUILD_VPI),no)
-VPI_LIB := ${TARGET_DIR}/libvpi.so
 endif
 
 ALL2: ALL
@@ -42,7 +80,7 @@ ALL2: ALL
 include $(MODELS_MAKE)
 #models.make
 
-ALL: $(CMDLINE_PROG) ${PYTHON_LIB} ${VPI_LIB}
+ALL: $(CMDLINE_PROG) ${PYTHON_LIB}
 
 ${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building command line simulation ${CMDLINE_PROG}"
@@ -50,7 +88,7 @@ ${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_CO
 
 ${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
-	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
+	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
 
 ${VPI_LIB}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
