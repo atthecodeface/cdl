@@ -67,11 +67,13 @@ fudge: build/execution_harnesses/eh_batch_scripting_harness.o  build/lib/se_simu
 	libtool -static -o ${BUILD_LIB_DIR}/libcdl_batch.a  build/execution_harnesses/eh_batch_scripting_harness.o  build/lib/se_simulation_engine.o build/lib/sl_support.o
 	libtool -static -o ${BUILD_LIB_DIR}/libcdl_python.a build/execution_harnesses/eh_python_scripting_harness.o build/lib/se_simulation_engine.o build/lib/sl_support_with_python.o
 	mkdir -p ${BUILD_LIB_DIR}/cdl
+	mkdir -p ${BUILD_LIB_DIR}/cdl/python
 	mkdir -p ${BUILD_INCLUDE_DIR}/cdl
 	cp ${CDL_ROOT}/scripts/create_make ${BUILD_LIB_DIR}/cdl
 	cp ${CDL_ROOT}/scripts/simulation_build_make ${BUILD_LIB_DIR}/cdl
 	cp ${CDL_ROOT}/build/include/*.h ${BUILD_INCLUDE_DIR}/cdl
 	cp ${CDL_ROOT}/support_libraries/*.h ${BUILD_INCLUDE_DIR}/cdl
+	cp -r ${CDL_ROOT}/pycdl ${BUILD_LIB_DIR}/cdl/python/
 #
 # 1013  10:07:23 libtool -static -o libcdl.a se_simulation_engine.o sl_support_with_python.o ../obj/be_backend.o
 # libtool -static -o libcdl.a ../execution_harnesses/eh_batch_scripting_harness.o se_simulation_engine.o sl_support.o

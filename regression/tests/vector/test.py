@@ -12,14 +12,14 @@ class vector_test_harness(pycdl.th):
         self.vectors_filename = vectors_filename
 
     def test_values(self, vector_number):
-        print "Cycle %d vector number %d, testing values" % (self.global_cycle(), vector_number)
+        print("Cycle %d vector number %d, testing values" % (self.global_cycle(), vector_number))
         self.vector_input_0.drive(self.test_vectors[vector_number*4])
         self.vector_input_1.drive(self.test_vectors[vector_number*4+1])
         tv_0 = self.test_vectors[vector_number*4+2]
         tv_1 = self.test_vectors[vector_number*4+3]
-        print "   info: expected %x %x got %x %x" % (tv_0, tv_1, self.vector_output_0.value(), self.vector_output_1.value())
+        print("   info: expected %x %x got %x %x" % (tv_0, tv_1, self.vector_output_0.value(), self.vector_output_1.value()))
         if tv_0 != self.vector_output_0.value() or tv_1 != self.vector_output_1.value():
-            print "Test failed, vector number %d" % vector_number
+            print("Test failed, vector number %d" % vector_number)
             self.failtest(vector_number,  "**************************************************************************** Test failed")
         
     def run(self):
@@ -37,7 +37,7 @@ class vector_test_harness(pycdl.th):
 
 class vector_hw(pycdl.hw):
     def __init__(self, width, module_name, module_mif_filename, inst_forces={} ):
-        print "Running vector test on module %s with mif file %s" % (module_name, module_mif_filename)
+        print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
 
         self.test_reset = pycdl.wire()
         self.vector_input_0 = pycdl.wire(width)
@@ -46,8 +46,8 @@ class vector_hw(pycdl.hw):
         self.vector_output_1 = pycdl.wire(width)
         self.system_clock = pycdl.clock(0, 1, 1)
 
-        dut_forces = dict( inst_forces.items() +
-                           {}.items()
+        dut_forces = dict( list(inst_forces.items()) +
+                           list({}.items())
                            )
 
         self.dut_0 = pycdl.module(module_name, 

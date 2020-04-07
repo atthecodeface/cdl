@@ -3637,6 +3637,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
 }
 
 /*f py_engine_cb_block_on_wait
+  Invoked with GIL owned by thread
   If clocked...
   We can either be in init here (in which case sl_exec_file_py_reset is waiting at the barrier for us if we block) OR we have just been running, so we are between tick-start and tick-done barriers.
   If not clocked, barrier_thread and barrier_thread_data will be NULL - just return
@@ -3677,27 +3678,25 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
         WHERE_I_AM_TH_STR2("cb_block_cycle", pthread_self(), barrier_thread, "PyBoWt");
         WHERE_I_AM;
         // Wait for post-reset barrier or tick-done barrier; then wait for tick-start barrier (or pre-finalize barrier if we are being killed off)
-        Py_BEGIN_ALLOW_THREADS;
+        Py_BEGIN_ALLOW_THREADS; // GIL must be held, is released
         WHERE_I_AM;
         sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW1" );
         WHERE_I_AM;
         sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW2" );
         WHERE_I_AM;
-        Py_END_ALLOW_THREADS;
+        Py_END_ALLOW_THREADS; // GIL must not be held, is gained
         WHERE_I_AM;
         // Now we are after pre-finalize or tick-start; check for pre-finalize
         if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_die)
         {
             WHERE_I_AM_TH_STR2("exit", pthread_self(), barrier_thread, "PyBoWt");
-            PyEval_ReleaseThread(barrier_thread_data->py_thread); // GIL must be held, releases GIL
-            PyEval_AcquireLock();
             Py_DECREF(barrier_thread_data->barrier_thread_object); // GIL must be held
             PyThreadState_Clear(barrier_thread_data->py_thread);   // GIL must be held
+            PyEval_ReleaseThread(barrier_thread_data->py_thread);  // GIL must be held
             PyThreadState_Delete(barrier_thread_data->py_thread);  // GIL not required
             // sl_pthread_barrier_thread_delete can cause barrier_thread to be freed; barrier_thread_data is potentially part of barrier_thread
             // It seems best to finish using barrier_thread_data before deleting the pthread_barrier_thread, therefore :-)
             sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
-            PyEval_ReleaseLock();
             pthread_exit(NULL);
         }
         // Not told to die - just after tick-start, so check if we should return and do stuff
@@ -4204,17 +4203,16 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
     WHERE_I_AM_TH_STR2("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_AcquireLock();
     WHERE_I_AM_TH_STR2("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
     py_thread = PyThreadState_New(py_object->py_interp);// GIL need not be held
-    PyThreadState_Clear(py_thread); // GIL must be held
+    PyEval_AcquireThread(py_thread); // GIL must not be held, py_thread must be non-NULL
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
-    // barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, barrier_thread_object_destroy_callback ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
     barrier_thread_data->barrier_thread_object = PyCapsule_New( (void *)barrier_thread, NULL, barrier_thread_object_destroy_callback );
     WHERE_I_AM_TH_STR2("ref+", pthread_self(), barrier_thread_data->barrier_thread_object, "PyThrd");
     WHERE_I_AM_TH_STR2("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_ReleaseLock();
+    PyEval_ReleaseThread(py_thread); // GIL must be held, py_thread must be same as for acquire
+    //PyEval_ReleaseLock();
 
     // Important: must be called with GIL _not_ held (otherwise deadlock)
     start_new_py_thread_started( py_object, py_start_data );
@@ -4256,15 +4254,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     WHERE_I_AM;
 
     WHERE_I_AM;
-    PyEval_AcquireLock();
-    WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
+    PyEval_AcquireThread(py_thread);  // GIL must not be held
+    PyThreadState_Clear(py_thread);   // GIL must be held
     Py_DECREF(barrier_thread_object);
     Py_DECREF(py_object);
-    PyThreadState_Clear(py_thread); // GIL must be held
-    PyThreadState_Swap(NULL); // GIL must be held
-    PyThreadState_Delete(py_thread); // GIL need not be held
-    // PyEval_ReleaseThread(py_thread); // GIL must be held, releases GIL
-    PyEval_ReleaseLock(); // GIL must be held - deprecated
+    PyEval_ReleaseThread(py_thread);  // GIL must be held
+    PyThreadState_Delete(py_thread);  // GIL not required
+    WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
     WHERE_I_AM;
 
     // Free the start data

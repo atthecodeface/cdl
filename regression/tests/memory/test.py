@@ -2,7 +2,7 @@
 import sys, os, unittest
 
 cwd = os.getcwd()
-print >>sys.stderr,"Using CDL from", os.environ["CYCLICITY_ROOT"]
+print("Using CDL from", os.environ["CYCLICITY_ROOT"], file=sys.stderr)
 sys.path.insert( 0, os.environ["CYCLICITY_ROOT"] )
 sys.path.insert( 0, cwd+"/../../build/osx" )
 
@@ -43,7 +43,7 @@ class single_port_memory_th(pycdl.th):
                 self.write_data_0.drive(data_0)
             self.bfm_wait(1)
             if last_rnw_0 != 0 and last_data_0 != self.sram_rd_0.value():
-                print "Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/4)
+                print("Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/4))
                 failure = 1
             last_rnw_0 = rnw_0
             last_data_0 = data_0
@@ -120,10 +120,10 @@ class dual_port_memory_th(pycdl.th):
                 self.write_data_1.drive(data_1)
             self.bfm_wait(1)
             if last_rnw_0 != 0 and last_data_0 != self.sram_rd_0.value():
-                print >>sys.stderr, self.global_cycle(),"Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/8)
+                print(self.global_cycle(),"Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/8), file=sys.stderr)
                 failure = 1
             if last_rnw_1 != 0 and last_data_1 != self.sram_rd_1.value():
-                print >>sys.stderr, self.global_cycle(),"Got %x expected %x on read port 1 vector %d" % (self.sram_rd_1.value(), last_data_1, tv_addr/8)
+                print(self.global_cycle(),"Got %x expected %x on read port 1 vector %d" % (self.sram_rd_1.value(), last_data_1, tv_addr/8), file=sys.stderr)
                 failure = 1
             last_rnw_0 = rnw_0
             last_data_0 = data_0
@@ -140,7 +140,7 @@ class dual_port_memory_th(pycdl.th):
             self.passtest(self.global_cycle(), "Test succeeded")
         if False:
             for i in range(64):
-                print "%3d %016x"%(i,self.read_sram_location(i))
+                print("%3d %016x"%(i,self.read_sram_location(i)))
         expected_data = []
         for i in range(64):
             d = (i*0x73261fc)>>12
@@ -154,10 +154,10 @@ class dual_port_memory_th(pycdl.th):
 
 class single_port_memory_srw_hw(pycdl.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
-        print "Regression batch arg mif:%s" % mif_filename
-        print "Regression batch arg bits_per_enable:%d" % bits_per_enable
-        print "Regression batch arg tv_file:%s" % tv_filename
-        print "Running single port SRAM test on 1024x16 %d bits per enable srw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename)
+        print("Regression batch arg mif:%s" % mif_filename)
+        print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
+        print("Regression batch arg tv_file:%s" % tv_filename)
+        print("Running single port SRAM test on 1024x16 %d bits per enable srw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
             self.byte_enables_0 = pycdl.wire(2)
@@ -195,14 +195,14 @@ class single_port_memory_srw_hw(pycdl.hw):
                                                               "write_data_0": self.write_data_0},
                                                     test_vector_mif=tv_filename)
         self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-	pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
 class single_port_memory_hw(pycdl.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
-        print "Regression batch arg mif:%s" % mif_filename
-        print "Regression batch arg bits_per_enable:%d" % bits_per_enable
-        print "Regression batch arg tv_file:%s" % tv_filename
-        print "Running single port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename)
+        print("Regression batch arg mif:%s" % mif_filename)
+        print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
+        print("Regression batch arg tv_file:%s" % tv_filename)
+        print("Running single port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
             self.byte_enables_0 = pycdl.wire(2)
@@ -240,14 +240,14 @@ class single_port_memory_hw(pycdl.hw):
                                                               "write_data_0": self.write_data_0},
                                                     test_vector_mif=tv_filename)
         self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-	pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
 class dual_port_memory_hw(pycdl.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
-        print "Regression batch arg mif:%s" % mif_filename
-        print "Regression batch arg bits_per_enable:%d" % bits_per_enable
-        print "Regression batch arg tv_file:%s" % tv_filename
-        print "Running dual port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename)
+        print("Regression batch arg mif:%s" % mif_filename)
+        print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
+        print("Regression batch arg tv_file:%s" % tv_filename)
+        print("Running dual port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
             self.byte_enables_0 = pycdl.wire(2)
@@ -302,7 +302,7 @@ class dual_port_memory_hw(pycdl.hw):
                                                             "write_data_1": self.write_data_1 },
                                                   test_vector_mif=tv_filename)
         self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-	pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
 
 class TestMemory(unittest.TestCase):

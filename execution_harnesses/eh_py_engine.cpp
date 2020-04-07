@@ -204,7 +204,7 @@ static PyTypeObject py_engine_PyTypeObject_frame = {
     .tp_print = py_engine_print,   /*tp_print*/
     .tp_repr = py_engine_repr,          /*tp_repr*/
 	.tp_str = py_engine_str, /*tp_str */
-    //.tp_getattro = py_engine_getattro, /*tp_getattro*/
+    .tp_getattro = PyObject_GenericGetAttr,
     .tp_methods = engine_methods,
 };
 
@@ -1642,17 +1642,14 @@ static void py_engine_dealloc( PyObject* self )
 #if PY_MAJOR_VERSION >= 3
     static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        "py_engine",     /* m_name */
-        "Python interface to CDL simulation engine",  /* m_doc */
-        -1,                  /* m_size */
-        py_engine_methods,    /* m_methods */
-        NULL,                /* m_reload */
-        NULL,                /* m_traverse */
-        NULL,                /* m_clear */
-        NULL,                /* m_free */
+        .m_name="py_engine",     /* m_name */
+        .m_doc="Python interface to CDL simulation engine",  /* m_doc */
+        .m_size=-1,                    /* m_size - does not support subinterpreters (hence -1) */
+        .m_methods=py_engine_methods,   /* m_methods */
     };
 #endif
-extern "C" void initpy_engine( void )
+//extern "C" void initpy_engine( void )
+extern "C" PyObject *PyInit_py_engine( void )
 {
     PyObject *m;
     int i;
@@ -1670,6 +1667,7 @@ extern "C" void initpy_engine( void )
     {
          model_init_fns[i]();
     }
+    return m;
 }
 
 /*a Editor preferences and notes

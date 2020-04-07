@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import unittest
 import py_engine
 import sys
@@ -9,34 +9,34 @@ class c_tb(py_engine.exec_file):
     def exec_init(self):
         pass
     def invert_spawn(self, id, chain_to_follow):
-        print >>sys.stderr, "Spawned run, id=%d, chain=%s" % (id, str(chain_to_follow))
+        print("Spawned run, id=%d, chain=%s" % (id, str(chain_to_follow)), file=sys.stderr)
         while True:
             self.cdlsim_sim.bfm_wait((id+1)*33)
-            print >>sys.stderr, "Spawned %d running, BFM cycle %d, global cycle %d, chain value %d" % (id, self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), chain_to_follow.value())
+            print("Spawned %d running, BFM cycle %d, global cycle %d, chain value %d" % (id, self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), chain_to_follow.value()), file=sys.stderr)
 
     def exec_run(self):
-        print >>sys.stderr, "Testbench run start"
+        print("Testbench run start", file=sys.stderr)
         self.test_reset.reset(1)
         self.cdlsim_sim.bfm_wait(2)
         self.test_reset.drive(0)
         for i in range(8):
             self.py.pyspawn(self.invert_spawn, (i, getattr(self, "invert_chain_%d" % i)))
         for i in range(10):
-            print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+            print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
             self.cdlsim_sim.bfm_wait(1)
             self.toggle_0.wait_for_value(0)
-        print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+        print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
         self.cdlsim_sim.bfm_wait(1)
-        print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+        print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
         self.cdlsim_sim.bfm_wait(1)
-        print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+        print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
         self.cdlsim_sim.bfm_wait(1)
-        print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+        print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
         self.cdlsim_sim.bfm_wait(1)
         for i in range(1000):
             self.cdlsim_sim.bfm_wait(2)
-            print >>sys.stderr, "Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), " ***"
-        print >>sys.stderr, "Testbench run complete", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value()
+            print("Testbench run after", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), " ***", file=sys.stderr)
+        print("Testbench run complete", self.cdlsim_sim.bfm_cycle(), self.cdlsim_sim.global_cycle(), self.toggle_0.value(), file=sys.stderr)
 
 testbench = c_tb()
 
@@ -115,21 +115,21 @@ class c_sim(py_engine.exec_file):
 class TestPyEngine(unittest.TestCase):
     def test_py_engine(self):
         x = py_engine.py_engine()
-        print >>sys.stderr, "Create y as a c_sim"
+        print("Create y as a c_sim", file=sys.stderr)
         y=c_sim()
-        print >>sys.stderr, "Created y"
+        print("Created y", file=sys.stderr)
         x.describe_hw(y)
         for i in range(1000):
             n = x.get_error(i)
             if n==None:
                 break
-            print >>sys.stderr, n
+            print(n, file=sys.stderr)
         x.reset()
-        print >>sys.stderr, "Stepping 10"
+        print("Stepping 10", file=sys.stderr)
         x.step(10)
-        print >>sys.stderr, "Stepping another 10"
+        print("Stepping another 10", file=sys.stderr)
         x.step(10)
-        print >>sys.stderr, "Stepping last 50"
+        print("Stepping last 50", file=sys.stderr)
         x.step(50)
         x.step(5000)
 

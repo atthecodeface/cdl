@@ -25,7 +25,7 @@ if ($ENV{"OSTYPE"} eq "darwin11") {
     $os = "osx";
 }
 
-$bin_directory = "build/$os";
+$bin_directory = "build/build";
 $test_dirs = "simple vector instantiation memory event bugs clock_gate";
 $debug_level = 0;
 

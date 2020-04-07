@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #a Copyright
 #  
@@ -16,19 +16,18 @@
 import sys, os, unittest
 
 #a Variables
-ospath = "linux"
-if os.environ["OSTYPE"] == "darwin":
-    ospath = "osx"
-
-bin_directory = os.path.join("build", ospath)
-test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
+bin_directory = "build/build"
+pycdl_directory = "../build/lib/cdl/python"
+#test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
+test_dirs = [ "vector" ]
 debug_level = 0
 
 #a Find the tests
 # We assume that there is a file 'test.py' in each subdirectory, containing
 # all the tests. The code below grabs it and imports it.
-test_dirs = [ os.path.join("tests", i) for i in test_dirs] + ["."]
-sys.path = ["", os.path.abspath(bin_directory)] + [os.environ["CYCLICITY_ROOT"]] + sys.path[1:]
+test_dirs = [ os.path.join("tests", i) for i in test_dirs]  + ["."]
+sys.path = ["", os.path.abspath(bin_directory)] + [os.path.abspath(pycdl_directory)] + sys.path[1:]
+print(sys.path)
 test_modules = {}
 suite = unittest.TestSuite()
 for i in test_dirs:
@@ -36,7 +35,8 @@ for i in test_dirs:
     try:
         test_modules[i] = __import__("test")
         del sys.modules["test"]
-    except ImportError:
+    except ImportError as e:
+        raise e
         pass
     else:
         suite.addTests(unittest.TestLoader().loadTestsFromModule(test_modules[i]))

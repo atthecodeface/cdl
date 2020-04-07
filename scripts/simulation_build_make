@@ -28,6 +28,7 @@ CYCLICITY_PYTHON_LIBS   = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl
 GPP = g++
 FRAMEWORK_PATH = /Library/Frameworks
 PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o
+PYTHONLINKLIB := ${GPP} -bundle -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -o
 
 ${OS_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"

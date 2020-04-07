@@ -14,6 +14,10 @@
 #a Global variables
 CYCLICITY := ..
 
+# cd regression/build
+# (cd ../.. && make && make fudge)
+# make CDL_ROOT=`pwd`/../../build -j8
+
 all:
 	(cd ${CYCLICITY}/bin ; make )
 	(cd build; make)
