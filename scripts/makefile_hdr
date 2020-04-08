@@ -11,8 +11,6 @@
 
 #a Documentation
 PREREQS ?= 
-# ${CDL_ROOT} should point at cvstree/hardware/cyclicity (set in parent makefile)
-# ${arch} should be cygwin or linux (set in a user's .login or equivalent)
 # $(PREREQS) should be a list of letters including:
 #   b if backend includes are required
 #   e if simulation engine includes are required
@@ -46,7 +44,6 @@ BACKEND_INCLUDES :=
 ENGINE_INCLUDES :=
 SUPPORT_INCLUDES := 
 HARNESS_INCLUDES := 
-EXPORTED_INCLUDES := 
 BACKEND_OBJECTS :=
 ENGINE_LIBS :=
 ENGINE_OBJECTS :=
@@ -64,30 +61,26 @@ SUPPORT_LIBS := -lpthread
 endif
 
 ifneq (,$(findstring b,${PREREQS}))
-CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/backend
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/backend
 endif
 ifneq (,$(findstring B,${PREREQS}))
-CYCLICITY_INCLUDES     += -I ${CDL_ROOT}/backend
+CYCLICITY_INCLUDES     += -I ${CDL_SRC_ROOT}/backend
 CYCLICITY_LIBS         += ${CDL_BUILD_OBJ_DIR}/be_backend.o
 CYCLICITY_LIBS_PYTHON  += ${CDL_BUILD_OBJ_DIR}/be_backend.o
 endif
 
 ifneq (,$(findstring e,${PREREQS}))
-CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/simulation_engine
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/simulation_engine
 endif
 ifneq (,$(findstring E,${PREREQS}))
-CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/simulation_engine
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/simulation_engine
 endif
 
 ifneq (,$(findstring h,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
+HARNESS_INCLUDES := -I ${CDL_SRC_ROOT}/execution_harnesses
 endif
 ifneq (,$(findstring H,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
-endif
-
-ifneq (,$(findstring i,${PREREQS}))
-EXPORTED_INCLUDES := -I ${CDL_ROOT}/include
+HARNESS_INCLUDES := -I ${CDL_SRC_ROOT}/execution_harnesses
 endif
 
 #a Resultant 'libraries'

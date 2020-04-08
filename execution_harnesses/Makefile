@@ -10,8 +10,8 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
 #a Global variables
-include ${CDL_ROOT}/Makefile_build_config
-PREREQS = sei
+include ${CDL_SRC_ROOT}/Makefile_build_config
+PREREQS = seib
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Source files

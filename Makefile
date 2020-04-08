@@ -39,48 +39,47 @@ reconfigure: configure.ac
 	autoreconf
 
 Makefile_build_config: Makefile_build_config.in	./configure
-	./configure
+	./configure --prefix=${CDL_BUILD_ROOT}
 
 clean:
 	rm -rf ${CDL_BUILD_INCLUDE_DIR}/*
 	rm -rf ${CDL_BUILD_LIB_DIR}/*
 	rm -f ${CDL_BUILD_OBJ_DIR}/*
 	rm -f ${CDL_BUILD_BIN_DIR}/*
+	rm -f ${CDL_BUILD_STAMPS_DIR}/*
 	mkdir -p ${CDL_BUILD_ROOT} ${CDL_BUILD_OBJ_DIR} ${CDL_BUILD_BIN_DIR} ${CDL_BUILD_LIB_DIR} ${CDL_BUILD_INCLUDE_DIR} ${CDL_BUILD_STAMPS_DIR}
-	cd ${CDL_ROOT}/support_libraries   && ${MAKE} CDL_ROOT=${CDL_ROOT} clean
-	cd ${CDL_ROOT}/simulation_engine   && ${MAKE} CDL_ROOT=${CDL_ROOT} clean
-	cd ${CDL_ROOT}/execution_harnesses && ${MAKE} CDL_ROOT=${CDL_ROOT} clean
-	cd ${CDL_ROOT}/backend             && ${MAKE} CDL_ROOT=${CDL_ROOT} clean
-	cd ${CDL_ROOT}/cdl_frontend        && ${MAKE} CDL_ROOT=${CDL_ROOT} clean
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} clean
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} clean
+	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} clean
+	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} clean
+	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} clean
 
 $(eval $(call new_stamp,test_clean))
 ${MK_test_clean}:
 	${MAKE} clean
-	touch $@
+	date > $@
 
 $(eval $(call new_stamp,include))
 ${MK_include}: ${MK_test_clean}
-	cd ${CDL_ROOT}/support_libraries   && ${MAKE} CDL_ROOT=${CDL_ROOT} include
-	cd ${CDL_ROOT}/backend             && ${MAKE} CDL_ROOT=${CDL_ROOT} include
-	cd ${CDL_ROOT}/simulation_engine   && ${MAKE} CDL_ROOT=${CDL_ROOT} include
-	touch $@
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} include
+	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} include
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} include
+	date > $@
 
 $(eval $(call new_stamp,build))
 ${MK_build}: ${MK_include}
-	cd ${CDL_ROOT}/support_libraries   && ${MAKE} CDL_ROOT=${CDL_ROOT} build
-	cd ${CDL_ROOT}/backend             && ${MAKE} CDL_ROOT=${CDL_ROOT} build
-	cd ${CDL_ROOT}/cdl_frontend        && ${MAKE} CDL_ROOT=${CDL_ROOT} build
-	cd ${CDL_ROOT}/simulation_engine   && ${MAKE} CDL_ROOT=${CDL_ROOT} build
-	cd ${CDL_ROOT}/execution_harnesses && ${MAKE} CDL_ROOT=${CDL_ROOT} build
-	touch $@
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} build
+	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} build
+	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} build
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} build
+	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} build
+	date > $@
 
 install: ${MK_build}
-	cd ${CDL_ROOT}/scripts             && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/support_libraries   && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/simulation_engine   && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/execution_harnesses && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/backend             && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/cdl_frontend        && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-	cd ${CDL_ROOT}/pycdl               && ${MAKE} CDL_ROOT=${CDL_ROOT} install
-
-#	cp -r ${CDL_ROOT}/pycdl ${BUILD_LIB_DIR}/cdl/python/
+	cd ${CDL_SRC_ROOT}/scripts             && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/pycdl               && ${SUBMAKE} install

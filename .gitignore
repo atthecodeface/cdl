@@ -5,7 +5,7 @@
 .DS_Store
 *.vcd
 */*.log
-build/*
+build_cdl/*
 install/*
 configure
 config.h

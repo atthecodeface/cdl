@@ -12,7 +12,7 @@
 #  for more details.
 
 #a Global variables
-include ${CDL_ROOT}/Makefile_build_config
+include ${CDL_SRC_ROOT}/Makefile_build_config
 PREREQS = SBi
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
@@ -85,7 +85,7 @@ ${OBJ_DIR}/cyclicity_grammar.cpp: cyclicity_grammar.y
 
 ${OBJ_DIR}/cyclicity_grammar.o: ${OBJ_DIR}/cyclicity_grammar.cpp ${OBJ_DIR}/cyclicity_grammar.h
 	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -I${OBJ_DIR} -I${CDL_ROOT}/cdl_frontend $< -o $@
+	$(Q)$(CC) -c ${CXXFLAGS} -I${OBJ_DIR} -I${CDL_SRC_ROOT}/cdl_frontend $< -o $@
 
 ${OBJ_DIR}/%.o : %.cpp ${OBJ_DIR}/cyclicity_grammar.h
 	@echo "CC $< -o $@"

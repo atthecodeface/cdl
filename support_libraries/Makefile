@@ -9,7 +9,7 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
-include ${CDL_ROOT}/Makefile_build_config
+include ${CDL_SRC_ROOT}/Makefile_build_config
 PREREQS = 
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
