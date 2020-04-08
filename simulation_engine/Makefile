@@ -56,15 +56,13 @@ OBJ_DIR = ${CDL_BUILD_ROOT}/simulation_engine
 objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
 ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
+#a Make include - copy relevant header files
+$(eval $(call add_includes,${INCLUDES}))
+
 #a Resultant 'libraries'
-SE_LIB = ${CDL_LIB_DIR}/se_simulation_engine.o
-LIBRARIES = ${SE_LIB}
-
-#a Dependencies and build requirements
-build: ${LIBRARIES}
-
-${SE_LIB}: ${ENGINE_OBJS}
-	${LINKASOBJ} $@ ${ENGINE_OBJS}
+build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY}
+$(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY},${ENGINE_OBJS}))
+# $(eval $(call install_static_library,${SUPPORT_PLAIN_LIBRARY}))
 
 #a Default patterns
 ${OBJ_DIR}/%.o : %.cpp
@@ -78,6 +76,4 @@ clean:
 
 -include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
-#a Include make - copy relevant header files
-include:${INCLUDES}
-	cp ${INCLUDES} ${CDL_INCLUDE_DIR}
+

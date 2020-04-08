@@ -51,30 +51,25 @@ PY_OBJS = $(call objs_from_srcs,${CMD_SRCS})
 SRCS =  ${CYC_SRCS} py_cyclicity.cpp cyclicity.cpp
 
 #a Resultant 'libraries'
-CMDLINE_PROG = ${CDL_BIN_DIR}/cdl
+CMDLINE_PROG = ${CDL_BUILD_BIN_DIR}/cdl
+
+#a Old python things
 PY_LIB       = ${OBJ_DIR}/py_cdl.${LIB_EXT}
 ifeq ($(BUILD_PYTHON),no)
 	PY_LIB =
 endif
 PY_LIB =
+${PY_LIB}: $(PY_OBJS)
+	${LINKDYNLIB} ${PY_LIB} ${PY_OBJS} ${CYCLICITY_OBJS} ${LD_LIBS}
 
 #a Dependencies and build requirements
 clean:
 	@rm -f ${CMD_OBJS} ${PY_OBJS} ${CMDLINE_PROG} ${PY_LIB} ${OBJ_DIR}/cyclicity_grammar.h ${OBJ_DIR}/cyclicity_grammar.cpp ${OBJ_DIR}/*.P core.*
 	mkdir -p ${OBJ_DIR}
 
-# We put in cyclicity_grammar.h here so that it is built first. Its a hack.
-build: ${OBJ_DIR}/cyclicity_grammar.h ${CMDLINE_PROG} ${PY_LIB}
-
-${BACKEND_OBJ}: ${LANGUAGE_OBJS}
-	${LINKASBIN} ${BACKEND_OBJ} ${LANGUAGE_OBJS}
-
-${CMDLINE_PROG}: $(CMD_OBJS) $(CYCLICITY_OBJS)
-	${LINKASBIN} ${CMDLINE_PROG} $(CMD_OBJS) ${CYCLICITY_OBJS} ${LD_LIBS}
-
-${PY_LIB}: $(PY_OBJS)
-	${LINKDYNLIB} ${PY_LIB} ${PY_OBJS} ${CYCLICITY_OBJS} ${LD_LIBS}
-
+build: ${CMDLINE_PROG}
+$(eval $(call make_static_binary,${CMDLINE_PROG},${CMD_OBJS},${CYCLICITY_LIBS} -lc))
+$(eval $(call install_static_binary,cdl))
 
 ${OBJ_DIR}/cyclicity_grammar.h: cyclicity_grammar.y
 ifeq (${BISON_VERSION},2.5)

@@ -27,19 +27,15 @@
 #
 
 #a Global variables
-
-#CDL_ROOT = @CDL_ROOT@
 CDL_ROOT  ?= $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-#CDL_ROOT  = .
-YACC     = @YACC_INST@
-PYTHON_INCLUDES = @PYTHON_INCLUDE@
 
-CDL_BUILD_ROOT    := ${CDL_ROOT}/build
-CDL_BUILD_OBJ_DIR := ${CDL_BUILD_ROOT}/obj
-CDL_LIB_DIR       := ${CDL_BUILD_ROOT}/lib
-CDL_BIN_DIR       := ${CDL_BUILD_ROOT}/bin
-CDL_INCLUDE_DIR   := ${CDL_BUILD_ROOT}/include
-CDL_SCRIPTS_DIR   := ${CDL_ROOT}/scripts
+CDL_BUILD_ROOT         := ${CDL_ROOT}/build
+CDL_BUILD_OBJ_DIR      := ${CDL_BUILD_ROOT}/obj
+CDL_BUILD_LIB_DIR      := ${CDL_BUILD_ROOT}/lib
+CDL_BUILD_BIN_DIR      := ${CDL_BUILD_ROOT}/bin
+CDL_BUILD_INCLUDE_DIR  := ${CDL_BUILD_ROOT}/include
+CDL_BUILD_STAMPS_DIR   := ${CDL_BUILD_ROOT}/stamps
+CDL_SCRIPTS_DIR        := ${CDL_ROOT}/scripts
 CREATE_MAKE := ${CDL_SCRIPTS_DIR}/create_make
 
 LINKASOBJ := ld -r -o
@@ -51,3 +47,19 @@ LINKDYNLIB := g++ -shared -export-dynamic ${LINKFLAGS} -o
 LINKDYNLIB := g++ -dynamiclib ${LINKFLAGS} -o 
 LINKASBIN  := g++ ${LINKFLAGS} -o
 #		PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o 
+
+YACC            = @YACC_INST@
+PYTHON_INCLUDES = @PYTHON_INCLUDE@
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRIPT  = @INSTALL_SCRIPT@
+INSTALL_DATA    = @INSTALL_DATA@
+
+INSTALL_ROOT        = ${CDL_ROOT}/install
+INSTALL_HDRS_DIR    = ${INSTALL_ROOT}/include/cdl
+INSTALL_BIN_DIR     = ${INSTALL_ROOT}/bin
+INSTALL_LIB_DIR     = ${INSTALL_ROOT}/lib
+INSTALL_SCRIPT_DIR  = ${INSTALL_ROOT}/lib/cdl
+INSTALL_PYTHON_DIR  = ${INSTALL_ROOT}/lib/cdl/python/pycdl
+
+BUILD_PYTHON := yes

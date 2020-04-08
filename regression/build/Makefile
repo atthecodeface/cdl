@@ -12,6 +12,7 @@
 #  for more details.
 
 #a Global variables
+CDL_ROOT    ?= $(abspath $(CURDIR)/../../install)
 BUILD_DIR    = $(abspath $(CURDIR)/build)
 MODELS_MAKE := $(BUILD_DIR)/models.make
 TARGET_DIR  := $(BUILD_DIR)

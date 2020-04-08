@@ -12,29 +12,17 @@
 #  for more details.
 
 #a Global variables
-CDL_ROOT     = $(abspath $(CURDIR)/../install)
+include ${CDL_ROOT}/Makefile_build_config
+include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
-# cd regression/build
-# (cd ../.. && make && make fudge)
-# make CDL_ROOT=`pwd`/../../build -j8
+PYTHON_FILES= \
+	__init__.py \
+	c_httpd.py \
+	c_logs.py \
+	c_python_telnetd.py \
+	c_telnetd.py \
+	doc-wiki.txt \
+	log_server.py
 
-all:
-	# (cd ${CYCLICITY}/bin ; make )
-	(cd build; make)
-
-clean:
-	(cd build; make clean)
-
-allclean:
-	# (cd ${CYCLICITY}/bin ; make clean )
-	(cd build; make clean)
-
-verilog:
-	(cd build; make verilog)
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[	 ]*[b-z][	 ]" ***
-# End: ***
-
+#a Add python files
+$(eval $(call add_python_files,${PYTHON_FILES}))

@@ -1,7 +1,7 @@
 /*a Copyright
   
-  This file 'cdl_version.h' copyright Gavin J Stark 2003, 2004
-  
+  This file 'cdl_version.h' copyright Gavin J Stark 2003-2020
+
   This program is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
   Foundation, version 2.0.
@@ -19,7 +19,7 @@
 #define __INC_CDL_VERSION
 
 /*a Defines
- */
+  */
 #define __CDL__VERSION 1
 #define __CDL__SUBVERSION 4
 #define __CDL__SHORT_VERSION_STRING "1.4"

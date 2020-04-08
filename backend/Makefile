@@ -25,7 +25,7 @@ BACKEND_SRCS = \
 		md_target_cdl_header.cpp \
 		md_target_verilog.cpp
 
-INCLUDES = be_model_includes.h cdl_version.h
+INCLUDES = cdl_version.h be_model_includes.h
 
 SRCS = ${BACKEND_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/backend
@@ -37,24 +37,23 @@ BACKEND_OBJS = $(call objs_from_srcs,${BACKEND_SRCS})
 #a Resultant 'libraries'
 BACKEND_LIB = ${CDL_BUILD_OBJ_DIR}/be_backend.o
 
-#a Dependencies and build requirements
-clean:
-	@rm -f ${CMDLINE_PROG} ${BACKEND_OBJS} ${OBJ_DIR}/*.P core.*
-	mkdir -p ${OBJ_DIR}
-
-build: ${BACKEND_LIB}
-
-${BACKEND_LIB}: ${BACKEND_OBJS}
-	${LINKASOBJ} $@ ${BACKEND_OBJS}
-
-#a Clean etc
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
-
 #a Default patterns
 ${OBJ_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"
 	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
-#a Include make - copy relevant header files
-include:${INCLUDES}
-	cp ${INCLUDES} ${CDL_INCLUDE_DIR}
+#a Make include - copy relevant header files
+$(eval $(call add_includes,${INCLUDES}))
+
+#a Make build
+build: ${BACKEND_LIB}
+$(eval $(call make_static_library,${BACKEND_LIB},${BACKEND_OBJS}))
+
+#a Clean, dependencies and build requirements
+clean:
+	@rm -f ${CMDLINE_PROG} ${BACKEND_OBJS} ${OBJ_DIR}/*.P core.*
+	mkdir -p ${OBJ_DIR}
+
+
+-include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
+

@@ -17,7 +17,7 @@ import sys, os, unittest
 
 #a Variables
 bin_directory = "build/build"
-pycdl_directory = "../build/lib/cdl/python"
+pycdl_directory = os.path.join(os.environ["CDL_ROOT"],"lib","cdl","python")
 test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
 test_dirs = [ "simple", "vector", "instantiation", "memory"]
 debug_level = 0

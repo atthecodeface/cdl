@@ -10,6 +10,7 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
 #a Documentation
+PREREQS ?= 
 # ${CDL_ROOT} should point at cvstree/hardware/cyclicity (set in parent makefile)
 # ${arch} should be cygwin or linux (set in a user's .login or equivalent)
 # $(PREREQS) should be a list of letters including:
@@ -26,7 +27,21 @@
 #a Determine OS subdirectories - required for includes and objects for builds
 objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OS_DIR}/%.o,${SRC:.y=.cpp}))
 
+ifneq (${BUILD_PYTHON},yes)
+BUILD_PYTHON = no
+# $(info Building without python bindings)
+else
+# $(info Building with python bindings)
+endif
+ifneq (${BUILD_VPI},yes)
+BUILD_VPI = no
+endif
+
 #a Set up correct includes and objects for builds
+CYCLICITY_INCLUDES    = -I ${CDL_BUILD_INCLUDE_DIR}
+CYCLICITY_LIBS        = -L ${CDL_BUILD_LIB_DIR} 
+CYCLICITY_LIBS_PYTHON = -L ${CDL_BUILD_LIB_DIR} 
+
 BACKEND_INCLUDES :=
 ENGINE_INCLUDES :=
 SUPPORT_INCLUDES := 
@@ -40,32 +55,28 @@ SUPPORT_LIBS :=
 HARNESS_BATCH_OBJECTS := 
 HARNESS_GUI_OBJECTS := 
 
+ifneq (,$(findstring s,${PREREQS}))
+endif
+ifneq (,$(findstring S,${PREREQS}))
+CYCLICITY_LIBS        += -lcdl_sl
+CYCLICITY_LIBS_PYTHON += -lcdl_sl_python
+SUPPORT_LIBS := -lpthread
+endif
+
 ifneq (,$(findstring b,${PREREQS}))
-BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
+CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/backend
 endif
 ifneq (,$(findstring B,${PREREQS}))
-BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
-BACKEND_OBJECTS := ${CDL_BUILD_OBJ_DIR}/be_backend.o
+CYCLICITY_INCLUDES     += -I ${CDL_ROOT}/backend
+CYCLICITY_LIBS         += ${CDL_BUILD_OBJ_DIR}/be_backend.o
+CYCLICITY_LIBS_PYTHON  += ${CDL_BUILD_OBJ_DIR}/be_backend.o
 endif
 
 ifneq (,$(findstring e,${PREREQS}))
-ENGINE_INCLUDES := -I ${CDL_ROOT}/simulation_engine
+CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/simulation_engine
 endif
 ifneq (,$(findstring E,${PREREQS}))
-ENGINE_INCLUDES   := -I ${CDL_ROOT}/simulation_engine
-ENGINE_LIBFILE    := se_simulation_engine
-ENGINE_LIBS       := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
-ENGINE_OBJECTS    := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
-endif
-
-ifneq (,$(findstring s,${PREREQS}))
-SUPPORT_INCLUDES := -I ${CDL_ROOT}/support_libraries
-endif
-ifneq (,$(findstring S,${PREREQS}))
-SUPPORT_INCLUDES            := -I ${CDL_ROOT}/support_libraries
-SUPPORT_OBJECTS             := ${CDL_LIB_DIR}/sl_support.o
-SUPPORT_WITH_PYTHON_OBJECTS := ${CDL_LIB_DIR}/sl_support_with_python.o
-SUPPORT_LIBS := -lpthread
+CYCLICITY_INCLUDES  += -I ${CDL_ROOT}/simulation_engine
 endif
 
 ifneq (,$(findstring h,${PREREQS}))
@@ -73,28 +84,26 @@ HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
 endif
 ifneq (,$(findstring H,${PREREQS}))
 HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
-HARNESS_BATCH_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_batch_scripting_harness.o
-HARNESS_GUI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_python_scripting_harness.o
-HARNESS_VPI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_vpi_harness.o
-ifeq ($(BUILD_PYTHON),no)
-HARNESS_GUI_OBJECTS := 
-endif
-ifeq ($(BUILD_VPI),no)
-HARNESS_VPI_OBJECTS := 
-endif
 endif
 
 ifneq (,$(findstring i,${PREREQS}))
 EXPORTED_INCLUDES := -I ${CDL_ROOT}/include
 endif
 
+#a Resultant 'libraries'
+SUPPORT_PLAIN_LIBRARY   := libcdl_sl.a
+SUPPORT_PYTHON_LIBRARY  := libcdl_sl_python.a
+SIMULATION_LIBRARY         := libcdl_se_no_harness.a
+SIMULATION_LIBRARY_BATCH   := libcdl_se_batch.a
+SIMULATION_LIBRARY_PYTHON  := libcdl_se_python.a
+ifeq (${BUILD_PYTHON},no)
+SUPPORT_PYTHON_LIBRARY    := python_is_not_configured
+SIMULATION_LIBRARY_PYTHON := python_is_not_configured
+endif
+
 #a Default linux environment
 # Use '=' here as SPECIFIC_INCLUDES is set AFTER this file is included
 BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
-CYCLICITY_INCLUDES     = -I ${CDL_INCLUDE_DIR} ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
-CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
-CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
-CYCLICITY_LIBS         = ${ENGINE_LIBS} ${SUPPORT_LIBS}
 
 LIBS = 
 LIB_DEP_EXT = so
@@ -114,8 +123,10 @@ endif
 
 CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CFLAGS}    ${LOCAL_CFLAGS}
 CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
-LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
-LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
+LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_BUILD_LIB_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
+
+MAKE_STATIC_LIBRARY := libtool -static -o
+MAKE_STATIC_BINARY  := ${CXX} ${LINKFLAGS} -o
 
 #a Os-specific overrides - libs for python and DLL generation issues
 ifndef PYTHON_ROOT
@@ -126,4 +137,140 @@ endif
 ${OS_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"
 	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OS_DIR}/$*.P $< -o $@
+
+#a Install
+.PHONY: install install_include install_bin install_lib install_script install_python
+install: install_include install_bin install_lib install_script install_python
+
+#a Templates
+#f make_static_library
+define make_static_library
+# @param $1 library filename
+# @param $2 objects
+# @param $3 static libraries to include in addition - must be ${CDL_BUILD_LIB_DIR}/lib<x>.a
+
+$1:$2
+	@echo "make static library $$@"
+	${Q}${MAKE_STATIC_LIBRARY} $$@ $2 $(foreach l,$3,${CDL_BUILD_LIB_DIR}/lib$l.a)
+
+endef
+
+#f install_static_library
+define install_static_library
+# @param $1 library name (must be built as ${CDL_BUILD_LIB_DIR}/$1)
+
+install_bin: install__$1
+
+# Use INSTALL_DATA as it does not strip the library - that would make it uselss
+install__$1: ${CDL_BUILD_LIB_DIR}/$1
+	@echo "install static library $1"
+	${Q} [ -d ${INSTALL_LIB_DIR} ] || mkdir -p ${INSTALL_LIB_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_LIB_DIR}
+
+endef
+
+#f make_static_binary
+define make_static_binary
+# @param $1 binary filename
+# @param $2 objects
+# @param $3 libraries
+
+$1:$2
+	@echo "make static binary $$@"
+	${Q}${MAKE_STATIC_BINARY} $$@ $2 $3
+
+endef
+
+#f install_static_binary
+define install_static_binary
+# @param $1 binary name (must be built in to ${CDL_BUILD_BIN_DIR}/$1
+
+install_bin: install__$1
+
+install__$1: ${CDL_BUILD_BIN_DIR}/$1
+	@echo "install static binary $1"
+	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
+	${Q}${INSTALL_PROGRAM} $$< ${INSTALL_BIN_DIR}
+
+endef
+
+#f install_script
+define install_script
+# @param $1 script filename - should be in ${CDL_SCRIPTS_DIR}
+install_script: install__$1
+
+install__$1: ${CDL_SCRIPTS_DIR}/$1
+	@echo "install script $1"
+	${Q} [ -d ${INSTALL_SCRIPT_DIR} ] || mkdir -p ${INSTALL_SCRIPT_DIR}
+	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_SCRIPT_DIR}
+
+endef
+
+#f add_include
+define add_include
+# @param $1 include filename
+
+include: ${CDL_BUILD_INCLUDE_DIR}/$1
+
+${CDL_BUILD_INCLUDE_DIR}/$1: $1
+	@echo "cp include $1" 
+	${Q}cp $$< $$@
+
+install_include: install__$1
+
+install__$1: ${CDL_BUILD_INCLUDE_DIR}/$1
+	@echo "install include $1"
+	${Q} [ -d ${INSTALL_HDRS_DIR} ] || mkdir -p ${INSTALL_HDRS_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_HDRS_DIR}
+
+endef
+
+#f add_includes
+#
+# Add a list of includes
+#
+# @param $1	includes
+#
+define add_includes
+$(foreach x,$1,$(eval $(call add_include,$x)))
+endef
+
+#f add_python_file
+define add_python_file
+# @param $1 python filename - to be installed from local directory to INSTALL_PYTHON_DIR
+
+install_python: install__py__$1
+
+install__py__$1: $1
+	@echo "install python file $1"
+	${Q} [ -d ${INSTALL_PYTHON_DIR} ] || mkdir -p ${INSTALL_PYTHON_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_PYTHON_DIR}
+
+endef
+
+#f add_python_files
+#
+# Add a list of python files
+#
+# @param $1	python files
+#
+define add_python_files
+$(foreach x,$1,$(eval $(call add_python_file,$x)))
+endef
+
+#f new_stamp
+#
+# Define a new makefile stamp
+#
+# @param $1	stamp name
+#
+define new_stamp
+
+MK_$1 := ${CDL_BUILD_STAMPS_DIR}/$1
+
+.PHONY: $1
+
+$1: $$(MK_$$1)
+
+endef
 

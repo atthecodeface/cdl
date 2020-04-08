@@ -34,9 +34,27 @@ BASIC_LIB_SRCS := \
 		sl_general.cpp
 
 INCLUDES = c_sl_error.h \
-			sl_debug.h
+            sl_ef_lib_event.h \
+            sl_exec_file.h \
+            sl_indented_file.h \
+            sl_random.h \
+            sl_cons.h \
+            sl_ef_lib_fifo.h \
+            sl_fifo.h \
+            sl_mif.h \
+            sl_timer.h \
+            sl_data_stream.h \
+            sl_ef_lib_memory.h \
+            sl_general.h \
+            sl_option.h \
+            sl_token.h \
+            sl_debug.h \
+            sl_ef_lib_random.h \
+            sl_hier_mem.h \
+            sl_pthread_barrier.h \
+            sl_work_list.h
 
-SRCS = ${BASIC_LIB_SRCS}
+SRCS    = ${BASIC_LIB_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/support_libraries
 
 #a Objects
@@ -45,40 +63,34 @@ BASIC_LIB_OBJS  := $(call objs_from_srcs,${BASIC_LIB_SRCS})
 PLAIN_LIB_OBJS  := ${BASIC_LIB_OBJS} ${OBJ_DIR}/sl_exec_file.o        ${OBJ_DIR}/sl_option.o 
 PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OBJ_DIR}/sl_exec_file_python.o ${OBJ_DIR}/sl_option_python.o
 
-#a Resultant 'libraries'
-PLAIN_LIBRARY  := ${CDL_LIB_DIR}/sl_support.o
-PYTHON_LIBRARY := ${CDL_LIB_DIR}/sl_support_with_python.o
-ifeq ($(BUILD_PYTHON),no)
-PYTHON_LIBRARY :=
-endif
+#a Make include - copy relevant header files
+$(eval $(call add_includes,${INCLUDES}))
 
-#a Dependencies and build requirements
-clean:
-	@rm -f ${PLAIN_LIBRARY} ${PYTHON_LIBRARY} ${PLAIN_LIB_OBJS} ${PLAIN_LIB_OBJS} ${PYTHON_LIB_OBJS} ${OBJ_DIR}/*.P core.*
-	mkdir -p ${OBJ_DIR}
-
-build: ${PLAIN_LIBRARY} ${PYTHON_LIBRARY}
-
-${PLAIN_LIBRARY}: ${PLAIN_LIB_OBJS}
-	${LINKASOBJ} ${PLAIN_LIBRARY} ${PLAIN_LIB_OBJS}
-
-${PYTHON_LIBRARY}: ${PYTHON_LIB_OBJS}
-	${LINKASOBJ} ${PYTHON_LIBRARY} ${PYTHON_LIB_OBJS}
-
-#a Special build objects
+#a Clean, dependencies and build requirements
 ${OBJ_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
 	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_exec_file.cpp -o ${OBJ_DIR}/sl_exec_file_python.o
 ${OBJ_DIR}/sl_option_python.o: sl_option.cpp
 	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_option.cpp -o ${OBJ_DIR}/sl_option_python.o
 
-#a Clean etc
--include $(SRCS:%.cpp=${CDL_BUILD_OBJ_DIR}/%.P)
+clean:
+	@rm -f ${PLAIN_LIBRARY} ${PYTHON_LIBRARY} ${PLAIN_LIB_OBJS} ${PLAIN_LIB_OBJS} ${PYTHON_LIB_OBJS} ${OBJ_DIR}/*.P
+	mkdir -p ${OBJ_DIR}
+
+build: ${CDL_BUILD_LIB_DIR}/${SUPPORT_PLAIN_LIBRARY}
+$(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SUPPORT_PLAIN_LIBRARY},${PLAIN_LIB_OBJS}))
+$(eval $(call install_static_library,${SUPPORT_PLAIN_LIBRARY}))
+
+ifeq ($(BUILD_PYTHON),yes)
+build: ${CDL_BUILD_LIB_DIR}/${SUPPORT_PYTHON_LIBRARY}
+$(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SUPPORT_PYTHON_LIBRARY},${PYTHON_LIB_OBJS}))
+$(eval $(call install_static_library,${SUPPORT_PYTHON_LIBRARY}))
+endif
+
+#a Include dependencies
+-include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
 #a Default patterns
 ${OBJ_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"
 	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
-#a Include make - copy relevant header files
-include:${INCLUDES}
-	cp ${INCLUDES} ${CDL_INCLUDE_DIR}
