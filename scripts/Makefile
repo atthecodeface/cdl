@@ -13,5 +13,5 @@
 include ${CDL_SRC_ROOT}/Makefile_build_config
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
-$(eval $(call install_bin,cdl_create_make))
+$(eval $(call install_bin_script,cdl_create_make))
 $(eval $(call install_script,simulation_build_make))

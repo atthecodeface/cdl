@@ -199,6 +199,18 @@ install__$1: ${CDL_SCRIPTS_DIR}/$1
 
 endef
 
+#f install_bin_script
+define install_bin_script
+# @param $1 executable filename - should be in ${CDL_SCRIPTS_DIR}
+install_script: install__$1
+
+install__$1: ${CDL_SCRIPTS_DIR}/$1
+	@echo "install binary script $1"
+	${Q} [ -d ${INSTALL_SCRIPT_DIR} ] || mkdir -p ${INSTALL_SCRIPT_DIR}
+	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_BIN_DIR}
+
+endef
+
 #f add_include
 define add_include
 # @param $1 include filename
