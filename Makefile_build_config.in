@@ -47,22 +47,22 @@ builddir = $(abspath .)
 CDL_SRC_ROOT   ?= ${srcdir}
 CDL_BUILD_ROOT ?= ${builddir}/build_cdl
 
-SUBMAKE := ${MAKE} CDL_SRC_ROOT=${CDL_SRC_ROOT} CDL_BUILD_ROOT=${CDL_BUILD_ROOT}
+SUBMAKE = ${MAKE} CDL_SRC_ROOT=${CDL_SRC_ROOT} CDL_BUILD_ROOT=${CDL_BUILD_ROOT}
 
 CDL_SRC_ROOT   ?= ${srcdir}
 CDL_BUILD_ROOT ?= ${builddir}/build_cdl
 
-CDL_SCRIPTS_DIR        := ${CDL_SRC_ROOT}/scripts
+CDL_SCRIPTS_DIR        = ${CDL_SRC_ROOT}/scripts
 
-CDL_BUILD_OBJ_DIR      := ${CDL_BUILD_ROOT}/obj
-CDL_BUILD_LIB_DIR      := ${CDL_BUILD_ROOT}/lib
-CDL_BUILD_BIN_DIR      := ${CDL_BUILD_ROOT}/bin
-CDL_BUILD_INCLUDE_DIR  := ${CDL_BUILD_ROOT}/include
-CDL_BUILD_STAMPS_DIR   := ${CDL_BUILD_ROOT}/stamps
+CDL_BUILD_OBJ_DIR      = ${CDL_BUILD_ROOT}/obj
+CDL_BUILD_LIB_DIR      = ${CDL_BUILD_ROOT}/lib
+CDL_BUILD_BIN_DIR      = ${CDL_BUILD_ROOT}/bin
+CDL_BUILD_INCLUDE_DIR  = ${CDL_BUILD_ROOT}/include
+CDL_BUILD_STAMPS_DIR   = ${CDL_BUILD_ROOT}/stamps
 
-BUILD_VPI := no
-BISON_VERSION := 2.3
-BISON_TAIL := .h
+BUILD_VPI = no
+BISON_VERSION = 2.3
+BISON_TAIL = .h
 
 YACC            = @YACC_INST@
 PYTHON_INCLUDES = @PYTHON_INCLUDE@
@@ -75,6 +75,11 @@ INSTALL_HDRS_DIR    = ${includedir}/cdl
 INSTALL_BIN_DIR     = ${bindir}
 INSTALL_LIB_DIR     = ${libdir}
 INSTALL_SCRIPT_DIR  = ${libexecdir}/cdl
+INSTALL_DATA_DIR    = ${libdir}/cdl
 INSTALL_PYTHON_DIR  = ${libdir}/cdl/python/pycdl
 
-BUILD_PYTHON := yes
+BUILD_PYTHON = yes
+
+MAKE_STATIC_BINARY   = ${CXX} ${LINKFLAGS} -o
+MAKE_STATIC_LIBRARY  = libtool -static -o
+MAKE_DYNAMIC_LIBRARY = ${CXX} -bundle -o

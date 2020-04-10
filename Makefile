@@ -39,7 +39,7 @@ reconfigure: configure.ac
 	autoreconf
 
 Makefile_build_config: Makefile_build_config.in	./configure
-	./configure --prefix=${CDL_BUILD_ROOT}
+	./configure --prefix=${CDL_BUILD_ROOT}/install
 
 clean:
 	rm -rf ${CDL_BUILD_INCLUDE_DIR}/*

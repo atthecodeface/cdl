@@ -1,6 +1,6 @@
 #a Copyright
 #  
-#  This file 'Makefile' copyright Gavin J Stark 2003, 2004
+#  This file 'Makefile' copyright Gavin J Stark 2003-2020
 #  
 #  This program is free software; you can redistribute it and/or modify it under
 #  the terms of the GNU General Public License as published by the Free Software
@@ -12,29 +12,19 @@
 #  for more details.
 
 #a Global variables
-CDL_ROOT     = $(abspath $(CURDIR)/../install)
-
-# cd regression/build
-# (cd ../.. && make && make fudge)
-# make CDL_ROOT=`pwd`/../../build -j8
+CDL_ROOT     = $(abspath $(CURDIR)/../build_cdl/install)
 
 all:
-	# (cd ${CYCLICITY}/bin ; make )
-	(cd build; make)
+	(cd build; ${MAKE} CDL_ROOT=${CDL_ROOT})
 
 clean:
-	(cd build; make clean)
+	(cd build; ${MAKE} CDL_ROOT=${CDL_ROOT} clean)
 
-allclean:
-	# (cd ${CYCLICITY}/bin ; make clean )
-	(cd build; make clean)
+regress_python:
+	CDL_ROOT=${CDL_ROOT} ./regress.py
+
+regress_batch:
+	CDL_ROOT=${CDL_ROOT} ./regress
 
 verilog:
 	(cd build; make verilog)
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[	 ]*[b-z][	 ]" ***
-# End: ***
-

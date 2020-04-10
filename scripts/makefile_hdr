@@ -9,7 +9,7 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
-#a Documentation
+#a Documentation - This file is included in the CDL build system only
 PREREQS ?= 
 # $(PREREQS) should be a list of letters including:
 #   b if backend includes are required
@@ -118,9 +118,6 @@ CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUD
 CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
 LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_BUILD_LIB_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
 
-MAKE_STATIC_LIBRARY := libtool -static -o
-MAKE_STATIC_BINARY  := ${CXX} ${LINKFLAGS} -o
-
 #a Os-specific overrides - libs for python and DLL generation issues
 ifndef PYTHON_ROOT
   PYTHON_ROOT := /usr
@@ -148,7 +145,7 @@ $1:$2
 
 endef
 
-#f install_static_library
+#f install_static_library - installs in lib (from CDL_BUILD_LIB_DIR)
 define install_static_library
 # @param $1 library name (must be built as ${CDL_BUILD_LIB_DIR}/$1)
 
@@ -174,7 +171,7 @@ $1:$2
 
 endef
 
-#f install_static_binary
+#f install_static_binary - installs in bin (from CDL_BUILD_BIN_DIR)
 define install_static_binary
 # @param $1 binary name (must be built in to ${CDL_BUILD_BIN_DIR}/$1
 
@@ -187,7 +184,7 @@ install__$1: ${CDL_BUILD_BIN_DIR}/$1
 
 endef
 
-#f install_script
+#f install_script - installs in libexec/cdl normally (from CDL_SCRIPTS_DIR)
 define install_script
 # @param $1 script filename - should be in ${CDL_SCRIPTS_DIR}
 install_script: install__$1
@@ -199,15 +196,27 @@ install__$1: ${CDL_SCRIPTS_DIR}/$1
 
 endef
 
-#f install_bin_script
+#f install_bin_script - installs in bin normally (from CDL_SCRIPTS_DIR)
 define install_bin_script
 # @param $1 executable filename - should be in ${CDL_SCRIPTS_DIR}
 install_script: install__$1
 
 install__$1: ${CDL_SCRIPTS_DIR}/$1
 	@echo "install binary script $1"
-	${Q} [ -d ${INSTALL_SCRIPT_DIR} ] || mkdir -p ${INSTALL_SCRIPT_DIR}
+	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
 	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_BIN_DIR}
+
+endef
+
+#f install_data - installs in lib/cdl normally (from CDL_SCRIPTS_DIR)
+define install_data
+# @param $1 executable filename - should be in ${CDL_SCRIPTS_DIR}
+install_script: install__$1
+
+install__$1: ${CDL_SCRIPTS_DIR}/$1
+	@echo "install data script $1"
+	${Q} [ -d ${INSTALL_DATA_DIR} ] || mkdir -p ${INSTALL_DATA_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_DATA_DIR}
 
 endef
 

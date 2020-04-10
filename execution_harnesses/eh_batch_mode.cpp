@@ -110,6 +110,12 @@ static t_sl_exec_file_cmd file_cmds[] =
  */
 static int cmd_base;
 
+/*a Fake python symbol
+  This is required so that the eh libraries ALL include the symbol PyInit_py_engine
+  This enables the derived_mode_list to use and export that symbol in batch or python
+ */
+extern "C" void *PyInit_py_engine( void ) {return NULL;}
+
 /*a Main routines
  */
 /*f usage

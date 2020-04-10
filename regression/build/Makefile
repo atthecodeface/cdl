@@ -12,19 +12,22 @@
 #  for more details.
 
 #a Global variables
-CDL_ROOT    ?= $(abspath $(CURDIR)/../../install)
+CDL_ROOT    ?= $(abspath $(CURDIR)/../../build_cdl/install)
 BUILD_DIR    = $(abspath $(CURDIR)/build)
-MODELS_MAKE := $(BUILD_DIR)/models.make
-TARGET_DIR  := $(BUILD_DIR)
-MODEL_LIST  := $(CURDIR)/../tests/model_list
-SRC_ROOT    := $(CURDIR)/../
-PYTHON_DIR  := ${SRC_ROOT}/python
-ROM_DIR     := ${SRC_ROOT}/roms
-PREFIX_OBJ_DIR := $(CURDIR)/build/
-DEBUG_BUILD := no
+
+MODEL_LIST   = $(CURDIR)/../tests/model_list
+SRC_ROOT     = $(CURDIR)/../
+PYTHON_DIR   = ${SRC_ROOT}/python
+ROM_DIR      = ${SRC_ROOT}/roms
+
+MODELS_MAKE  = $(BUILD_DIR)/models.make
+TARGET_DIR   = $(BUILD_DIR)
+
+PREFIX_OBJ_DIR  = $(CURDIR)/build/
+DEBUG_BUILD     = no
 
 #a Include standard build makefile
-include ${CDL_ROOT}/lib/cdl/simulation_build_make
+include ${CDL_ROOT}/lib/cdl/cdl_simulation.mk
 
 verilog: ${VERILOG_FILES}
 

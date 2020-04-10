@@ -1648,7 +1648,7 @@ static void py_engine_dealloc( PyObject* self )
         .m_methods=py_engine_methods,   /* m_methods */
     };
 #endif
-//extern "C" void initpy_engine( void )
+
 extern "C" PyObject *PyInit_py_engine( void )
 {
     PyObject *m;

@@ -13,10 +13,11 @@
 
 #a Global variables
 CDL_ROOT ?= /set/cdl/root/please
+CDL_SCRIPTS_DIR = ${CDL_ROOT}/lib/cdl
 LINKASBIN     = g++ -o 
 LINKDYNLIB    = linkdynlib
 PYTHONLINKLIB = pythonlinklib
-CREATE_MAKE   = ${CDL_ROOT}/lib/cdl/create_make
+CREATE_MAKE   = ${CDL_ROOT}/libexec/cdl/cdl_create_make
 BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
 CDL_INCLUDE_DIR = ${CDL_ROOT}/include/cdl
 CYCLICITY_BIN_DIR      = ${CDL_ROOT}/bin
@@ -24,11 +25,16 @@ CYCLICITY_INCLUDES     = -I ${CDL_INCLUDE_DIR} ${SUPPORT_INCLUDES} ${BACKEND_INC
 CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
 CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
 CYCLICITY_LIBS          = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch
-CYCLICITY_PYTHON_LIBS   = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl_se_python
+CYCLICITY_PYTHON_LIBS   = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -Wl,--whole-archive -lcdl_se_python
+CYCLICITY_PYTHON_LIBS   = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -Wl,-all_load -lcdl_se_python
 GPP = g++
 FRAMEWORK_PATH = /Library/Frameworks
 PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o
 PYTHONLINKLIB := ${GPP} -bundle -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -o
+PYTHONLINKLIB := ${GPP} -bundle -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -o
+
+PYTHONLINKLIB := ${GPP} -bundle -o
+CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -lc++ -lc 
 
 ${OS_DIR}/%.o : %.cpp
 	@echo "CC $< -o $@"
@@ -83,23 +89,27 @@ include $(MODELS_MAKE)
 
 ALL: $(CMDLINE_PROG) ${PYTHON_LIB}
 
-${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
+${TARGET_DIR}/derived_model.a: $(TARGET_DIR)/derived_model_list.o ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
+	libtool -static -o $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
+
+${CMDLINE_PROG}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a$ ${SUPPORT_COMMAND_OBJS} 
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${LINKASBIN} ${CMDLINE_PROG} $(C_MODEL_OBJS) $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${LD_LIBS}
+	${Q}${LINKASBIN} ${CMDLINE_PROG} $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${LD_LIBS}
 
-${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${ENGINE_OBJECTS}
+${PYTHON_LIB}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} 
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
-	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
+	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
 
-${VPI_LIB}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
+${VPI_LIB}: $(TARGET_DIR)/derived_model_list.a ${SUPPORT_VPI_OBJS} 
 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
-	${Q}${LINKDYNLIB} $@  ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
+	${Q}${LINKDYNLIB} $@ $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
 
 # models.make
 $(TARGET_DIR)/derived_model_list.o: Makefile ${MODELS_MAKE}
 	@echo "Creating derived_mode_list source"
 	@echo "#include <stdlib.h>" > ${TARGET_DIR}/derived_model_list.cpp
 	@echo "#include <stdio.h>" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo 'extern "C" void *PyInit_py_engine(void); extern void unused(void) {(void)PyInit_py_engine();}' >> ${TARGET_DIR}/derived_model_list.cpp
 	@echo "typedef void (*t_python_init_fn)(void);" >> ${TARGET_DIR}/derived_model_list.cpp
 	@for a in ${MODELS}; do \
 		echo "extern void $${a}__init( void );" >> ${TARGET_DIR}/derived_model_list.cpp; \
