@@ -1,5 +1,6 @@
 AC_INIT([CDL compiler],[1.0])
 
+AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([Makefile_build_config])
 AC_CONFIG_HEADERS([config.h])
 

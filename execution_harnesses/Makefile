@@ -15,6 +15,8 @@ PREREQS = seib
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Source files
+OBJ_DIR = ${CDL_BUILD_ROOT}/execution_harnesses
+SRC_DIR = .
 CMDLINE_SRCS = \
 		eh_scripting_none.cpp \
 		eh_batch_mode.cpp
@@ -34,33 +36,30 @@ endif
 ifneq ($(BUILD_VPI),no)
 SRCS := ${SRCS} ${VPI_SRCS}
 endif
-OBJ_DIR = ${CDL_BUILD_ROOT}/execution_harnesses
 
 #a Objects
-objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
-CMDLINE_OBJS = $(call objs_from_srcs,${CMDLINE_SRCS})
-PYTHON_OBJS  = $(call objs_from_srcs,${PYTHON_SRCS})
-VPI_OBJS     = $(call objs_from_srcs,${VPI_SRCS})
+CMDLINE_OBJS = $(call objs_from_srcs,${OBJ_DIR},${CMDLINE_SRCS})
+PYTHON_OBJS  = $(call objs_from_srcs,${OBJ_DIR},${PYTHON_SRCS})
+VPI_OBJS     = $(call objs_from_srcs,${OBJ_DIR},${VPI_SRCS})
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${CMDLINE_SRCS},))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${PYTHON_SRCS},-DSL_PYTHON -I${PYTHON_INCLUDES}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${VPI_SRCS},-I${VPI_INCLUDES}))
 
 #a Make include - copy relevant header files
 $(eval $(call add_includes,${INCLUDES}))
 
 #a Resultant 'libraries'
-SPECIFIC_INCLUDES := 
-
 build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_BATCH}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_BATCH},${CMDLINE_OBJS},cdl_se_no_harness cdl_sl))
 $(eval $(call install_static_library,${SIMULATION_LIBRARY_BATCH}))
 
 ifeq ($(BUILD_PYTHON),yes)
-SPECIFIC_INCLUDES := ${SPECIFIC_INCLUDES} -DSL_PYTHON -I${PYTHON_INCLUDES}
 build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_PYTHON}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_PYTHON},${PYTHON_OBJS},cdl_se_no_harness cdl_sl_python))
 $(eval $(call install_static_library,${SIMULATION_LIBRARY_PYTHON}))
 endif
 
 ifeq ($(BUILD_VPI),yes)
-SPECIFIC_INCLUDES := ${SPECIFIC_INCLUDES} -I${VPI_INCLUDES}
 build: ${VPI_LIB}
 ${VPI_LIB}: $(VPI_OBJS)
 	${LINKASOBJ} $@ ${VPI_OBJS}
@@ -75,9 +74,5 @@ clean:
 
 -include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
 
