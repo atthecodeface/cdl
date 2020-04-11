@@ -76,13 +76,6 @@ ifneq (,$(findstring E,${PREREQS}))
 CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/simulation_engine
 endif
 
-ifneq (,$(findstring h,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_SRC_ROOT}/execution_harnesses
-endif
-ifneq (,$(findstring H,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_SRC_ROOT}/execution_harnesses
-endif
-
 #a Resultant 'libraries'
 SUPPORT_PLAIN_LIBRARY   := libcdl_sl.a
 SUPPORT_PYTHON_LIBRARY  := libcdl_sl_python.a

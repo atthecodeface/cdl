@@ -28,17 +28,28 @@
 
 #a Global variables
 # include Makefile_build_config MUST come first as it uses MAKEFILE_LIST
-include Makefile_build_config
-include ${CDL_SCRIPTS_DIR}/makefile_hdr
+-include Makefile_build_config
+-include ${CDL_SCRIPTS_DIR}/makefile_hdr
+CDL_BUILD_ROOT ?= $(abspath ./build_cdl)
 
 #a Targets
 .PHONY: reconfigure clean build include install
 
+configure_local: Makefile_build_config.in ./configure
+	./configure --prefix=${CDL_BUILD_ROOT}/install
+
+distclean:
+	rm -f configure
+	rm -f Makefile_build_config config.h config.status 
+	rm -f aclocal.m4
+	rm -rf autom4te.cache
+	rm -rf build_cdl
+
+setup:
+	autoreconf --install
+
 reconfigure: configure.ac
 	autoreconf
-
-Makefile_build_config: Makefile_build_config.in	./configure
-	./configure --prefix=${CDL_BUILD_ROOT}/install
 
 clean:
 	rm -rf ${CDL_BUILD_INCLUDE_DIR}/*
