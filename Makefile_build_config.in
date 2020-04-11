@@ -46,8 +46,9 @@ builddir = $(abspath .)
 
 CDL_SRC_ROOT   ?= ${srcdir}
 CDL_BUILD_ROOT ?= ${builddir}/build_cdl
+CDL_MAKEFILE_CONFIG ?= ${builddir}/Makefile_build_config
 
-SUBMAKE = ${MAKE} CDL_SRC_ROOT=${CDL_SRC_ROOT} CDL_BUILD_ROOT=${CDL_BUILD_ROOT}
+SUBMAKE = ${MAKE} CDL_MAKEFILE_CONFIG=${CDL_MAKEFILE_CONFIG} CDL_SRC_ROOT=${CDL_SRC_ROOT} CDL_BUILD_ROOT=${CDL_BUILD_ROOT}
 
 CDL_SRC_ROOT   ?= ${srcdir}
 CDL_BUILD_ROOT ?= ${builddir}/build_cdl

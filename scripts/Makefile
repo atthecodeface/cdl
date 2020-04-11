@@ -10,7 +10,7 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
 #a Global variables
-include ${CDL_SRC_ROOT}/Makefile_build_config
+include ${CDL_MAKEFILE_CONFIG}
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 $(eval $(call install_script,cdl_create_make))

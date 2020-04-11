@@ -12,7 +12,7 @@
 #  for more details.
 
 #a Global variables
-include ${CDL_SRC_ROOT}/Makefile_build_config
+include ${CDL_MAKEFILE_CONFIG}
 PREREQS = S
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
