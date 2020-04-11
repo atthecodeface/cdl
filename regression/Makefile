@@ -14,6 +14,12 @@
 #a Global variables
 CDL_ROOT     = $(abspath $(CURDIR)/../build_cdl/install)
 
+help:
+	@echo "'make all' will build the batch simulator and python shared library"
+	@echo ""
+	@echo "Use 'make regress_python' to run a python library regression"
+	@echo "Use 'make regress_batch' to run a batch simulation regression"
+
 all:
 	(cd build; ${MAKE} CDL_ROOT=${CDL_ROOT})
 

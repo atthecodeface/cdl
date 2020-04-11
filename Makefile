@@ -32,8 +32,7 @@ include Makefile_build_config
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Targets
-.PHONY: ALL reconfigure clean build include install
-ALL: build
+.PHONY: reconfigure clean build include install
 
 reconfigure: configure.ac
 	autoreconf
@@ -65,6 +64,11 @@ ${MK_include}: ${MK_test_clean}
 	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} include
 	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} include
 	date > $@
+
+.PHONY: rebuild
+rebuild:
+	rm -f ${MK_build}
+	${MAKE} ${MK_build}
 
 $(eval $(call new_stamp,build))
 ${MK_build}: ${MK_include}

@@ -272,6 +272,8 @@ c_lexical_analyzer::c_lexical_analyzer( c_cyclicity *cyclicity )
      {
           putsym( default_tokens[i].token_name, strlen(default_tokens[i].token_name), default_tokens[i].token_type );
      }
+     // sl_debug_enable(1);
+     // sl_debug_set_level(sl_debug_level_verbose_info);
 }
 
 /*f c_lexical_analyzer::~c_lexical_analyzer
@@ -497,7 +499,8 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, FI
                          {
                               char *filename;
                               t_lex_file *included_file;
-
+                              current_file = file;
+                              file->file_terminal_pos = j;
                               filename = file->terminal_entries[j].data.string->string;
                               included_file = include_file( file, filename, strlen(filename) );
                               SL_DEBUG( sl_debug_level_info, "Would try to include file %s (%p)", filename, included_file );
@@ -1140,8 +1143,13 @@ int c_lexical_analyzer::repeat_eof( void )
  */
 t_lex_file_posn c_lexical_analyzer::get_current_location( void )
 {
+    SL_DEBUG( sl_debug_level_info, "get_current_location %p", current_file );
      if (!current_file)
           return NULL;
+     SL_DEBUG( sl_debug_level_info, "get_current_location %s : %d : %d",
+               current_file->filename,
+               current_file->terminal_entries,
+               current_file->file_terminal_pos);
      if (current_file->file_terminal_pos<0) 
          return NULL;
      if (current_file->file_terminal_pos > current_file->number_terminal_entries)

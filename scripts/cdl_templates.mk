@@ -59,7 +59,9 @@ define cdl_template
 # @param $6 options
 ${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl
 	@echo "CDL $1 -cpp $2" 
-	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1
+	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --dependencies-target ${TARGET_DIR}/$2 --dependencies ${TARGET_DIR}/$2.dep --dependencies-relative $(dir ${SRC_ROOT}/$1) --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1
+
+-include ${TARGET_DIR}/$2.dep
 
 ${TARGET_DIR}/$4 : ${TARGET_DIR}/$2
 	@echo "CC $2 -o $4" 
@@ -84,6 +86,7 @@ CDLH_FILES += ${TARGET_DIR}/$3.cdlh
 XML_FILES += ${TARGET_DIR}/$3.xml
 
 endef
+
 #f cdl_no_cpp_template
 define cdl_no_cpp_template
 # @param $1 cdl filename inside src_root

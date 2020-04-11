@@ -128,7 +128,7 @@ ${MODELS_MAKE}: ${CREATE_MAKE} ${MODEL_LIST}
 	$(Q)${CREATE_MAKE} ${EXTRA_CDLFLAGS} -f ${MODEL_LIST} -m ${MODELS_MAKE}
 
 clean:
-	@for a in ${TARGET_DIR}/*cpp ${TARGET_DIR}/*o ${TARGET_DIR}/*v ${TARGET_DIR}/*cdlh ${TARGET_DIR}/*map ${TARGET_DIR}/coverage.map ${CMDLINE_PROG} models.make; do \
+	@for a in ${TARGET_DIR}/*cpp ${TARGET_DIR}/*cpp.dep ${TARGET_DIR}/*o ${TARGET_DIR}/*v ${TARGET_DIR}/*cdlh ${TARGET_DIR}/*map ${TARGET_DIR}/coverage.map ${CMDLINE_PROG} models.make; do \
 		rm -f $${a}; \
 	done
 

@@ -52,6 +52,9 @@ enum
      option_type_remap,
      option_debug,
      option_include,
+     option_dependencies,
+     option_dependencies_target,
+     option_dependencies_relative,
      option_help,
      option_version
 };
@@ -65,6 +68,9 @@ static option options[] = {
      { "type-remap", required_argument, NULL, option_type_remap },
      { "debug", required_argument, NULL, option_debug },
      { "include-dir", required_argument, NULL, option_include },
+     { "dependencies", required_argument, NULL, option_dependencies },
+     { "dependencies-target", required_argument, NULL, option_dependencies_target },
+     { "dependencies-relative", required_argument, NULL, option_dependencies_relative },
      { "help", no_argument, NULL, option_help },
      { "version", no_argument, NULL, option_version },
      { NULL, no_argument, NULL, 0 }
@@ -120,6 +126,7 @@ static void usage( void )
      printf( "\t--help \t\tDisplay this help message\n");
      printf( "\t--version \t\tDisplay the version and copyright information\n");
      printf( "\t--include-dir <directory> \tAppend directory to search path for include files\n");
+     printf( "\t--dependencies <filename> \tWrite list of dependencies for the CDL file for a makefile\n");
 }
 
 /*f version
@@ -137,6 +144,9 @@ extern int main( int argc, char **argv )
      c_cyclicity *cyc;
      int c, so_far;
      string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir;
+     const char *dependencies_filename;
+     const char *dependencies_target;
+     const char *dependencies_relative;
      t_sl_option_list env_options;
      int build_result;
 
@@ -147,6 +157,9 @@ extern int main( int argc, char **argv )
      type_remappings = NULL;
      include_dirs = NULL;
      last_include_dir = NULL;
+     dependencies_filename = NULL;
+     dependencies_target = NULL;
+     dependencies_relative = "";
 
      so_far = 0;
      c = 0;
@@ -195,6 +208,15 @@ extern int main( int argc, char **argv )
                     last_include_dir = new_str;
                     new_str->string = optarg;
                     break;
+               case option_dependencies:
+                   dependencies_filename = optarg;
+                    break;
+               case option_dependencies_target:
+                   dependencies_target = optarg;
+                    break;
+               case option_dependencies_relative:
+                   dependencies_relative = optarg;
+                    break;
                case '?':
                     exit(4);
                default:
@@ -219,6 +241,36 @@ extern int main( int argc, char **argv )
      }
 
      cyc->parse_input_file( argv[optind] );
+
+     display_errors( cyc, 1 );
+
+     if (dependencies_filename) {
+         FILE *f = fopen(dependencies_filename, "w");
+         if (f) {
+             int nf=cyc->get_number_of_files();
+             int i;
+             if (dependencies_target) {
+                 fprintf(f,"%s: \\\n",dependencies_target);
+             } else {
+                 fprintf(f,"no_dependency: \\\n");
+             }
+             for (i=0; i<nf; i++) {
+                 const char *dep;
+                 dep = cyc->get_filename(i);
+                 if (dep[0]=='/') {
+                    fprintf(f,"     %s \\\n",dep);
+                 } else {
+                     fprintf(f,"    %s%s \\\n",dependencies_relative,dep);
+                 }
+             }
+             fprintf(f,"\n");
+             fclose(f);
+         } else {
+             cyc->error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, 0,
+                                    error_arg_type_const_filename, dependencies_filename,
+                                    error_arg_type_none );
+         }
+     }
 
      display_errors( cyc, 1 );
 
