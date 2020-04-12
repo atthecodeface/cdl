@@ -51,7 +51,8 @@ public:
     void remap_type_specifier_symbol( t_symbol *symbol );
 
     int get_number_of_files( void );
-    char *get_filename( int file_number );
+    const char *get_filename( int file_number );
+    const char *get_pathname( int file_number );
     int get_file_data( int file_number, int *file_size, int *number_lines, char **file_data );
     int get_line_data( int file_number, int line_number, char **line_start, int *line_length );
     void replace_lex_symbol( t_symbol *symbol, const char *text, int text_length );

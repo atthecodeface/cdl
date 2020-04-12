@@ -151,9 +151,16 @@ int c_cyclicity::get_number_of_files( void )
 
 /*f c_cyclicity::get_filename
  */
-char *c_cyclicity::get_filename( int file_number )
+const char *c_cyclicity::get_filename( int file_number )
 {
     return lexical_analyzer->get_filename( file_number );
+}
+
+/*f c_cyclicity::get_pathname
+ */
+const char *c_cyclicity::get_pathname( int file_number )
+{
+    return lexical_analyzer->get_pathname( file_number );
 }
 
 /*f c_cyclicity::get_file_data

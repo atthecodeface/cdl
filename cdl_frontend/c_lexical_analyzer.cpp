@@ -117,6 +117,7 @@ typedef struct t_lex_file
 
      FILE *handle;
      char *filename;
+     char *pathname;
      int file_size;
      char *file_data;
      int *line_starts;
@@ -450,7 +451,7 @@ static int read_file_data( t_lex_file *file, FILE *f, int file_length )
 
 /*f c_lexical_analyzer::allocate_and_read_file
  */
-t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, FILE *f, int length )
+t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, const char *pathname, FILE *f, int length )
 {
      t_lex_file *file;
      int i, j;
@@ -460,6 +461,8 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, FI
      file = (t_lex_file *)malloc(sizeof(t_lex_file));
      file->filename = (char *)malloc(strlen(filename)+1);
      strcpy( file->filename, filename );
+     file->pathname = (char *)malloc(strlen(pathname)+1);
+     strcpy( file->pathname, pathname );
      file->file_size = 0;
      file->file_data = NULL;
      file->number_lines = 0;
@@ -565,7 +568,7 @@ static int file_reset_position( t_lex_file *file )
  */
 int c_lexical_analyzer::set_file( FILE *f )
 {
-     current_file = allocate_and_read_file( "<stream>", f, -1 );
+    current_file = allocate_and_read_file( "<stream>", "<path_to_stream>", f, -1 );
      return (file_reset_position(current_file));
 }
 
@@ -580,6 +583,7 @@ int c_lexical_analyzer::set_file( char *filename )
 
      SL_DEBUG( sl_debug_level_info, "Opening file %s", filename );
      f = fopen( filename, "r" );
+     strcpy(buffer, filename);
      for (dir = include_directories; !f && dir; dir=dir->next )
      {
           snprintf( buffer, 512, "%s/%s", dir->string, filename );
@@ -592,7 +596,7 @@ int c_lexical_analyzer::set_file( char *filename )
           fseek( f, 0,SEEK_END );
           i = ftell(f);
           fseek( f, 0, SEEK_SET );
-          current_file = allocate_and_read_file( filename, f, i );
+          current_file = allocate_and_read_file( filename, buffer, f, i );
           fclose(f);
           return (file_reset_position(current_file));
      }
@@ -627,6 +631,17 @@ char *c_lexical_analyzer::get_filename( int file_number )
      if (!file)
           return NULL;
      return file->filename;
+}
+
+/*f c_lexical_analyzer::get_pathname
+ */
+char *c_lexical_analyzer::get_pathname( int file_number )
+{
+     t_lex_file *file;
+     file = get_nth_file( file_number );
+     if (!file)
+          return NULL;
+     return file->pathname;
 }
 
 /*f c_lexical_analyzer::get_file_handle

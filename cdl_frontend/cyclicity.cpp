@@ -256,7 +256,7 @@ extern int main( int argc, char **argv )
              }
              for (i=0; i<nf; i++) {
                  const char *dep;
-                 dep = cyc->get_filename(i);
+                 dep = cyc->get_pathname(i);
                  if (dep[0]=='/') {
                     fprintf(f,"     %s \\\n",dep);
                  } else {

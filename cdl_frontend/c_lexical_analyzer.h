@@ -38,6 +38,7 @@ public:
     int set_file( char *filename );
     int get_number_of_files( void );
     char *get_filename( int file_number );
+    char *get_pathname( int file_number );
     struct t_lex_file *get_file_handle( int file_number );
     int get_file_data( int file_number, int *file_size, int *number_lines, char **file_data );
     int get_line_data( int file_number, int line_number, char **line_start, int *line_length );
@@ -71,7 +72,7 @@ private:
     const char *const *yytname;
     const short *yytoknum;
 
-    struct t_lex_file *allocate_and_read_file( const char *filename, FILE *f, int length );
+    struct t_lex_file *allocate_and_read_file( const char *filename, const char *pathname, FILE *f, int length );
     struct t_lex_file *include_file( struct t_lex_file *included_by, const char *filename, int filename_length );
     struct t_lex_file *get_nth_file( int n );
 
