@@ -43,24 +43,23 @@ ALL2: ALL
 
 include $(MODELS_MAKE)
 
-ALL: $(CMDLINE_PROG) ${PYTHON_LIB}
-
 ${TARGET_DIR}/derived_model.a: $(TARGET_DIR)/derived_model_list.o ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
 	libtool -static -o $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
 
+ALL: $(CMDLINE_PROG)
 ${CMDLINE_PROG}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a$ ${SUPPORT_COMMAND_OBJS} 
 	@echo "Building command line simulation ${CMDLINE_PROG}"
 	${Q}${CXX} -o ${CMDLINE_PROG} $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${LD_LIBS}
 
+ALL: ${PYTHON_LIB}
 ${PYTHON_LIB}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} 
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
 	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
 
-${VPI_LIB}: $(TARGET_DIR)/derived_model_list.a ${SUPPORT_VPI_OBJS} 
-	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
-	${Q}${LINKDYNLIB} $@ $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
+# ${VPI_LIB}: $(TARGET_DIR)/derived_model_list.a ${SUPPORT_VPI_OBJS} 
+# 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
+# 	${Q}${LINKDYNLIB} $@ $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
 
-# models.make
 $(TARGET_DIR)/derived_model_list.o: Makefile ${MODELS_MAKE}
 	@echo "Creating derived_mode_list source"
 	@echo "#include <stdlib.h>" > ${TARGET_DIR}/derived_model_list.cpp
@@ -87,10 +86,4 @@ clean:
 	@for a in ${TARGET_DIR}/*cpp ${TARGET_DIR}/*cpp.dep ${TARGET_DIR}/*o ${TARGET_DIR}/*v ${TARGET_DIR}/*cdlh ${TARGET_DIR}/*map ${TARGET_DIR}/coverage.map ${CMDLINE_PROG} models.make; do \
 		rm -f $${a}; \
 	done
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: Makefile ***
-# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
-# End: ***
 

@@ -52,6 +52,7 @@ enum
      option_type_remap,
      option_debug,
      option_include,
+     option_force_include,
      option_dependencies,
      option_dependencies_target,
      option_dependencies_relative,
@@ -68,6 +69,7 @@ static option options[] = {
      { "type-remap", required_argument, NULL, option_type_remap },
      { "debug", required_argument, NULL, option_debug },
      { "include-dir", required_argument, NULL, option_include },
+     { "force-include", required_argument, NULL, option_force_include },
      { "dependencies", required_argument, NULL, option_dependencies },
      { "dependencies-target", required_argument, NULL, option_dependencies_target },
      { "dependencies-relative", required_argument, NULL, option_dependencies_relative },
@@ -143,7 +145,7 @@ extern int main( int argc, char **argv )
 {
      c_cyclicity *cyc;
      int c, so_far;
-     string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir;
+     string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir, *force_includes, *last_force_include;
      const char *dependencies_filename;
      const char *dependencies_target;
      const char *dependencies_relative;
@@ -157,6 +159,8 @@ extern int main( int argc, char **argv )
      type_remappings = NULL;
      include_dirs = NULL;
      last_include_dir = NULL;
+     force_includes = NULL;
+     last_force_include = NULL;
      dependencies_filename = NULL;
      dependencies_target = NULL;
      dependencies_relative = "";
@@ -208,6 +212,16 @@ extern int main( int argc, char **argv )
                     last_include_dir = new_str;
                     new_str->string = optarg;
                     break;
+               case option_force_include:
+                    new_str = (string_list *)malloc(sizeof(string_list));
+                    if (!force_includes)
+                         force_includes = new_str;
+                    else
+                         last_force_include->next = new_str;
+                    new_str->next = NULL;
+                    last_force_include = new_str;
+                    new_str->string = optarg;
+                    break;
                case option_dependencies:
                    dependencies_filename = optarg;
                     break;
@@ -233,6 +247,10 @@ extern int main( int argc, char **argv )
      for (new_str = include_dirs; new_str; new_str=new_str->next)
      {
           cyc->add_include_directory( new_str->string );
+     }
+     for (new_str = force_includes; new_str; new_str=new_str->next)
+     {
+          cyc->add_force_include( new_str->string );
      }
 
      for (new_str = type_remappings; new_str; new_str=new_str->next)

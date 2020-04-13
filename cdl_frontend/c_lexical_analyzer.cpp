@@ -111,21 +111,24 @@ typedef struct t_terminal_entry
  */
 typedef struct t_lex_file
 {
-     struct t_lex_file *next;
+    struct t_lex_file *next;
 
-     struct t_lex_file *included_by;
+    struct t_lex_file *included_by;
 
-     FILE *handle;
-     char *filename;
-     char *pathname;
-     int file_size;
-     char *file_data;
-     int *line_starts;
-     int number_lines;
+    FILE *handle;
+    char *filename;
+    char *pathname;
+    int file_size;
+    char *file_data;
+    int *line_starts;
+    int number_lines;
 
-     int file_terminal_pos;
-     int number_terminal_entries;
-     t_terminal_entry *terminal_entries;
+    struct t_lex_file *next_force_include; // in toplevel and force-includes; first (or next) force included file
+    struct t_lex_file *current_force_include; // used only in toplevel; set to force_includes on start, if not NULL on return from include at toplevel then move to next
+
+    int file_terminal_pos; // current position when parsing
+    int number_terminal_entries;
+    t_terminal_entry *terminal_entries;
 } t_lex_file;
 
 /*a Statics
@@ -345,7 +348,7 @@ c_lexical_analyzer::~c_lexical_analyzer()
  */
 /*f c_lexical_analyzer::add_include_directory
  */
-void c_lexical_analyzer::add_include_directory( char *directory )
+void c_lexical_analyzer::add_include_directory( const char *directory )
 {
      t_string_chain *new_str;
      new_str = (t_string_chain *)malloc(sizeof(t_string_chain) + strlen(directory) );
@@ -362,6 +365,28 @@ void c_lexical_analyzer::add_include_directory( char *directory )
           last_include_directory = new_str;
           new_str->next = NULL;
           strcpy( new_str->string, directory );
+     }
+}
+
+/*f c_lexical_analyzer::add_force_include
+ */
+void c_lexical_analyzer::add_force_include( const char *filename )
+{
+     t_string_chain *new_str;
+     new_str = (t_string_chain *)malloc(sizeof(t_string_chain) + strlen(filename) );
+     if (new_str)
+     {
+          if (!force_includes)
+          {
+              force_includes = new_str;
+          }
+          else
+          {
+               last_force_include->next = new_str;
+          }
+          last_force_include = new_str;
+          new_str->next = NULL;
+          strcpy( new_str->string, filename );
      }
 }
 
@@ -451,7 +476,7 @@ static int read_file_data( t_lex_file *file, FILE *f, int file_length )
 
 /*f c_lexical_analyzer::allocate_and_read_file
  */
-t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, const char *pathname, FILE *f, int length )
+t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, const char *pathname, FILE *f, int length, int toplevel )
 {
      t_lex_file *file;
      int i, j;
@@ -470,6 +495,8 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, co
      file->included_by = NULL;
      file->number_terminal_entries = 0;
      file->terminal_entries = NULL;
+     file->next_force_include = NULL; // set in toplevel to first force_include, then for each in the chain
+     file->current_force_include = NULL; // used in parsing, not lex
 
      /*b Read file and break into tokens
       */
@@ -486,6 +513,16 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, co
      file->next = file_list;
      file_list = file;
 
+     /*b Set force include chain */
+     t_lex_file *last_force_include = file;
+     for (t_string_chain *fi = force_includes; fi; fi=fi->next) {
+         t_lex_file *included_file = include_file(file, fi->string, strlen(fi->string) );
+         SL_DEBUG( sl_debug_level_info, "Would try to force include file %s (%p)", filename, included_file );
+         if (included_file) {
+             last_force_include->next_force_include = included_file;
+         }
+     }
+     
      /*b Run through tokens looking for an include directive
       */
      for (i=0; i<file->number_terminal_entries-1 ; i++)
@@ -544,7 +581,7 @@ t_lex_file *c_lexical_analyzer::include_file( t_lex_file *included_by, const cha
                return NULL;
           }
      }
-     if (!set_file( buffer ))
+     if (!set_file( buffer, false ))
      {
           cyclicity->set_parse_error( co_compile_stage_tokenize, "Failed to include file '%s'", buffer );
           return NULL;
@@ -561,20 +598,24 @@ static int file_reset_position( t_lex_file *file )
           return 0;
 
      file->file_terminal_pos = 0;
+     file->current_force_include = file->next_force_include;
+     if (file->included_by) {
+         file->current_force_include = NULL;
+     }
      return 1;
 }
 
 /*f c_lexical_analyzer::set_file
  */
-int c_lexical_analyzer::set_file( FILE *f )
+int c_lexical_analyzer::set_file( FILE *f, int toplevel )
 {
-    current_file = allocate_and_read_file( "<stream>", "<path_to_stream>", f, -1 );
+    current_file = allocate_and_read_file( "<stream>", "<path_to_stream>", f, -1, toplevel );
      return (file_reset_position(current_file));
 }
 
 /*f c_lexical_analyzer::set_file
  */
-int c_lexical_analyzer::set_file( char *filename )
+int c_lexical_analyzer::set_file( const char *filename, int toplevel )
 {
      int i;
      FILE *f;
@@ -596,7 +637,7 @@ int c_lexical_analyzer::set_file( char *filename )
           fseek( f, 0,SEEK_END );
           i = ftell(f);
           fseek( f, 0, SEEK_SET );
-          current_file = allocate_and_read_file( filename, buffer, f, i );
+          current_file = allocate_and_read_file( filename, buffer, f, i, toplevel );
           fclose(f);
           return (file_reset_position(current_file));
      }
@@ -1081,6 +1122,13 @@ int c_lexical_analyzer::next_token( void *arg )
      if (!current_file)
           return TOKEN_EOF;
 
+     if (current_file->current_force_include) {
+         t_lex_file *file = current_file;
+         current_file = current_file->current_force_include;
+         SL_DEBUG( sl_debug_level_info, "Force including file %s %p %p %d", current_file->filename , current_file, file );
+         current_file->file_terminal_pos = 0;
+         return next_token( arg );
+     }
      while (current_file->file_terminal_pos < current_file->number_terminal_entries) 
      {
           type = current_file->terminal_entries[ current_file->file_terminal_pos ].terminal_entry_type;

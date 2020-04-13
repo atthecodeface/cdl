@@ -137,9 +137,16 @@ c_cyclicity::~c_cyclicity()
  */
 /*f c_cyclicity::add_include_directory
  */
-void c_cyclicity::add_include_directory( char *directory )
+void c_cyclicity::add_include_directory( const char *directory )
 {
     lexical_analyzer->add_include_directory( directory );
+}
+
+/*f c_cyclicity::add_force_include
+ */
+void c_cyclicity::add_force_include( const char *directory )
+{
+    lexical_analyzer->add_force_include( directory );
 }
 
 /*f c_cyclicity::get_number_of_files
@@ -236,7 +243,7 @@ void c_cyclicity::fill_object_handle( char *buffer, int file_number, int file_po
 int c_cyclicity::parse_input_file( FILE *f )
 {
     SL_DEBUG( sl_debug_level_info, "Parse file (stream) %p", f );
-    if (!lexical_analyzer->set_file( f ))
+    if (!lexical_analyzer->set_file( f, true ))
     {
         set_parse_error( co_compile_stage_tokenize, "Failed to open file" );
         return number_of_errors;
@@ -250,7 +257,7 @@ int c_cyclicity::parse_input_file( FILE *f )
 int c_cyclicity::parse_input_file( char *filename )
 {
     SL_DEBUG( sl_debug_level_info, "Parse filename %s", filename );
-    if (!lexical_analyzer->set_file( filename ))
+    if (!lexical_analyzer->set_file( filename, true ))
     {
         set_parse_error( co_compile_stage_tokenize, "Failed to open file '%s'", filename );
         return number_of_errors;

@@ -35,7 +35,8 @@ public:
 	c_cyclicity();
 	~c_cyclicity();
 
-    void add_include_directory( char *directory );
+    void add_include_directory( const char *directory );
+    void add_force_include( const char *directory );
 
 	int parse_input_file( FILE *f );
 	int parse_input_file( char *filename );

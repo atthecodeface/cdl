@@ -26,6 +26,7 @@
 #  rmr:<mapping> - add --remap-registered-name <mapping> to the CDL run, so that a module registered name (as can be used in SIM) may be remapped
 #  rim:<mapping> - add --remap-implementation-name <mapping> to the CDL run, so that a module may declare a particular implementation name
 #  rit:<mapping> - add --remap-instance-type <foo.bar=banana> to the CDL run, so that submodules may be remapped
+#  finc:<filename> - add --force-include <filename> to the CDL run
 #  inc:<path> - add include path, relative to the source root
 #  dc:<constant setting> - define a constant override for the CDL run (adds --constant <constant setting> to the CDL command line)
 #
@@ -273,6 +274,9 @@ def parse_cdl( model_object, cdl_options ):
         if o=="inc":
             options.append("--include-dir")
             options.append("${SRC_ROOT}/"+v)
+        if o=="finc":
+            options.append("--force-include")
+            options.append(v)
         if o=="dc":
             options.append("--constant")
             options.append(v)
@@ -610,7 +614,7 @@ def options_string_from_list( option_list ):
 #f output_model_makefile
 def output_model_makefile( output_file ):
 
-    print >>output_file, "include ${CDL_SCRIPTS_DIR}/cdl_templates.mk"
+    print >>output_file, "include ${CDL_SCRIPTS_DIR}/cdl_templates_old.mk"
     print >>output_file
     print >>output_file, "#a Variables"
     print >>output_file, "COMMA := ,"

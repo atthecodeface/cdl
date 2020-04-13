@@ -30,7 +30,7 @@ cdl tests/struct copy_bits vabi:copy_bits_body_feedthrus vapi:copy_bits_port_fee
 #cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color=t_color_lg
 cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg=t_color
 #cdl tests/struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
-cdl tests/struct nested_structures_3
+cdl tests/struct nested_structures_3 inc:tests/struct finc:point.h finc:color.h
 cdl tests/struct nested_structures_4
 
 cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_word         rmt:gt_fifo_content=t_fifo_content_word         model:generic_fifo_word
@@ -97,22 +97,4 @@ cdl tests/cdl_examples adder
 cdl tests/cdl_examples clocked_adder
 
 cdl tests/clock_gate gc_simple 
-
-#cdl tests/sandbox credit_four_source inc:tests/sandbox
-#cdl tests/sandbox credit_four_sink inc:tests/sandbox
-#cdl tests/sandbox credit_four_fwd  inc:tests/sandbox
-#cdl tests/sandbox credit_four_fwd2 inc:tests/sandbox
-#cdl tests/sandbox credit_fifo_extender inc:tests/sandbox rmn:generic_credit_fifo_extender=credit_fifo_extender    rmt:gt_fifo_content=t_data    model:credit_fifo_extender
-##cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd
-#cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd2
-#cdl tests/sandbox crc16_ansi inc:tests/sandbox
-#cdl tests/sandbox crc16_ansi_tb inc:tests/sandbox rit:crc16_ansi_tb.crc16_ansi_th=se_test_harness 
-#cdl tests/sandbox rate_limited_selector inc:tests/sandbox
-#cdl tests/sandbox rate_limited_selector_tb inc:tests/sandbox rit:rate_limited_selector_tb.rate_limited_selector_th=se_test_harness 
-
-#a Editor preferences and notes
-# Local Variables: ***
-# mode: shell ***
-# outline-regexp: "#[a!]\\\|#[	 ]*[b-z][	 ]" ***
-# End: ***
 
