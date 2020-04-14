@@ -16,7 +16,7 @@ CDL_ROOT    ?= $(abspath $(CURDIR)/../../build_cdl/install)
 BUILD_DIR    = $(abspath $(CURDIR)/build)
 
 MODEL_LIST   = $(CURDIR)/../tests/model_list
-SRC_ROOT     = $(CURDIR)/../
+SRC_ROOT     = $(CURDIR)/../tests
 PYTHON_DIR   = ${SRC_ROOT}/python
 ROM_DIR      = ${SRC_ROOT}/roms
 
@@ -29,6 +29,7 @@ DEBUG_BUILD     = no
 #a Include standard build makefile
 include ${CDL_ROOT}/lib/cdl/cdl_simulation.mk
 
+CDL_FLAGS = --library-desc ${SRC_ROOT}/library_description
 verilog: ${VERILOG_FILES}
 
 TESTS_DIR = ${SRC_ROOT}/tests

@@ -24,6 +24,7 @@
 #include "sl_option.h"
 #include "lexical_types.h"
 #include "c_cyc_object.h"
+#include "c_model_descriptor.h"
 
 /*a Types
  */
@@ -37,6 +38,8 @@ public:
 
     void add_include_directory( const char *directory );
     void add_force_include( const char *directory );
+    void set_library_root( const char *directory );
+    void read_library_descriptor( const char *filename );
 
 	int parse_input_file( FILE *f );
 	int parse_input_file( char *filename );

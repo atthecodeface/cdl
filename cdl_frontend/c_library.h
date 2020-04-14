@@ -34,10 +34,10 @@ public:
     ~c_library();
 
     void add_source_directory( const char *directory );
-    FILE *open_filename( const char *filename, char **pathname );
+    FILE *open_filename(const char *root_pathname, const std::string &filename, char **pathname );
+    const char *library_name;
 
 private:
-    const char *library_name;
     std::list<const char *> source_directories;
 };
 
@@ -49,12 +49,16 @@ public:
     c_library_set(class c_cyclicity *cyclicity);
     ~c_library_set();
 
+    void set_library_root( const char *dirname );
     void read_library_descriptor( const char *filename );
     void add_include_directory(const char *directory);
-    FILE *open_filename( const char *filename, char **pathname );
+    c_library *add_new_library(const char *name);
+    c_library *find_library(const std::string &name, int start, int len);
+    FILE *open_filename(const std::string &filename, char **pathname );
 
 private:
     class c_cyclicity *cyclicity;
+    const char *root_dirname;
     std::list<c_library *>  libraries;
     std::list<const char *> include_directories;
 };

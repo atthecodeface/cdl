@@ -13,88 +13,88 @@
 
 cdl_options ass:on
 
-c_model tests/log   c_log_toggle
+c_model log   c_log_toggle
 
-cdl tests/simple tie_high
-cdl tests/simple tie_both
-cdl tests/simple toggle
-cdl tests/simple invert
-cdl tests/simple and
-cdl tests/simple invert_chain
-cdl tests/simple constants
-cdl tests/simple mux
-cdl tests/simple alu
-cdl tests/simple mux_array
+cdl simple tie_high
+cdl simple tie_both
+cdl simple toggle
+cdl simple invert
+cdl simple and
+cdl simple invert_chain
+cdl simple constants
+cdl simple mux
+cdl simple alu
+cdl simple mux_array
 
-cdl tests/struct copy_bits vabi:copy_bits_body_feedthrus vapi:copy_bits_port_feedthrus
-#cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color=t_color_lg
-cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg=t_color
-#cdl tests/struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
-cdl tests/struct nested_structures_3 inc:tests/struct finc:point.h finc:color.h
-cdl tests/struct nested_structures_4
+cdl struct copy_bits vabi:copy_bits_body_feedthrus vapi:copy_bits_port_feedthrus
+#cdl struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color=t_color_lg
+cdl struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg=t_color
+#cdl struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
+cdl struct nested_structures_3 inc:struct finc:point.h finc:color.h
+cdl struct nested_structures_4
 
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_word         rmt:gt_fifo_content=t_fifo_content_word         model:generic_fifo_word
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_struct       rmt:gt_fifo_content=t_fifo_content_struct       model:generic_fifo_struct
-#cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy    rmt:gt_fifo_content=t_fifo_content_hierarchy    model:generic_fifo_hierarchy
+cdl struct generic_fifo rmn:generic_fifo=generic_fifo_word         rmt:gt_fifo_content=t_fifo_content_word         model:generic_fifo_word
+cdl struct generic_fifo rmn:generic_fifo=generic_fifo_struct       rmt:gt_fifo_content=t_fifo_content_struct       model:generic_fifo_struct
+#cdl struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
+cdl struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy    rmt:gt_fifo_content=t_fifo_content_hierarchy    model:generic_fifo_hierarchy
 
-cdl tests/enum enum_cycle
+cdl enum enum_cycle
 
-cdl tests/fsm fsm_cycle
-cdl tests/fsm fsm_machine
+cdl fsm fsm_cycle
+cdl fsm fsm_machine
 
-cdl tests/vector vector_toggle dc:width=16 model:vector_toggle__width_16                 rmn:vector_toggle=vector_toggle__width_16
-cdl tests/vector vector_toggle         dc:width=18 model:vector_toggle__width_18         rmn:vector_toggle=vector_toggle__width_18
-cdl tests/vector vector_toggle_complex dc:width=18 model:vector_toggle_complex__width_18 rmn:vector_toggle_complex=vector_toggle_complex__width_18 rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model
-cdl tests/vector vector_add dc:width=4 model:vector_add__width_4 rmn:vector_add=vector_add__width_4
-cdl tests/vector vector_add dc:width=8 model:vector_add__width_8 rmn:vector_add=vector_add__width_8
-cdl tests/vector vector_mult_by_11 dc:width=8 model:vector_mult_by_11__width_8 rmn:vector_mult_by_11=vector_mult_by_11__width_8
-cdl tests/vector vector_reverse dc:width=8 model:vector_reverse__width_8 rmn:vector_reverse=vector_reverse__width_8
-cdl tests/vector vector_nest dc:width=8 model:vector_nest__width_8 rmn:vector_nest=vector_nest__width_8
-cdl tests/vector vector_sum dc:width=4 model:vector_sum__width_4 rmn:vector_sum=vector_sum__width_4
-cdl tests/vector vector_sum dc:width=8 model:vector_sum__width_8 rmn:vector_sum=vector_sum__width_8
-cdl tests/vector vector_sum dc:width=64 model:vector_sum__width_64 rmn:vector_sum=vector_sum__width_64
-cdl tests/vector vector_op_1
-cdl tests/vector vector_op_2
-cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4
+cdl vector vector_toggle dc:width=16 model:vector_toggle__width_16                 rmn:vector_toggle=vector_toggle__width_16
+cdl vector vector_toggle         dc:width=18 model:vector_toggle__width_18         rmn:vector_toggle=vector_toggle__width_18
+cdl vector vector_toggle_complex dc:width=18 model:vector_toggle_complex__width_18 rmn:vector_toggle_complex=vector_toggle_complex__width_18 rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model
+cdl vector vector_add dc:width=4 model:vector_add__width_4 rmn:vector_add=vector_add__width_4
+cdl vector vector_add dc:width=8 model:vector_add__width_8 rmn:vector_add=vector_add__width_8
+cdl vector vector_mult_by_11 dc:width=8 model:vector_mult_by_11__width_8 rmn:vector_mult_by_11=vector_mult_by_11__width_8
+cdl vector vector_reverse dc:width=8 model:vector_reverse__width_8 rmn:vector_reverse=vector_reverse__width_8
+cdl vector vector_nest dc:width=8 model:vector_nest__width_8 rmn:vector_nest=vector_nest__width_8
+cdl vector vector_sum dc:width=4 model:vector_sum__width_4 rmn:vector_sum=vector_sum__width_4
+cdl vector vector_sum dc:width=8 model:vector_sum__width_8 rmn:vector_sum=vector_sum__width_8
+cdl vector vector_sum dc:width=64 model:vector_sum__width_64 rmn:vector_sum=vector_sum__width_64
+cdl vector vector_op_1
+cdl vector vector_op_2
+cdl vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4
 
-cdl tests/instantiation hierarchy_reg
-cdl tests/instantiation hierarchy_and         rim:hierarchy_and=simple
-#cdl tests/instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
-cdl tests/instantiation hierarchy_gated_clock
+cdl instantiation hierarchy_reg
+cdl instantiation hierarchy_and         rim:hierarchy_and=simple
+#cdl instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
+cdl instantiation hierarchy_gated_clock
 cdl_options mul:on
-cdl tests/instantiation hierarchy_comb_and_clocked
+cdl instantiation hierarchy_comb_and_clocked
 cdl_options mul:off
-cdl tests/instantiation hierarchy_comb_and_clocked2
-cdl tests/instantiation hierarchy_complex             inc:tests/instantiation
-#cdl tests/instantiation hierarchy                     inc:tests/instantiation
-cdl tests/instantiation hierarchy_test_harness        inc:tests/instantiation
-cdl tests/instantiation hierarchy_struct              inc:tests/instantiation
-cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
-cdl tests/instantiation failure_0
+cdl instantiation hierarchy_comb_and_clocked2
+cdl instantiation hierarchy_complex
+#cdl instantiation hierarchy                     inc:instantiation
+cdl instantiation hierarchy_test_harness        inc:instantiation
+cdl instantiation hierarchy_struct              inc:instantiation
+cdl instantiation hierarchy_struct_test_harness inc:instantiation
+cdl instantiation failure_0
 
-#cdl tests/bugs missing_reset
-#cdl tests/bugs output_cyclic_dependency
-#cdl tests/bugs empty_case_statements
-#cdl tests/bugs sm_test inc:tests/bugs
-#cdl tests/bugs sm_sub inc:tests/bugs
-#cdl tests/bugs check_64bits
-#cdl tests/bugs bundle_width
-#cdl tests/bugs operator_precedence
-#cdl tests/bugs single_entry_arrays
-cdl tests/bugs case_expression_lists
-cdl tests/bugs for_case
-cdl tests/bugs partial_ports
+#cdl bugs missing_reset
+#cdl bugs output_cyclic_dependency
+#cdl bugs empty_case_statements
+#cdl bugs sm_test inc:bugs
+#cdl bugs sm_sub inc:bugs
+#cdl bugs check_64bits
+#cdl bugs bundle_width
+#cdl bugs operator_precedence
+#cdl bugs single_entry_arrays
+cdl bugs case_expression_lists
+cdl bugs for_case
+cdl bugs partial_ports
 
 # uncomment the following to check errors do not cause bus errors
-#cdl tests/bugs type_errors
-#cdl tests/bugs constant_errors
-#cdl tests/bugs prototype_errors
-#cdl tests/bugs module_errors
+#cdl bugs type_errors
+#cdl bugs constant_errors
+#cdl bugs prototype_errors
+#cdl bugs module_errors
 
-cdl tests/cdl_examples reg
-cdl tests/cdl_examples adder
-cdl tests/cdl_examples clocked_adder
+cdl cdl_examples reg
+cdl cdl_examples adder
+cdl cdl_examples clocked_adder
 
-cdl tests/clock_gate gc_simple 
+cdl clock_gate gc_simple 
 

@@ -14,9 +14,9 @@
 
 /*a Includes
  */
-include "hierarchy_reg.h"
-include "hierarchy_gray_code.h"
-include "hierarchy_tied_outputs.h"
+include "instantiation::hierarchy_reg.h"
+include "instantiation::hierarchy_gray_code.h"
+include "instantiation::hierarchy_tied_outputs.h"
 
 /*a Module prototypes
  */

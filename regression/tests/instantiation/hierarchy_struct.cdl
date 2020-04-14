@@ -14,7 +14,7 @@
 
 /*a Includes
  */
-include "hierarchy_struct.h"
+include "test_hierarchy::hierarchy_struct.h"
 
 /*a Module
  */

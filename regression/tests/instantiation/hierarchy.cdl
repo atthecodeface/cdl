@@ -14,9 +14,9 @@
 
 /*a Includes
  */
-include "hierarchy_reg.h"
-include "hierarchy_reg2.h"
-include "hierarchy_and.h"
+include "test_hierarchy::hierarchy_reg.h"
+include "test_hierarchy::hierarchy_reg2.h"
+include "test_hierarchy::hierarchy_and.h"
 
 /*a Module prototypes
  */

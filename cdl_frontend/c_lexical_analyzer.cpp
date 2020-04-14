@@ -605,7 +605,7 @@ int c_lexical_analyzer::set_file( const char *filename, int toplevel )
     char *pathname;
 
     SL_DEBUG( sl_debug_level_info, "Opening file %s", filename );
-    f = libraries->open_filename(filename, &pathname);
+    f = libraries->open_filename(std::string(filename), &pathname);
     if (f) {
         int i;
         fseek( f, 0,SEEK_END );

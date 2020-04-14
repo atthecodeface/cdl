@@ -143,6 +143,20 @@ void c_cyclicity::add_include_directory( const char *directory )
     libraries->add_include_directory( directory );
 }
 
+/*f c_cyclicity::set_library_root
+ */
+void c_cyclicity::set_library_root( const char *directory )
+{
+    libraries->set_library_root( directory );
+}
+
+/*f c_cyclicity::read_library_descriptor
+ */
+void c_cyclicity::read_library_descriptor( const char *filename )
+{
+    libraries->read_library_descriptor( filename );
+}
+
 /*a Lexical analysis functions
  */
 /*f c_cyclicity::add_force_include

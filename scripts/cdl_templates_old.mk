@@ -59,7 +59,7 @@ define cdl_template
 # @param $6 options
 ${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl
 	@echo "CDL $1 -cpp $2" 
-	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --dependencies-target ${TARGET_DIR}/$2 --dependencies ${TARGET_DIR}/$2.dep --dependencies-relative $(dir ${SRC_ROOT}/$1) --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1
+	$(Q)$(CYCLICITY_BIN_DIR)/cdl $$(CDL_FLAGS) --source-root=${SRC_ROOT} --model $3 --dependencies-target ${TARGET_DIR}/$2 --dependencies ${TARGET_DIR}/$2.dep --dependencies-relative $(dir ${SRC_ROOT}/$1) --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1
 
 -include ${TARGET_DIR}/$2.dep
 
@@ -69,15 +69,15 @@ ${TARGET_DIR}/$4 : ${TARGET_DIR}/$2
 
 ${TARGET_DIR}/$5 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl
 	@echo "CDL $5 -v $1" 
-	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --verilog ${TARGET_DIR}/$5 $6 ${SRC_ROOT}/$1
+	$(Q)$(CYCLICITY_BIN_DIR)/cdl $$(CDL_FLAGS) --model $3 --verilog ${TARGET_DIR}/$5 $6 ${SRC_ROOT}/$1
 
 ${TARGET_DIR}/$3.cdlh : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl
 	@echo "CDL $3 -cdlh $1" 
-	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --cdlh ${TARGET_DIR}/$3.cdlh $6 ${SRC_ROOT}/$1
+	$(Q)$(CYCLICITY_BIN_DIR)/cdl $$(CDL_FLAGS) --model $3 --cdlh ${TARGET_DIR}/$3.cdlh $6 ${SRC_ROOT}/$1
 
 ${TARGET_DIR}/$3.xml : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl
 	@echo "CDL $3 -xml $1" 
-	$(Q)$(CYCLICITY_BIN_DIR)/cdl $(CDL_FLAGS) --model $3 --xml ${TARGET_DIR}/$3.xml $6 ${SRC_ROOT}/$1
+	$(Q)$(CYCLICITY_BIN_DIR)/cdl $$(CDL_FLAGS) --model $3 --xml ${TARGET_DIR}/$3.xml $6 ${SRC_ROOT}/$1
 
 MODELS += $3
 VERILOG_FILES += ${TARGET_DIR}/$5
