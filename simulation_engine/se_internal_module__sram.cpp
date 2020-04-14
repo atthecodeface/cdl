@@ -46,7 +46,6 @@ Add error messages if reads are of an unwritten location
 */
 /*v log_event_descriptor
  */
-static t_sram_posedge_clock_state *___sram_posedge_clock_state_log;
 static t_engine_text_value_pair log_event_descriptor[] = 
 {
     {"read", 2 },

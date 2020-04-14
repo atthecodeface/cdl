@@ -18,6 +18,7 @@
 
 /*a Includes
  */
+#include <cstddef>
 #include "c_sl_error.h"
 #include "sl_general.h"
 #include "sl_cons.h"
@@ -34,8 +35,7 @@
 #define SL_EXEC_FILE_METHOD_NONE {NULL, 0, 0, NULL, NULL, NULL }
 #define SL_EXEC_FILE_FN_NONE {sl_exec_file_fn_none, NULL,     0,   NULL, NULL },
 
-#define SL_EF_STATE_DESC_PTR(ptr,type) static type *ptr;
-#define SL_EF_STATE_DESC_ENTRY(ptr,name,width,size) { #name, (((char *)&(ptr->name))-(char *)ptr), width, size }
+#define SL_EF_STATE_DESC_ENTRY(type,name,width,size) { #name, offsetof(type,name), width, size }
 #define SL_EF_STATE_DESC_END { NULL, 0, 0, 0 }
 
 /*a Types

@@ -107,20 +107,19 @@ static t_sl_exec_file_method sl_fifo_object_methods[] =
 
 /*v fifo_state_desc
  */
-SL_EF_STATE_DESC_PTR( __ptr, t_sl_ef_lib_fifo );
 static t_sl_exec_file_state_desc_entry fifo_state_desc[] =
 {
-    SL_EF_STATE_DESC_ENTRY(__ptr, nearly_empty_watermark, 32, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, nearly_full_watermark, 32, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, read_ptr, 32, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, committed_read_ptr, 32, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, write_ptr, 32, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, empty, 1, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, full, 1, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, nearly_empty, 1, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, nearly_full, 1, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, underflowed, 1, 0),
-    SL_EF_STATE_DESC_ENTRY(__ptr, overflowed, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, nearly_empty_watermark, 32, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, nearly_full_watermark, 32, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, read_ptr, 32, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, committed_read_ptr, 32, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, write_ptr, 32, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, empty, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, full, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, nearly_empty, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, nearly_full, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, underflowed, 1, 0),
+    SL_EF_STATE_DESC_ENTRY(t_sl_ef_lib_fifo, overflowed, 1, 0),
     SL_EF_STATE_DESC_END
 };
 
