@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include "sl_debug.h"
 #include "sl_option.h"
+#include "c_library.h"
 #include "c_model_descriptor.h"
 #include "c_sl_error.h"
 #include "c_type_value_pool.h"
@@ -89,7 +90,8 @@ static void debug_output( void *handle, int indent, const char *format, ... )
  */
 c_cyclicity::c_cyclicity( void )
 {
-    lexical_analyzer = new c_lexical_analyzer( this );
+    libraries = new c_library_set( this );
+    lexical_analyzer = new c_lexical_analyzer( this, libraries );
     toplevel_list = NULL;
     cyclicity_grammar_init( this );
     error = new c_sl_error( sizeof(int), // private_size
@@ -133,15 +135,16 @@ c_cyclicity::~c_cyclicity()
     }
 }
 
-/*a Lexical analysis functions
- */
+/*a Library functions */
 /*f c_cyclicity::add_include_directory
  */
 void c_cyclicity::add_include_directory( const char *directory )
 {
-    lexical_analyzer->add_include_directory( directory );
+    libraries->add_include_directory( directory );
 }
 
+/*a Lexical analysis functions
+ */
 /*f c_cyclicity::add_force_include
  */
 void c_cyclicity::add_force_include( const char *directory )

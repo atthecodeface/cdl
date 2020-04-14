@@ -1,6 +1,7 @@
 #a Variables if not defined yet
 CDL_SCRIPTS_DIR ?= ${CDL_ROOT}/lib/cdl
 CDL_BIN_DIR     ?= ${CDL_ROOT}/bin
+CDL_LIBEXEC_DIR ?= ${CDL_ROOT}/libexec/cdl
 CDL_INCLUDES    ?= -I${CDL_ROOT}/include/cdl
 Q?=@
 LINK_STATIC?=libtool -static -o
@@ -22,6 +23,20 @@ CDLH_FILES=
 #
 # MODELS contains a list of model names for this library that are to be 'init'ed
 # C_MODEL_OBJS contains a list of object files to be included in the static library
+
+#f library_makefile_template
+define library_makefile_template
+# @param $1 library name - for targets
+# @param $2 library root directory - where library_desc.py exists
+# @param $3 build directory - where to put Makefile
+$3/Makefile: $2/library_desc.py
+	PYTHONPATH=$2:${PYTHONPATH} ${CDL_LIBEXEC_DIR}/cdl_desc.py > $$@
+
+clean: clean_library_makefile_$1
+
+clean_library_makefile_$1:
+	rm -f $3/Makefile
+endef
 
 #f cpp_template
 define cpp_template
@@ -120,6 +135,7 @@ define library_init_object_file
 
 $1/$2.cpp: ${LIB_MAKEFILE}
 	@echo "Creating library_init_object_file source"
+	${Q}echo "// Library $3 initialization source created by cdl" > $$@
 	${Q}for a in $${MODELS} ; do echo "extern void $$$${a}__init( void );" >> $$@ ; done
 	${Q}echo "extern void lib_$3_init(void) {" >> $$@
 	${Q}for a in $${MODELS} ; do echo "$$$${a}__init();" >> $$@ ; done
@@ -139,6 +155,7 @@ define init_object_file
 
 $1/$2.cpp: ${LIB_MAKEFILE}
 	@echo "Creating init_object_file source"
+	${Q}echo "// Object initialization source for library $3 created by cdl" > $$@
 	${Q}echo '#include <stdlib.h>' >> $$@
 	${Q}echo 'extern "C" void *PyInit_py_engine(void); extern void unused(void) {(void)PyInit_py_engine();}' >> $$@
 	${Q}echo "typedef void (*t_init_fn)(void);" >> $$@

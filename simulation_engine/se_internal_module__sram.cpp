@@ -23,6 +23,7 @@ Add error messages if reads are of an unwritten location
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <cstddef>
 #include "sl_debug.h"
 #include "sl_mif.h"
 #include "sl_general.h"
@@ -49,12 +50,12 @@ static t_sram_posedge_clock_state *___sram_posedge_clock_state_log;
 static t_engine_text_value_pair log_event_descriptor[] = 
 {
     {"read", 2 },
-    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"data_out", (t_se_signal_value *)&(___sram_posedge_clock_state_log->data_out[0])      - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"address",   offsetof(t_sram_posedge_clock_state,address) },
+    {"data_out",  offsetof(t_sram_posedge_clock_state,data_out[0]) },
     {"write", 3 },
-    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"data",     (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_data[0])    - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"enables",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_enable[0]) - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"address",   offsetof(t_sram_posedge_clock_state,address) },
+    {"data",      offsetof(t_sram_posedge_clock_state,write_data[0]) },
+    {"enables",   offsetof(t_sram_posedge_clock_state,write_enable[0]) },
     {NULL, 0}
 };
 

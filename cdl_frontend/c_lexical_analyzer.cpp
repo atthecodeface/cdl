@@ -24,6 +24,7 @@ To do:
 #include <string.h>
 #include <ctype.h>
 #include "sl_debug.h"
+#include "c_library.h"
 #include "c_lexical_analyzer.h"
 #include "lexical_types.h"
 // Need c_co_type_specifier for the grammar ... :-(
@@ -258,11 +259,12 @@ extern int get_symbol_type( t_lex_symbol *lex_symbol )
  */
 /*f c_lexical_analyzer::c_lexical_analyzer
  */
-c_lexical_analyzer::c_lexical_analyzer( c_cyclicity *cyclicity )
+c_lexical_analyzer::c_lexical_analyzer( c_cyclicity *cyclicity, c_library_set *libraries )
 {
      int i;
 
      this->cyclicity = cyclicity;
+     this->libraries = libraries;;
 
      include_directories = NULL;
      last_include_directory = NULL;
@@ -346,28 +348,6 @@ c_lexical_analyzer::~c_lexical_analyzer()
 
 /*a File handling functions
  */
-/*f c_lexical_analyzer::add_include_directory
- */
-void c_lexical_analyzer::add_include_directory( const char *directory )
-{
-     t_string_chain *new_str;
-     new_str = (t_string_chain *)malloc(sizeof(t_string_chain) + strlen(directory) );
-     if (new_str)
-     {
-          if (!include_directories)
-          {
-               include_directories = new_str;
-          }
-          else
-          {
-               last_include_directory->next = new_str;
-          }
-          last_include_directory = new_str;
-          new_str->next = NULL;
-          strcpy( new_str->string, directory );
-     }
-}
-
 /*f c_lexical_analyzer::add_force_include
  */
 void c_lexical_analyzer::add_force_include( const char *filename )
@@ -513,14 +493,19 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, co
      file->next = file_list;
      file_list = file;
 
-     /*b Set force include chain */
-     t_lex_file *last_force_include = file;
-     for (t_string_chain *fi = force_includes; fi; fi=fi->next) {
-         t_lex_file *included_file = include_file(file, fi->string, strlen(fi->string) );
-         SL_DEBUG( sl_debug_level_info, "Would try to force include file %s (%p)", filename, included_file );
-         if (included_file) {
-             last_force_include->next_force_include = included_file;
+     /*b Set force include chain if toplevel */
+     if (toplevel) {
+         t_lex_file *last_force_include = file;
+         for (t_string_chain *fi = force_includes; fi; fi=fi->next) {
+             t_lex_file *included_file = include_file(file, fi->string, strlen(fi->string) );
+             SL_DEBUG( sl_debug_level_info, "Would try to force include file %s (%p)", filename, included_file );
+             if (included_file) {
+                 included_file->included_by = file; // so parsing returns to this file
+                 last_force_include->next_force_include = included_file;
+                 last_force_include = included_file;
+             }
          }
+         file->current_force_include = file->next_force_include;
      }
      
      /*b Run through tokens looking for an include directive
@@ -598,9 +583,8 @@ static int file_reset_position( t_lex_file *file )
           return 0;
 
      file->file_terminal_pos = 0;
-     file->current_force_include = file->next_force_include;
-     if (file->included_by) {
-         file->current_force_include = NULL;
+     if (!file->included_by) {
+         file->current_force_include = file->next_force_include;
      }
      return 1;
 }
@@ -617,31 +601,21 @@ int c_lexical_analyzer::set_file( FILE *f, int toplevel )
  */
 int c_lexical_analyzer::set_file( const char *filename, int toplevel )
 {
-     int i;
-     FILE *f;
-     t_string_chain *dir;
-     char buffer[512];
+    FILE *f;
+    char *pathname;
 
-     SL_DEBUG( sl_debug_level_info, "Opening file %s", filename );
-     f = fopen( filename, "r" );
-     strcpy(buffer, filename);
-     for (dir = include_directories; !f && dir; dir=dir->next )
-     {
-          snprintf( buffer, 512, "%s/%s", dir->string, filename );
-          buffer[511] = 0;
-          f = fopen( buffer, "r" );
-          SL_DEBUG( sl_debug_level_info, "Tried %s : %p", buffer, f );
-     }
-     if (f)
-     {
-          fseek( f, 0,SEEK_END );
-          i = ftell(f);
-          fseek( f, 0, SEEK_SET );
-          current_file = allocate_and_read_file( filename, buffer, f, i, toplevel );
-          fclose(f);
-          return (file_reset_position(current_file));
-     }
-     return 0;
+    SL_DEBUG( sl_debug_level_info, "Opening file %s", filename );
+    f = libraries->open_filename(filename, &pathname);
+    if (f) {
+        int i;
+        fseek( f, 0,SEEK_END );
+        i = ftell(f);
+        fseek( f, 0, SEEK_SET );
+        current_file = allocate_and_read_file( filename, pathname, f, i, toplevel );
+        fclose(f);
+        return file_reset_position(current_file);
+    }
+    return 0;
 }
 
 /*f c_lexical_analyzer::get_number_of_files
@@ -1126,6 +1100,7 @@ int c_lexical_analyzer::next_token( void *arg )
          t_lex_file *file = current_file;
          current_file = current_file->current_force_include;
          SL_DEBUG( sl_debug_level_info, "Force including file %s %p %p %d", current_file->filename , current_file, file );
+         file->current_force_include = current_file->next_force_include;
          current_file->file_terminal_pos = 0;
          return next_token( arg );
      }

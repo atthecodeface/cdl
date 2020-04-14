@@ -19,6 +19,7 @@ include ${CDL_SCRIPTS_DIR}/makefile_hdr
 #a Source files
 CYC_SRCS = \
 	c_type_value_pool.cpp \
+	c_library.cpp \
 	c_cyc_object.cpp \
 	c_co_constructors.cpp \
 	c_co_chain.cpp \

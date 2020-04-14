@@ -39,6 +39,7 @@ includedir = @includedir@
 infodir = @infodir@
 pkgdatadir = @pkgdatadir@
 pkgconfigdir = @pkgconfigdir@
+cxxflags = @cxxflags@
 
 # Note that builddir and srcdir may be relative - so submakes should pass them in
 srcdir   = $(abspath @srcdir@)
@@ -80,3 +81,4 @@ BUILD_PYTHON = yes
 MAKE_STATIC_BINARY   = ${CXX} ${LINKFLAGS} -o
 MAKE_STATIC_LIBRARY  = libtool -static -o
 MAKE_DYNAMIC_LIBRARY = ${CXX} -bundle -o
+CXXFLAGS       += -std=c++11

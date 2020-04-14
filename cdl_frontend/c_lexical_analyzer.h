@@ -28,10 +28,9 @@
 class c_lexical_analyzer
 {
 public:
-    c_lexical_analyzer( class c_cyclicity *cyclicity );
+    c_lexical_analyzer( class c_cyclicity *cyclicity, class c_library_set *libraries );
     ~c_lexical_analyzer();
 
-    void add_include_directory( const char *directory );
     void add_force_include( const char *filename );
 
     void reset_files( void );
@@ -60,6 +59,7 @@ public:
 
 private:
     class c_cyclicity *cyclicity;
+    class c_library_set *libraries;
 
     struct t_lex_symbol *sym_table;
 

@@ -85,6 +85,7 @@ class CdlModule(Module):
                  obj_filename = None,
                  verilog_filename = None,
                  cdl_include_dirs = None,
+                 force_includes = [],
                  extra_cdlflags = None,
                  options = {},
                  constants = {}, # dictionary of constant name => value for compilation
@@ -99,6 +100,7 @@ class CdlModule(Module):
         self.verilog_filename = self.value_or_default(verilog_filename, model_name)
         self.cdl_include_dirs = self.value_or_default(cdl_include_dirs, self.cdl_include_dirs)
         self.extra_cdlflags   = self.value_or_default(extra_cdlflags, self.extra_cdlflags)
+        self.force_includes   = force_includes
         self.cdl_module_name  = cdl_module_name
         self.constants        = constants
         self.types            = types
@@ -135,6 +137,9 @@ class CdlModule(Module):
             pass
         for i in self.cdl_include_dirs:
             cdl_include_dir_option += "--include-dir "+self.parent.get_src_path(i)+" "
+            pass
+        for i in self.force_includes:
+            cdl_include_dir_option += "--force-include "+i+" "
             pass
         cdl_template = [self.parent.get_src_path(self.src_dir),
                         "${BUILD_DIR}",

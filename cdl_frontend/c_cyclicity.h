@@ -94,6 +94,7 @@ public:
 
 private:
 	FILE *f;
+    class c_library_set *libraries;
 	class c_lexical_analyzer *lexical_analyzer;
 	class c_co_toplevel *toplevel_list;
     class c_model_descriptor *model;

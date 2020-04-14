@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <cstddef>
 #include "sl_debug.h"
 #include "sl_general.h"
 #include "sl_token.h"
@@ -483,10 +484,12 @@ static t_sl_error_level internal_module_clock_phase_instantiate( c_engine *engin
     {
         static t_engine_state_desc state_desc[] =
         {
-            {"output",engine_state_desc_type_bits,NULL,((char *)(&(data->outputs[0])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"delay_left",engine_state_desc_type_bits,NULL,((char *)(&(data->args[2])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"position",engine_state_desc_type_bits,NULL,((char *)(&(data->args[3])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"", engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
+            {"output",    engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,outputs[0]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"delay_left",engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,args[2]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"position",  engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,args[3]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            // {"delay_left",engine_state_desc_type_bits,NULL,((char *)(&(data->args[2])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            // {"position",  engine_state_desc_type_bits,NULL,((char *)(&(data->args[3])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"",          engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
         };
         engine->register_state_desc( engine_handle, 1, state_desc, data, NULL );
     }
@@ -549,8 +552,8 @@ static t_sl_error_level internal_module_data_assign_instantiate( c_engine *engin
     {
         static t_engine_state_desc state_desc[] =
         {
-            {"output",engine_state_desc_type_bits,NULL,((char *)(&(data->outputs[0])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"", engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
+            {"output",    engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,outputs[0]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"",          engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
         };
         engine->register_clock_fns( engine_handle, (void *)data, "reset_clock", internal_module_assign_reset_preclock, internal_module_assign_reset_clock );
         engine->register_output_generated_on_clock( engine_handle, "bus", "reset_clock", 1 );
