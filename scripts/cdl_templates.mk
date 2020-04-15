@@ -11,172 +11,166 @@ LINK_STATIC?=libtool -static -o
 # CFLAGS   += -I${CDL_INCLUDE_DIR}
 # CXXFLAGS += -I${CDL_INCLUDE_DIR}
 
-MODEL_LIBS=
-MODELS=
-C_MODEL_SRCS=
-C_MODEL_OBJS=
-VERILOG_FILES=
-CDLH_FILES=
-
 #a Templates
 #v Notes
 #
 # MODELS contains a list of model names for this library that are to be 'init'ed
 # C_MODEL_OBJS contains a list of object files to be included in the static library
 
-#f library_makefile_template
-define library_makefile_template
-# @param $1 library name - for targets
-# @param $2 library root directory - where library_desc.py exists
-# @param $3 build directory - where to put Makefile
-$3/Makefile: $2/library_desc.py
-	PYTHONPATH=$2:${PYTHONPATH} ${CDL_LIBEXEC_DIR}/cdl_desc.py > $$@
+#f cdl_makefile_template
+define cdl_makefile_template
+# @param $1 required source directory - where library_desc.py exists
+# @param $2 build directory - where to put Makefile
+# @param $3 other source directories - where libraries may exist
+.PHONY:makefiles
 
-clean: clean_library_makefile_$1
+makefiles: $2/Makefile
 
-clean_library_makefile_$1:
-	rm -f $3/Makefile
+BUILD_MAKEFILE = $2/Makefile
+
+$2/Makefile:
+	${CDL_LIBEXEC_DIR}/cdl_desc.py --require $1 --build_root $2 $3
+
+clean: clean_makefile
+
+clean_makefile:
+	rm -f $2/Makefile
 endef
 
 #f cpp_template
 define cpp_template
-# @param $1 cpp source directory
-# @param $2 output directory
-# @param $3 cpp filename within cpp source directory
-# @param $4 model name ("" if not a model)
-# @param $5 object filename to go in output dir [model name .o]
-# @param $6 C flags
+# @param $1 library name
+# @param $2 cpp source directory
+# @param $3 output directory
+# @param $4 cpp filename within cpp source directory
+# @param $5 model name ("" if not a model)
+# @param $6 object filename to go in output dir [model name .o]
+# @param $7 C flags
 
-$2/$5 : $1/$3
-	@echo "CC $1 -o $3" 
-	$(Q)$(CXX) $(CXXFLAGS) ${CDL_INCLUDES} -c -o $$@ $1/$3 $6
+LIB__$1__C_MODEL_OBJS  += $3/$6
+$3/$6 : $2/$4
+	@echo "CC $4 -o $6" 
+	$(Q)$(CXX) $(CXXFLAGS) ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
 
-ifneq ($4,)
-  MODELS += $4
+ifneq ($5,)
+    LIB__$1__MODELS += $5
 endif
-
-C_MODEL_SRCS += $1/$3
-C_MODEL_OBJS += $2/$5
-
-endef
-
-#f ef_template
-define ef_template
-# @param $1 ef filename inside src_root
-# @param $2 c filename in output dir
-# @param $3 model name
-# @param $4 object filename
-# @param $5 options
-${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CYCLICITY_BIN_DIR)/ef
-	@echo "EF $1 -cpp -$2" 
-	$(Q)$(CYCLICITY_BIN_DIR)/ef --model $3 --cpp ${TARGET_DIR}/$2 $5 ${SRC_ROOT}/$1
-
-${TARGET_DIR}/$4 : ${TARGET_DIR}/$2
-	@echo "CC $1 -o -$2" 
-	$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$4 ${TARGET_DIR}/$2
-
-MODELS += $3
-C_MODEL_OBJS += ${TARGET_DIR}/$4
 
 endef
 
 #f cdl_template
 define cdl_template
-# @param $1 cdl source directory
-# @param $2 output directory
-# @param $3 cdl filename within cdl source directory
-# @param $4 model name
-# @param $5 c filename to go in output dir [model name .cpp]
-# @param $6 object filename to go in output dir [model name .o]
-# @param $7 verilog filename to go in output dir [model name .v]
-# @param $8 CDL options
-.PHONY: $4
-$4: $2/$5 $2/$6 $2/$7  $2/$4.cdlh  $2/$4.xml
+# @param $1 library name
+# @param $2 cdl source directory
+# @param $3 output directory
+# @param $4 cdl filename within cdl source directory
+# @param $5 model name
+# @param $6 c filename to go in output dir [model name .cpp]
+# @param $7 object filename to go in output dir [model name .o]
+# @param $8 verilog filename to go in output dir [model name .v]
+# @param $9 CDL options
+.PHONY: $5
+$5: $3/$6 $3/$7 $3/$8  $3/$5.cdlh  $3/$5.xml
 
 ifneq (${6},)
 
-$2/$5 : $1/$3
-	@echo "CDL $3 -cpp $5" 
-	${Q}${CDL_BIN_DIR}/cdl ${CDL_FLAGS} --model $4 --dependencies-target $$@ --dependencies $2/$5.dep --dependencies-relative $(dir $1/$3) --cpp $$@  $8 $1/$3
+$3/$6 : $2/$4
+	@echo "CDL $4 -cpp $6" 
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --dependencies-target $$@ --dependencies $3/$6.dep --dependencies-relative $(dir $2/$4) --cpp $$@  $9 $2/$4
 
--include $2/$5.dep
+-include $3/$6.dep
 
-C_MODEL_OBJS  += ${2}/$6
-$2/$6 : $2/$5
-	@echo "CC $5 -o $6" 
-	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $2/$5
+LIB__$1__C_MODEL_OBJS  += $3/$7
+$3/$7 : $3/$6
+	@echo "CC $6 -o $7" 
+	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
 
 endif
 
-$2/$7 : $1/$3
-	@echo "CDL $3 -v $7" 
-	${Q}${CDL_BIN_DIR}/cdl ${CDL_FLAGS} --model $4 --verilog $$@ $8 $1/$3
+$3/$8 : $2/$4
+	@echo "CDL $4 -v $8" 
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --verilog $$@ $9 $2/$4
 
-$2/$4.cdlh : $1/$3
-	@echo "CDL $3 -cdlh $4" 
-	${Q}${CDL_BIN_DIR}/cdl ${CDL_FLAGS} --model $4 --cdlh $$@ $8 $1/$3
+$3/$5.cdlh : $2/$4
+	@echo "CDL $4 -cdlh $5" 
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --cdlh $$@ $9 $2/$4
 
-$2/$4.xml : $1/$3
-	@echo "CDL $3 -xml $4" 
-	${Q}${CDL_BIN_DIR}/cdl ${CDL_FLAGS} --model $4 --xml $$@ $8 $1/$3
+$3/$5.xml : $2/$4
+	@echo "CDL $4 -xml $5" 
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --xml $$@ $9 $2/$4
 
-MODELS += $4
-VERILOG_FILES += ${2}/$7
-CDLH_FILES    += ${2}/$3.cdlh
-XML_FILES     += ${2}/$3.xml
+LIB__$1__MODELS += $5
 
 endef
 
 #f library_init_object_file
+#
+# The file created here goes in the lib<name>.a
+#
 define library_init_object_file
-# @param $1 output directory
-# @param $2 output filename in output directory
-# @param $3 library name
+# @param $1 library name
+# @param $2 output directory
+# @param $3 output filename in output directory
 
-$1/$2.cpp: ${LIB_MAKEFILE}
-	@echo "Creating library_init_object_file source"
-	${Q}echo "// Library $3 initialization source created by cdl" > $$@
-	${Q}for a in $${MODELS} ; do echo "extern void $$$${a}__init( void );" >> $$@ ; done
-	${Q}echo "extern void lib_$3_init(void) {" >> $$@
-	${Q}for a in $${MODELS} ; do echo "$$$${a}__init();" >> $$@ ; done
+$2/$3.cpp: $${LIB__$1__MAKEFILE}
+	@echo "Creating library $1 init source $$@"
+	${Q}echo "// Library $1 initialization source created by cdl" > $$@
+	${Q}for a in $${LIB__$1__MODELS} ; do echo "extern void $$$${a}__init( void );" >> $$@ ; done
+	${Q}echo "extern void lib_$1_init(void) {" >> $$@
+	${Q}for a in $${LIB__$1__MODELS} ; do echo "$$$${a}__init();" >> $$@ ; done
 	${Q}echo "};" >> $$@
 
-C_MODEL_OBJS  += $1/$2.o
-$1/$2.o: $1/$2.cpp
-	${Q}${CXX} ${CXXFLAGS} -c -o $$@ $$<
-
-endef
-
-#f init_object_file
-define init_object_file
-# @param $1 output directory
-# @param $2 output filename in output directory
-# @param $3 library name
-
-$1/$2.cpp: ${LIB_MAKEFILE}
-	@echo "Creating init_object_file source"
-	${Q}echo "// Object initialization source for library $3 created by cdl" > $$@
-	${Q}echo '#include <stdlib.h>' >> $$@
-	${Q}echo 'extern "C" void *PyInit_py_engine(void); extern void unused(void) {(void)PyInit_py_engine();}' >> $$@
-	${Q}echo "typedef void (*t_init_fn)(void);" >> $$@
-	${Q}echo "extern void lib_$3_init(void);" >> $$@
-	${Q}echo "t_init_fn model_init_fns[] = {lib_$3_init, NULL};" >> $$@
-
-C_MODEL_OBJS  += $1/$2.o
-$1/$2.o: $1/$2.cpp
+LIB__$1__C_MODEL_OBJS  += $2/$3.o
+$2/$3.o: $2/$3.cpp
+	@echo "Compile library init module $$@"
 	${Q}${CXX} ${CXXFLAGS} -c -o $$@ $$<
 
 endef
 
 #f cdl_library_template
 define cdl_library_template
-# @param $1 output directory
-# @param $2 library name
-library: $1/lib_$2.a
+# @param $1 library name
+# @param $2 output directory
+library: $2/lib_$1.a
 
-$1/lib_$2.a: ${C_MODEL_OBJS}
+lib_$1: $2/lib_$1.a
+
+$2/lib_$1.a: $${LIB__$1__C_MODEL_OBJS}
 	@echo "Link static $$@"
-	${Q}${LINK_STATIC} $$@ ${C_MODEL_OBJS}
+	${Q}${LINK_STATIC} $$@ $${LIB__$1__C_MODEL_OBJS}
+
+endef
+
+#f sim_add_cdl_library
+define sim_add_cdl_library
+# @param $1 build directory where library is built
+# @param $2 library name
+MODEL_LIBS += $1/lib_$2.a
+
+endef
+
+#f sim_init_object_file
+#
+# The file created here links with lib<name>.a and other libraries and an execution harness in libcdl_*.a
+#
+define sim_init_object_file
+# @param $1 output directory
+# @param $2 output filename in output directory
+# @param $3 library names
+
+$1/$2.cpp: ${BUILD_MAKEFILE}
+	@echo "Creating init object source $$@"
+	${Q}echo "// Object initialization source for library $3 created by cdl" > $$@
+	${Q}echo '#include <stdlib.h>' >> $$@
+	${Q}echo 'extern "C" void *PyInit_py_engine(void); extern void unused(void) {(void)PyInit_py_engine();}' >> $$@
+	${Q}echo "typedef void (*t_init_fn)(void);" >> $$@
+	${Q}for a in $3 ; do echo "extern void lib_$$$${a}_init(void);" >> $$@ ; done
+	${Q}echo "t_init_fn model_init_fns[] = {" >> $$@
+	${Q}for a in $3 ; do echo "lib_$$$${a}_init," >> $$@ ; done
+	${Q}echo "NULL};" >> $$@
+
+$1/$2.o: $1/$2.cpp
+	${Q}${CXX} ${CXXFLAGS} -c -o $$@ $$<
 
 endef
 
@@ -184,13 +178,12 @@ endef
 define command_line_sim
 # @param $1 output filename
 # @param $2 output directory
-# @param $3 libraries
-.PHONY: $4
+# @param $3 init object files
+.PHONY: sim
+sim: $1
 
-ALL: $1
-
-$1: $2/lib_$3.a
+$1: ${MODEL_LIBS} $3
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${CXX} -o $1 $2/lib_$3.a ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch
+	${Q}${CXX} -o $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch
 
 endef
