@@ -39,7 +39,7 @@ run-time toplevel instantiation.)
 """
 
 #a Classes used in library_desc.py files
-#c Module - base class for modules
+#c Module - base class for module classes
 class Module(object):
     """
     parent is a Modules subclass
@@ -48,6 +48,7 @@ class Module(object):
     src_dir = None
     include_dir = None
     parent = None
+    cpp_include_dirs = None
     inherit = ["src_dir", "include_dir"]
     def __init__(self, model_name, src_dir=None):
         self.model_name = model_name
@@ -55,7 +56,7 @@ class Module(object):
         pass
     def validate(self):
         for k in self.inherit:
-            if hasattr(self, k):
+            if hasattr(self, k) and hasattr(self.parent,k):
                 if getattr(self, k) is None:
                     setattr(self, k, getattr(self.parent,k))
                     pass
@@ -117,6 +118,7 @@ class CdlModule(Module):
     cdl_include_dirs = []
     constants = {}
     cdl_module_name = None
+    inherit = Module.inherit[:] + ["cdl_include_dirs"]
     def __init__(self, model_name,
                  cdl_filename = None,
                  cpp_filename = None,
@@ -173,9 +175,11 @@ class CdlModule(Module):
         if self.include_dir is not None:
             cdl_include_dir_option += "--include-dir "+self.parent.get_path_str(self.include_dir)+" "
             pass
+        if self.cdl_include_dirs is None: self.cdl_include_dirs=[]
         for i in self.cdl_include_dirs:
             cdl_include_dir_option += "--include-dir "+self.parent.get_path_str(i)+" "
             pass
+        if self.force_includes is None: self.force_includes=[]
         for i in self.force_includes:
             cdl_include_dir_option += "--force-include "+i+" "
             pass
@@ -196,8 +200,8 @@ class CdlModule(Module):
 
 #c CModel
 class CModel(Module):
-    cpp_include_dirs = []
     cpp_defines = {}
+    inherit = Module.inherit[:] + ["cpp_include_dirs"]
     def __init__(self, model_name,
                  cpp_filename = None,
                  obj_filename = None,
@@ -212,13 +216,14 @@ class CModel(Module):
         pass
     def write_makefile(self, write, library_name):
         """
-        Write a makefile line for a cdl_template invocation
+        Write a makefile line for a cpp_template invocation
         """
         r = "$(eval $(call cpp_template,"
         cpp_include_dir_option = ""
         if self.include_dir is not None:
             cpp_include_dir_option += "-I "+self.parent.get_path_str(self.include_dir)+" "
             pass
+        if self.cpp_include_dirs is None: self.cpp_include_dirs=[]
         for i in self.cpp_include_dirs:
             cpp_include_dir_option += "-I "+self.parent.get_path_str(i)+" "
             pass
@@ -261,16 +266,35 @@ class CLibrary(Module):
     pass
 
 
-#c Modules - subclassed in library_desc
-class Modules(object):
+#c BuildableGroup - parent class for Modules/Executables, which are subclassed in library_desc.py
+class BuildableGroup(object):
+    name = None
+    def __init__(self, get_path):
+        self.get_path = get_path
+        pass
+    @classmethod
+    def new_subclasses(cls):
+        l = []
+        for m in cls.__subclasses__():
+            if hasattr(m,"has_been_imported") and m.has_been_imported: continue
+            l.append(m)
+            m.has_been_imported = True
+            pass
+        return l
+    def get_path_str(self, subpath):
+        return str(self.get_path(subpath))
+    pass
+
+#c Modules - subclassed in library_desc.py files
+class Modules(BuildableGroup):
     name = None
     src_dir = None
     include_dir = None
     modules = []
     libraries = {}
     export_dirs = []
-    def __init__(self, get_path):
-        self.get_path = get_path
+    def __init__(self, **kwargs):
+        BuildableGroup.__init__(self, **kwargs)
         for m in self.modules:
             m.set_parent(self)
             pass
@@ -278,8 +302,6 @@ class Modules(object):
             m.validate()
             pass
         pass
-    def get_path_str(self, subpath):
-        return str(self.get_path(subpath))
     def makefile_write_entries(self, write, library_name):
         for m in self.modules:
             m.write_makefile(write, library_name)
@@ -287,21 +309,79 @@ class Modules(object):
         pass
     pass
 
+#c Executables - subclassed in library_desc.py files
+class Executables(BuildableGroup):
+    name = None
+    src_dir = None
+    include_dir = None
+    cpp_include_dirs = []
+    srcs = []
+    libraries = {}
+    def __init__(self, **kwargs):
+        BuildableGroup.__init__(self, **kwargs)
+        for m in self.srcs:
+            m.set_parent(self)
+            pass
+        for m in self.srcs:
+            m.validate()
+            pass
+        pass
+    def write_makefile_entry(self, write, library_name):
+        """
+        Write a makefile line for an executable_template invocation
+        """
+        r = "$(eval $(call executable_template,"
+        include_dir_option = ""
+        if self.include_dir is not None:
+            include_dir_option += "-I "+self.get_path_str(self.include_dir)+" "
+            pass
+        for i in self.cpp_include_dirs:
+            include_dir_option += "-I "+self.get_path_str(i)+" "
+            pass
+        obj_names = []
+        for s in self.srcs:
+            obj_names.append(s.obj_filename)
+            pass
+        lib_names = [library_name]
+        for s in self.libraries.keys():
+            lib_names.append(s)
+            pass
+        executable_template = [library_name,
+                               self.name,
+                               "${BUILD_ROOT}",
+                               "${BUILD_DIR}",
+                               " ".join(obj_names),
+                               " ".join(lib_names),
+                               ""
+                        ]
+        r += ",".join(executable_template)
+        r += "))"
+        write(r)
+        pass
+    def makefile_write_entries(self, write, library_name):
+        for m in self.srcs:
+            m.write_makefile(write, library_name)
+            pass
+        self.write_makefile_entry(write, library_name)
+        pass
+    pass
+
 #c Library class - subclassed in library_desc.py files
 class Library:
     def __init__(self, library_path):
         self.path = library_path
-        self.modules = []
-        for m in Modules.__subclasses__():
-            if hasattr(m,"has_been_imported") and m.has_been_imported: continue
-            self.modules.append(m)
-            m.has_been_imported = True
-            pass
+        self.modules = Modules.new_subclasses()
+        self.executables = Executables.new_subclasses()
         pass
     def get_name(self):
         return self.name
     def iter_modules(self):
         for m in self.modules:
+            yield m
+            pass
+        pass
+    def iter_executables(self):
+        for m in self.executables:
             yield m
             pass
         pass
@@ -375,6 +455,7 @@ class ImportedLibrary:
         self.name      = library_name
         self.library   = library
         self.module_instances = []
+        self.executable_instances = []
         self.find_dependencies()
         pass
     #f validate_library_module
@@ -392,6 +473,10 @@ class ImportedLibrary:
         for m in library.iter_modules():
             if type(m.name)!=str: raise BadLibraryDescription(library_name, "library_desc.py module name must be a string (but is %s)"%(str(type(m.name))))
             if type(m.libraries)!=dict: raise BadLibraryDescription(library_name, "library_desc.py module '%s' libraries must be a dict (but is %s)"%(m.name, str(type(m.libraries))))
+            pass
+        for e in library.iter_executables():
+            if type(e.name)!=str: raise BadLibraryDescription(library_name, "library_desc.py executable must be a string (but is %s)"%(str(type(e.name))))
+            if type(e.libraries)!=dict: raise BadLibraryDescription(library_name, "library_desc.py executable '%s' libraries must be a dict (but is %s)"%(e.name, str(type(e.libraries))))
             pass
         return (library, library_name, library_path)
     #f get_name
@@ -413,7 +498,7 @@ class ImportedLibrary:
     #f get_exported_paths
     def get_exported_paths(self, relative_to=None):
         e = set()
-        for m in self.iter_modules():
+        for m in self.library.iter_modules():
             for l in m.export_dirs:
                 e.add(l)
                 pass
@@ -428,17 +513,11 @@ class ImportedLibrary:
             exports.append(p)
             pass
         return exports
-    #f iter_modules
-    def iter_modules(self):
-        for m in self.library.iter_modules():
-            yield m
-            pass
-        pass
     #f find_dependencies
     def find_dependencies(self):
         self.required_library_names = []
         self.optional_library_names = []
-        for m in self.iter_modules():
+        for m in self.library.iter_modules():
             for (n,options) in m.libraries.items():
                 if options is True:
                     self.required_library_names.append(n)
@@ -452,9 +531,14 @@ class ImportedLibrary:
     def create_instances(self):
         if self.module_instances != []: return
         self.module_instances = []
-        for m in self.iter_modules():
+        for m in self.library.iter_modules():
             instance = m(get_path=self.get_path)
             self.module_instances.append(instance)
+            pass
+        self.executable_instances = []
+        for e in self.library.iter_executables():
+            instance = e(get_path=self.get_path)
+            self.executable_instances.append(instance)
             pass
         pass
     #f makefile_write_header
@@ -464,7 +548,7 @@ class ImportedLibrary:
         write("include ${CDL_ROOT}/lib/cdl/cdl_templates.mk")
         write("")
         write("BUILD_DIR=%s"%str(build_path))
-        write("LIB_MAKEFILE=${BUILD_DIR}/Makefile")
+        write("LIB__${LIB_NAME}__MAKEFILE=${BUILD_DIR}/Makefile")
         write("CDL_FLAGS += --library-desc=%s --source-root=%s"%(library_description_path,relative_to))
         write("")
         pass
@@ -482,6 +566,9 @@ class ImportedLibrary:
             self.makefile_write_header(write, build_path, library_description_path, relative_to)
             for m in self.module_instances:
                 m.makefile_write_entries(write, library_name)
+                pass
+            for e in self.executable_instances:
+                e.makefile_write_entries(write, library_name)
                 pass
             self.makefile_write_footer(write, library_name)
             pass

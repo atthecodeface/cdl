@@ -5,6 +5,7 @@ CDL_LIBEXEC_DIR ?= ${CDL_ROOT}/libexec/cdl
 CDL_INCLUDES    ?= -I${CDL_ROOT}/include/cdl
 Q?=@
 LINK_STATIC?=libtool -static -o
+LINK_AS_BIN  := ${CXX} -o
 
 # PYTHONLINKLIB          := ${CXX} -bundle -o
 # CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -lc++ -lc 
@@ -103,6 +104,28 @@ LIB__$1__MODELS += $5
 
 endef
 
+#f executable_template
+define executable_template
+# @param $1 library name
+# @param $2 executable name
+# @param $3 build directory
+# @param $4 library build directory
+# @param $5 object files within library build directory not in its lib_.a
+# @param $6 libraries required ($x/lib_$x.a)
+# @param $7 other link flags
+.PHONY: $1_$2
+$1_$2: $3/$1_$2
+
+all: $3/$1_$2
+
+BIN_OBJS__$1__$2 = $(foreach o,$5,$4/${o}.o)
+BIN_LIBS__$1__$2 = $(foreach l,$6,$3/$6/lib_${l}.a)
+
+$3/$1_$2: $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2}
+	@echo "Link binary exectable $$@"
+	${Q}${LINK_AS_BIN} $$@ $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2} ${LD_FLAGS}
+endef
+
 #f library_init_object_file
 #
 # The file created here goes in the lib<name>.a
@@ -181,6 +204,8 @@ define command_line_sim
 # @param $3 init object files
 .PHONY: sim
 sim: $1
+
+all: $1
 
 $1: ${MODEL_LIBS} $3
 	@echo "Building command line simulation ${CMDLINE_PROG}"
