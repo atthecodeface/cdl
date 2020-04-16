@@ -184,6 +184,6 @@ sim: $1
 
 $1: ${MODEL_LIBS} $3
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${CXX} -o $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch
+	${Q}${CXX} -o $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
 
 endef

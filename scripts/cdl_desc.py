@@ -194,13 +194,6 @@ class CdlModule(Module):
         write(r)
         pass
 
-#c CSrc
-class CSrc(Module):
-    """
-    Same as a C model except it has no 'model'...
-    """
-    pass
-
 #c CModel
 class CModel(Module):
     cpp_include_dirs = []
@@ -213,7 +206,7 @@ class CModel(Module):
                  **kwargs):
         Module.__init__(self, model_name, **kwargs)
         self.cpp_filename     = self.value_or_default(cpp_filename, model_name)
-        self.obj_filename     = self.value_or_default(obj_filename, model_name)
+        self.obj_filename     = self.value_or_default(obj_filename, self.cpp_filename)
         self.cpp_include_dirs = self.value_or_default(cpp_include_dirs, self.cpp_include_dirs)
         self.cpp_defines      = self.value_or_default(cpp_defines,      self.cpp_defines)
         pass
@@ -233,17 +226,30 @@ class CModel(Module):
         for (d,v) in self.cpp_defines.items():
             cpp_defines_option += "-D%s=%s"%(d,v)
             pass
+        model_name_to_use = self.model_name
+        if model_name_to_use is None: model_name_to_use="" # For C Source instead of CModel, really
         cpp_template = [library_name,
                         self.parent.get_path_str(self.src_dir),
                         "${BUILD_DIR}",
                         self.cpp_filename+".cpp",
-                        self.model_name,
+                        model_name_to_use,
                         self.obj_filename+".o",
                         cpp_include_dir_option+cpp_defines_option,
                         ]
         r += ",".join(cpp_template)
         r += "))"
         write(r)
+        pass
+    pass
+
+#c CSrc
+class CSrc(CModel):
+    """
+    Same as a C model except it has no 'model'...
+    """
+    def __init__(self, cpp_filename,
+                 **kwargs):
+        CModel.__init__(self, model_name=None, cpp_filename=cpp_filename, **kwargs)
         pass
     pass
 
