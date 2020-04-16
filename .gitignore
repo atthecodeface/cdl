@@ -15,3 +15,5 @@ regression/build/*
 *.cache*
 aclocal.m4
 Makefile_build_config
+regression/tests/memory/small_reversed_output.mif
+regression/tests/vector/fred.cov
