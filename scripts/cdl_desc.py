@@ -214,7 +214,7 @@ class CModel(Module):
         self.cpp_include_dirs = self.value_or_default(cpp_include_dirs, self.cpp_include_dirs)
         self.cpp_defines      = self.value_or_default(cpp_defines,      self.cpp_defines)
         pass
-    def write_makefile(self, write, library_name):
+    def write_makefile(self, write, library_name, executable=None):
         """
         Write a makefile line for a cpp_template invocation
         """
@@ -233,6 +233,8 @@ class CModel(Module):
             pass
         model_name_to_use = self.model_name
         if model_name_to_use is None: model_name_to_use="" # For C Source instead of CModel, really
+        make_variable_to_use = executable
+        if executable is None: make_variable_to_use="" # Add it to the library
         cpp_template = [library_name,
                         self.parent.get_path_str(self.src_dir),
                         "${BUILD_DIR}",
@@ -240,6 +242,7 @@ class CModel(Module):
                         model_name_to_use,
                         self.obj_filename+".o",
                         cpp_include_dir_option+cpp_defines_option,
+                        make_variable_to_use
                         ]
         r += ",".join(cpp_template)
         r += "))"
@@ -360,7 +363,7 @@ class Executables(BuildableGroup):
         pass
     def makefile_write_entries(self, write, library_name):
         for m in self.srcs:
-            m.write_makefile(write, library_name)
+            m.write_makefile(write, library_name, executable=self.name)
             pass
         self.write_makefile_entry(write, library_name)
         pass

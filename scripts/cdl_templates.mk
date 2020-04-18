@@ -4,13 +4,8 @@ CDL_BIN_DIR     ?= ${CDL_ROOT}/bin
 CDL_LIBEXEC_DIR ?= ${CDL_ROOT}/libexec/cdl
 CDL_INCLUDES    ?= -I${CDL_ROOT}/include/cdl
 Q?=@
-LINK_STATIC?=libtool -static -o
-LINK_AS_BIN  := ${CXX} -o
 
-# PYTHONLINKLIB          := ${CXX} -bundle -o
-# CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -lc++ -lc 
-# CFLAGS   += -I${CDL_INCLUDE_DIR}
-# CXXFLAGS += -I${CDL_INCLUDE_DIR}
+-include ${CDL_SCRIPTS_DIR}/Makefile_cdl_template_config
 
 #a Templates
 #v Notes
@@ -47,15 +42,14 @@ define cpp_template
 # @param $5 model name ("" if not a model)
 # @param $6 object filename to go in output dir [model name .o]
 # @param $7 C flags
+# @param $8 Destination make variable to add object file to
 
-LIB__$1__C_MODEL_OBJS  += $3/$6
+$(if $8,BIN__$8__OBJS,LIB__$1__C_MODEL_OBJS) += $3/$6
+LIB__$1__MODELS += $5
 $3/$6 : $2/$4
 	@echo "CC $4 -o $6" 
-	$(Q)$(CXX) $(CXXFLAGS) ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
+	${Q}${CXX} ${CXXFLAGS} ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
 
-ifneq ($5,)
-    LIB__$1__MODELS += $5
-endif
 
 endef
 
@@ -73,8 +67,6 @@ define cdl_template
 .PHONY: $5
 $5: $3/$6 $3/$7 $3/$8  $3/$5.cdlh  $3/$5.xml
 
-ifneq (${6},)
-
 $3/$6 : $2/$4
 	@echo "CDL $4 -cpp $6" 
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --dependencies-target $$@ --dependencies $3/$6.dep --dependencies-relative $(dir $2/$4) --cpp $$@  $9 $2/$4
@@ -85,8 +77,6 @@ LIB__$1__C_MODEL_OBJS  += $3/$7
 $3/$7 : $3/$6
 	@echo "CC $6 -o $7" 
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
-
-endif
 
 $3/$8 : $2/$4
 	@echo "CDL $4 -v $8" 
@@ -123,7 +113,7 @@ BIN_LIBS__$1__$2 = $(foreach l,$6,$3/$6/lib_${l}.a)
 
 $3/$1_$2: $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2}
 	@echo "Link binary exectable $$@"
-	${Q}${LINK_AS_BIN} $$@ $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2} ${LD_FLAGS}
+	${Q}${MAKE_STATIC_BINARY} $$@ $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2} ${LD_FLAGS}
 endef
 
 #f library_init_object_file
@@ -159,8 +149,8 @@ library: $2/lib_$1.a
 lib_$1: $2/lib_$1.a
 
 $2/lib_$1.a: $${LIB__$1__C_MODEL_OBJS}
-	@echo "Link static $$@"
-	${Q}${LINK_STATIC} $$@ $${LIB__$1__C_MODEL_OBJS}
+	@echo "Link static library $$@"
+	${Q}${MAKE_STATIC_LIBRARY} $$@ $${LIB__$1__C_MODEL_OBJS}
 
 endef
 
@@ -209,6 +199,6 @@ all: $1
 
 $1: ${MODEL_LIBS} $3
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${CXX} -o $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
+	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
 
 endef
