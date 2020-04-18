@@ -257,6 +257,7 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
 
     output( handle, 0, "/*a Defines\n");
     output( handle, 0, " */\n");
+    output( handle, 0, "#define all_signals_offsetof(m,a) offsetof(t_ ## m ## _all_signals,a)\n");
     output( handle, 0, "#define struct_resolve( t, ptr, a ) ((t)(((char *)(ptr))+(a)))\n");
     output( handle, 0, "#define DEBUG_PROBE_CYCLE_284 {if (engine->cycle()==284) {WHERE_I_AM_VERBOSE_ENGINE;}}\n");
     output( handle, 0, "#define DEBUG_PROBE {}\n");
@@ -558,6 +559,27 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
         output( handle, 0, "\n");
     }
 
+    /*b Output all signals struct for the module
+     */ 
+    output( handle, 0, "typedef struct t_%s_all_signals {;\n", module->output_name );
+    output( handle, 1, "t_%s_inputs inputs;\n", module->output_name );
+    output( handle, 1, "t_%s_input_state input_state;\n", module->output_name );
+    output( handle, 1, "t_%s_combinatorials combinatorials;\n", module->output_name);
+    output( handle, 1, "t_%s_nets nets;\n", module->output_name);
+    for (clk=module->clocks; clk; clk=clk->next_in_list) {
+        for (edge=0; edge<2; edge++) {
+            if (clk->data.clock.edges_used[edge]) {
+                output( handle, 1, "t_%s_%s_%s_state next_%s_%s_state;\n", module->output_name, edge_name[edge], clk->name, edge_name[edge], clk->name );
+                output( handle, 1, "t_%s_%s_%s_state %s_%s_state;\n", module->output_name, edge_name[edge], clk->name, edge_name[edge], clk->name );
+            }
+        }
+    }
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        output( handle, 1, "t_%s_instance__%s instance_%s;\n", module->output_name, module_instance->name, module_instance->name );
+    }
+    output( handle, 0, "} t_%s_all_signals;\n", module->output_name );
+
     /*b Output C++ class for the module
      */ 
     output( handle, 0, "/*t c_%s\n", module->output_name );
@@ -640,14 +662,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
         }
     }
 
-    output( handle, 1, "t_%s_inputs inputs;\n", module->output_name );
-    output( handle, 1, "t_%s_input_state input_state;\n", module->output_name );
-    output( handle, 1, "t_%s_combinatorials combinatorials;\n", module->output_name);
-    output( handle, 1, "t_%s_nets nets;\n", module->output_name);
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        output( handle, 1, "t_%s_instance__%s instance_%s;\n", module->output_name, module_instance->name, module_instance->name );
-    }
+    output( handle, 1, "t_%s_all_signals all_signals;\n", module->output_name );
     if (include_coverage)
     {
         output( handle, 1, "t_%s_code_coverage code_coverage;\n", module->output_name);
@@ -660,17 +675,6 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     {
         output( handle, 1, "struct t_engine_log_event_array *log_event_array;\n");
         output( handle, 1, "t_se_signal_value *log_signal_data;\n");
-    }
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        for (edge=0; edge<2; edge++)
-        {
-            if (clk->data.clock.edges_used[edge])
-            {
-                output( handle, 1, "t_%s_%s_%s_state next_%s_%s_state;\n", module->output_name, edge_name[edge], clk->name, edge_name[edge], clk->name );
-                output( handle, 1, "t_%s_%s_%s_state %s_%s_state;\n", module->output_name, edge_name[edge], clk->name, edge_name[edge], clk->name );
-            }
-        }
     }
     output( handle, 0, "};\n");
     output( handle, 0, "\n");
@@ -712,7 +716,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 instance->output_args[0] = signal_number;
                 signal_number++;
                 if (instance->type != md_type_instance_type_bit_vector) { fprintf(stderr,"BUG - port is an array, and cannot output that\n"); }
-                output( handle, 1, "{\"%s\",offsetof(c_%s, inputs.%s),offsetof(c_%s, input_state.%s),%d,%d},\n",
+                output( handle, 1, "{\"%s\",all_signals_offsetof(%s,inputs.%s),all_signals_offsetof(%s,input_state.%s),%d,%d},\n",
                         instance->output_name,
                         module->output_name, instance->output_name,
                         module->output_name, instance->output_name,
@@ -746,7 +750,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 }
                 else
                 {
-                    output( handle, 1, "{\"%s\",offsetof(t_%s_nets, %s),%d,0},\n",
+                    output( handle, 1, "{\"%s\",all_signals_offsetof(%s, nets.%s),%d,0},\n",
                             instance->output_name,
                             module->output_name, instance->output_name,
                             instance->type_def.data.width );
@@ -771,10 +775,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             t_md_module_instance_output_port *output_port;
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
-                output( handle, 1, "{ \"%s\", NULL, offsetof(c_%s, instance_%s.inputs.%s ), -1, %d, 1, %d },\n",
+                output( handle, 1, "{ \"%s\", NULL, all_signals_offsetof(%s, instance_%s.inputs.%s ), -1, %d, 1, %d },\n",
                         input_port->module_port_instance->output_name,
-                        module->output_name,
-                        module_instance->name, input_port->module_port_instance->output_name,
+                        module->output_name, module_instance->name,
+                        input_port->module_port_instance->output_name,
                         input_port->module_port_instance->type_def.data.width,
                         input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially );
             }
@@ -796,21 +800,22 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 }
                 else if (output_port->lvar->instance->array_driven_in_parts)
                 {
-                    snprintf( driven_net, sizeof(driven_net), "offsetof(c_%s, nets.%s[%lld] )",
+                    snprintf( driven_net, sizeof(driven_net), "all_signals_offsetof(%s, nets.%s[%lld] )",
                               module->output_name, 
                               output_port->lvar->instance->output_name,
                               output_port->lvar->index.data.integer );
                 }
                 else
                 {
-                    snprintf( driven_net, sizeof(driven_net), "offsetof(c_%s, nets.%s )",
+                    snprintf( driven_net, sizeof(driven_net), "all_signals_offsetof(%s, nets.%s )",
                               module->output_name, 
                               output_port->lvar->instance->output_name );
                 }
-                output( handle, 1, "{ \"%s\", %s, offsetof(c_%s, instance_%s.outputs.%s ), %s, %d, 0, %d },\n",
+                output( handle, 1, "{ \"%s\", %s, all_signals_offsetof(%s, instance_%s.outputs.%s), %s, %d, 0, %d },\n",
                         output_port->module_port_instance->output_name,
                         output_port_name,
-                        module->output_name, module_instance->name, output_port->module_port_instance->output_name,
+                        module->output_name, module_instance->name,
+                        output_port->module_port_instance->output_name,
                         driven_net,
                         output_port->module_port_instance->type_def.data.width,
                         output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
@@ -840,7 +845,11 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     instance = reg->instance_iter->children[i];
                     instance->output_args[0] = signal_number;
                     signal_number++;
-                    output( handle, 1, "{\"%s\", offsetof(c_%s, %s_%s_state.%s), %d, %d },\n", instance->output_name, module->output_name, edge_name[reg->edge], reg->clock_ref->name, instance->output_name, instance->type_def.data.width, 0);
+                    output( handle, 1, "{\"%s\", all_signals_offsetof(%s, %s_%s_state.%s), %d, %d },\n",
+                                        instance->output_name,
+                                        module->output_name, edge_name[reg->edge], reg->clock_ref->name, instance->output_name,
+                                        instance->type_def.data.width,
+                                        0);
                 }
             }
             if (signal->data.output.combinatorial_ref)
@@ -850,7 +859,11 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                     instance->output_args[0] = signal_number;
                     signal_number++;
-                    output( handle, 1, "{\"%s\", offsetof(c_%s, combinatorials.%s), %d, %d },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially);
+                    output( handle, 1, "{\"%s\", all_signals_offsetof(%s, combinatorials.%s), %d, %d },\n",
+                                                instance->output_name,
+                                                module->output_name, instance->output_name,
+                                                instance->type_def.data.width,
+                                                signal->data.output.derived_combinatorially);
                 }
             }
             if (signal->data.output.net_ref)
@@ -860,7 +873,9 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     instance = signal->data.output.net_ref->instance_iter->children[i];
                     instance->output_args[0] = signal_number;
                     signal_number++;
-                    output( handle, 1, "{\"%s\", -1, %d, %d },\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially); // -1 as it will be tied to a submodule output
+                    output( handle, 1, "{\"%s\", -1, %d, %d },\n",
+                                        instance->output_name,
+                                        instance->type_def.data.width, signal->data.output.derived_combinatorially); // -1 as it will be tied to a submodule output
                 }
             }
         }
@@ -1125,10 +1140,16 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                         switch (instance->type)
                         {
                         case md_type_instance_type_bit_vector:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_nets, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, all_signals_offsetof(%s, nets.%s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n",
+                                                        instance->output_name,
+                                                        module->output_name, instance->output_name,
+                                                        instance->type_def.data.width );
                             break;
                         case md_type_instance_type_array_of_bit_vectors:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_nets, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, all_signals_offsetof(%s, nets.%s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n",
+                                                        instance->output_name,
+                                                        module->output_name, instance->output_name,
+                                                        instance->type_def.data.width, instance->size );
                             break;
                         default:
                             output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1157,10 +1178,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                         switch (instance->type)
                         {
                         case md_type_instance_type_bit_vector:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_nets, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, all_signals_offsetof(%s, nets.%s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
                             break;
                         case md_type_instance_type_array_of_bit_vectors:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_nets, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, all_signals_offsetof(%s, nets.%s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
                             break;
                         default:
                             output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1191,10 +1212,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 switch (instance->type)
                 {
                 case md_type_instance_type_bit_vector:
-                    output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_combinatorials, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                    output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, all_signals_offsetof(%s, combinatorials.%s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
                     break;
                 case md_type_instance_type_array_of_bit_vectors:
-                    output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_combinatorials, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                    output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, all_signals_offsetof(%s, combinatorials.%s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
                     break;
                 default:
                     output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1235,10 +1256,16 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                             switch (instance->type)
                             {
                             case md_type_instance_type_bit_vector:
-                                output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_%s_%s_state, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width );
+                                output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, all_signals_offsetof(%s,%s_%s_state.%s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n",
+                                instance->output_name,
+                                module->output_name, edge_name[edge], clk->name, instance->output_name,
+                                instance->type_def.data.width );
                                 break;
                             case md_type_instance_type_array_of_bit_vectors:
-                                output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_%s_%s_state, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width, instance->size );
+                                output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, all_signals_offsetof(%s, %s_%s_state.%s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n",
+                                instance->output_name,
+                                module->output_name, edge_name[edge], clk->name, instance->output_name,
+                                instance->type_def.data.width, instance->size );
                                 break;
                             default:
                                 output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1410,22 +1437,19 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
      */
     if (1)
     {
-        output( handle, 1, "memset(&inputs, 0, sizeof(inputs));\n" ); 
-        output( handle, 1, "memset(&input_state, 0, sizeof(input_state));\n" ); 
-        output( handle, 1, "memset(&combinatorials, 0, sizeof(combinatorials));\n" ); 
-        output( handle, 1, "memset(&nets, 0, sizeof(nets));\n" ); 
+        output( handle, 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
+        //output( handle, 1, "memset(&all_signals.input_state,    0, sizeof(all_signals.input_state));\n" ); 
+        //output( handle, 1, "memset(&all_signals.combinatorials, 0, sizeof(all_signals.combinatorials));\n" ); 
+        //output( handle, 1, "memset(&all_signals.nets,           0, sizeof(all_signals.nets));\n" ); 
+        //for (clk=module->clocks; clk; clk=clk->next_in_list) {
+        //    for (edge=0; edge<2; edge++) {
+        //        if (clk->data.clock.edges_used[edge]) {
+        //            output( handle, 1, "memset(&all_signals.%s_%s_state,       0, sizeof(all_signals.%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
+        //            output( handle, 1, "memset(&all_signals.next_%s_%s_state,  0, sizeof(all_signals.%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
+        //         }
+        //    }
+        //}
         output( handle, 1, "propagating_in_reset=0;\n" ); 
-        for (clk=module->clocks; clk; clk=clk->next_in_list)
-        {
-            for (edge=0; edge<2; edge++)
-            {
-                if (clk->data.clock.edges_used[edge])
-                {
-                    output( handle, 1, "memset(&next_%s_%s_state, 0, sizeof(next_%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
-                    output( handle, 1, "memset(&%s_%s_state, 0, sizeof(%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
-                }
-            }
-        }
         output( handle, 0, "\n");
     }
 
@@ -1476,7 +1500,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
 
     /*b Register inputs and outputs and clocks they depend on
      */
-    output( handle, 1, "se_cmodel_assist_module_declaration( engine, engine_handle, (void *)this, &module_desc_%s );\n", module->output_name);
+    output( handle, 1, "se_cmodel_assist_module_declaration( engine, engine_handle, (void *)&(all_signals), &module_desc_%s );\n", module->output_name);
 
     /*b Instantiate submodules and get their handles
      */
@@ -1485,10 +1509,10 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
         if (module_instance->module_definition)
         {
             output( handle, 1, "engine->instantiate( engine_handle, \"%s\", \"%s\", NULL );\n", module_instance->output_type, module_instance->name );
-            output( handle, 1, "instance_%s.handle = engine->submodule_get_handle( engine_handle, \"%s\" );\n", module_instance->name, module_instance->name);
+            output( handle, 1, "all_signals.instance_%s.handle = engine->submodule_get_handle( engine_handle, \"%s\" );\n", module_instance->name, module_instance->name);
             for (clk=module_instance->module_definition->clocks; clk; clk=clk->next_in_list)
             {
-                output( handle, 1, "instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
+                output( handle, 1, "all_signals.instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( all_signals.instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
             }
         }
     }
@@ -1519,10 +1543,10 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                                     worklist_item = output_markers_value( clock_port, -1 );
                                     if (output_markers_value(module_instance,om_valid_mask)!=om_valid)
                                     {
-                                        output( handle, 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, instance_%s.handle );\n", worklist_item, module_instance->name );
+                                        output( handle, 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, all_signals.instance_%s.handle );\n", worklist_item, module_instance->name );
                                         output_markers_mask(module_instance,om_valid,0);
                                     }
-                                    output( handle, 1, "engine->submodule_set_clock_worklist_clock( engine_handle, instance_%s.handle, %d, instance_%s.%s__clock_handle, %d );\n", // Do not use a gate for the enable, as the parent will enable it
+                                    output( handle, 1, "engine->submodule_set_clock_worklist_clock( engine_handle, all_signals.instance_%s.handle, %d, all_signals.instance_%s.%s__clock_handle, %d );\n", // Do not use a gate for the enable, as the parent will enable it
                                             module_instance->name,
                                             worklist_item,
                                             module_instance->name, clock_port->port_name, edge==md_edge_pos );
@@ -1542,7 +1566,11 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     {
         if (module_instance->module_definition)
         {
-            output( handle, 1, "se_cmodel_assist_instantiation_wire_ports( engine, engine_handle, (void *)this, \"%s\", \"%s\", instance_%s.handle, instantiation_desc_%s_%s );\n" , module->output_name, module_instance->name, module_instance->name, module->output_name, module_instance->name );
+            output( handle, 1, "se_cmodel_assist_instantiation_wire_ports( engine, engine_handle, (void *)&all_signals, \"%s\", \"%s\", all_signals.instance_%s.handle, instantiation_desc_%s_%s );\n" ,
+            module->output_name,
+            module_instance->name,
+            module_instance->name,
+            module->output_name, module_instance->name );
         }
     }
     output( handle, 0, "\n");
@@ -1570,16 +1598,16 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
         }
         if (has_direct)
         {
-            output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_direct_nets, &nets, NULL );\n", module->output_name );
+            output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_direct_nets, &all_signals, NULL );\n", module->output_name );
         }
         if (has_indirect)
         {
-            output( handle, 1, "engine->register_state_desc( engine_handle, 3, state_desc_%s_indirect_nets, &nets, NULL );\n", module->output_name );
+            output( handle, 1, "engine->register_state_desc( engine_handle, 3, state_desc_%s_indirect_nets, &all_signals, NULL );\n", module->output_name );
         }
     }
     if (module->combinatorials)
     {
-        output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_combs, &combinatorials, NULL );\n", module->output_name );
+        output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_combs, &all_signals, NULL );\n", module->output_name );
     }
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
@@ -1591,7 +1619,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 {
                     if ( (reg->clock_ref==clk) && (reg->edge==edge) )
                     {
-                        output( handle, 1, "engine->register_state_desc( engine_handle, 5, state_desc_%s_%s_%s, &%s_%s_state, NULL );\n", module->output_name, edge_name[edge], clk->name, edge_name[edge], clk->name );
+                        output( handle, 1, "engine->register_state_desc( engine_handle, 5, state_desc_%s_%s_%s, &all_signals, NULL );\n", module->output_name, edge_name[edge], clk->name );
                         break;
                     }
                 }
@@ -1658,13 +1686,10 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
     {
         t_md_state *state;
         state = lvar->instance_data.state;
-        if (in_expression)
-        {
-            output( handle, -1, "%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
-        }
-        else
-        {
-            output( handle, -1, "next_%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
+        if (in_expression) {
+            output( handle, -1, "all_signals.%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
+        } else {
+            output( handle, -1, "all_signals.next_%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
         }
     }
     else
@@ -1674,25 +1699,21 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
         switch (signal->type)
         {
         case md_signal_type_input:
-            output( handle, -1, "input_state.%s", lvar->instance->output_name );
+            output( handle, -1, "all_signals.input_state.%s", lvar->instance->output_name );
             break;
         case md_signal_type_output:
-            if (signal->data.output.combinatorial_ref)
-            {
-                output( handle, -1, "combinatorials.%s", lvar->instance->output_name );
-            }
-            else
-            {
+            if (signal->data.output.combinatorial_ref) {
+                output( handle, -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
+            } else {
                 output( handle, -1, "<unresolved output %s>", signal->name );
             }
             break;
         case md_signal_type_combinatorial:
-            output( handle, -1, "combinatorials.%s", lvar->instance->output_name );
+            output( handle, -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
             break;
         case md_signal_type_net:
-            output( handle, -1, "nets.%s", lvar->instance->output_name );
-            if (!lvar->instance->vector_driven_in_parts)
-            {
+            output( handle, -1, "all_signals.nets.%s", lvar->instance->output_name );
+            if (!lvar->instance->vector_driven_in_parts) {
                 indirect = 1;
             }
             break;
@@ -1701,8 +1722,7 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
             break;
         }
     }
-    if (lvar->index.type != md_lvar_data_type_none)
-    {
+    if (lvar->index.type != md_lvar_data_type_none) {
         output( handle, -1, "[" );
         switch (lvar->index.type)
         {
@@ -1717,31 +1737,23 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
         }
         output( handle, -1, "]" );
     }
-    if (indirect)
-    {
+    if (indirect) {
         output( handle, -1, "[0]" );
     }
-    if ((in_expression) && (lvar->subscript_start.type != md_lvar_data_type_none))
-    {
-        if (lvar->subscript_start.type == md_lvar_data_type_integer)
-        {
+    if ((in_expression) && (lvar->subscript_start.type != md_lvar_data_type_none)) {
+        if (lvar->subscript_start.type == md_lvar_data_type_integer) {
             output( handle, -1, ">>%d)", lvar->subscript_start.data.integer );
-        }
-        else if (lvar->subscript_start.type == md_lvar_data_type_expression)
-        {
+        } else if (lvar->subscript_start.type == md_lvar_data_type_expression) {
             output( handle, -1, ">>(" );
             output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, main_indent, sub_indent+1 );
             output( handle, -1, "))" );
         }
-        if (lvar->subscript_length.type != md_lvar_data_type_none)
-        {
+        if (lvar->subscript_length.type != md_lvar_data_type_none) {
             output( handle, -1, "&%s/*%d*/)", bit_mask[lvar->subscript_length.data.integer],lvar->subscript_length.data.integer );
             if (lvar->subscript_length.data.integer==0) {
                 fprintf(stderr, "Bug\n");
             }
-        }
-        else
-        {
+        } else {
             output( handle, -1, "&1)" );
         }
     }
@@ -2026,7 +2038,7 @@ static void output_simulation_methods_port_net_assignment( c_model_descriptor *m
             case md_lvar_data_type_none:
                 output( handle, indent+1, "" );
                 output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                output( handle, -1, " = instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
+                output( handle, -1, " = all_signals.instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
                 break;
             case md_lvar_data_type_integer:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
@@ -2041,7 +2053,7 @@ static void output_simulation_methods_port_net_assignment( c_model_descriptor *m
                     output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
                     output( handle, -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
-                output( handle, -1, "instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
+                output( handle, -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
                 output( handle, -1, ");\n" );
                 break;
             case md_lvar_data_type_expression:
@@ -2061,7 +2073,7 @@ static void output_simulation_methods_port_net_assignment( c_model_descriptor *m
                     output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
                     output( handle, -1, ", %d,", lvar->subscript_length.data.integer );
                 }
-                output( handle, -1, "instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
+                output( handle, -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
                 output( handle, -1, ");\n" );
                 break;
             }
@@ -2657,11 +2669,11 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
                 // if (input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
-                output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+                output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
                 output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
                 output( handle, -1, ";\n" );
             }
-            output( handle, 1, "engine->submodule_call_comb( instance_%s.handle );\n", module_instance->name );
+            output( handle, 1, "engine->submodule_call_comb( all_signals.instance_%s.handle );\n", module_instance->name );
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
                 if (output_port->lvar->instance->vector_driven_in_parts)
@@ -2822,11 +2834,11 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 1, "{\n" );
     if (module->inputs)
     {
-        output( handle, 2, "se_cmodel_assist_check_unconnected_inputs( engine, engine_handle, (void *)this, input_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
+        output( handle, 2, "se_cmodel_assist_check_unconnected_inputs( engine, engine_handle, (void *)&all_signals, input_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
     if (module->nets)
     {
-        output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&nets, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
+        output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&all_signals, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
     output( handle, 1, "}\n" );
     for (signal=module->inputs; signal; signal=signal->next_in_list)
@@ -2842,7 +2854,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
     {
-        output( handle, 1, "engine->submodule_call_reset( instance_%s.handle, pass );\n", module_instance->name );
+        output( handle, 1, "engine->submodule_call_reset( all_signals.instance_%s.handle, pass );\n", module_instance->name );
         if (module_instance->module_definition)
         {
             t_md_module_instance_output_port *output_port;
@@ -2901,11 +2913,11 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                                     }
                                                     if (array_size>1)
                                                     {
-                                                        output( handle, 1, "%s_%s_state.%s[%d]", edge_name[reg->edge], reg->clock_ref->name, instance->output_name, j );
+                                                        output( handle, 1, "all_signals.%s_%s_state.%s[%d]", edge_name[reg->edge], reg->clock_ref->name, instance->output_name, j );
                                                     }
                                                     else
                                                     {
-                                                        output( handle, 1, "%s_%s_state.%s", edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
+                                                        output( handle, 1, "all_signals.%s_%s_state.%s", edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
                                                     }
                                                     if (ptr->reset_value.subscript_start>=0)
                                                     {
@@ -2948,8 +2960,8 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     {
         output( handle, 1, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
         output( handle, 1, "{\n");
-        output( handle, 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, this, input_desc_%s[i].driver_ofs );\n", module->output_name);
-        output( handle, 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, this, input_desc_%s[i].input_state_ofs );\n", module->output_name);
+        output( handle, 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, &all_signals, input_desc_%s[i].driver_ofs );\n", module->output_name);
+        output( handle, 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, &all_signals, input_desc_%s[i].input_state_ofs );\n", module->output_name);
         output( handle, 2, "if (input_desc_%s[i].width<64)\n", module->output_name);
         output( handle, 3, "input_state_ptr[0] = (*(input_ptr[0])) & ((1LL<<input_desc_%s[i].width)-1);\n", module->output_name);
         output( handle, 2, "else\n");
@@ -2980,7 +2992,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
             if (signal->data.input.levels_used_for_reset[level])
             {
                 // Note that if propagating_in_reset is set then inputs are NOT valid
-                output( handle, 1, "if (!propagating_in_reset && (inputs.%s[0]==%d))\n", signal->name, level );
+                output( handle, 1, "if (!propagating_in_reset && (all_signals.inputs.%s[0]==%d))\n", signal->name, level );
                 output( handle, 1, "{\n");
                 output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                 output( handle, 1, "}\n");
@@ -3010,7 +3022,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
          */
         for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
         {
-            output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+            output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
             output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
             output( handle, -1, ";\n" );
         }
@@ -3023,7 +3035,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
      */
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
     {
-        output( handle, 1, "engine->submodule_call_propagate( instance_%s.handle );\n", module_instance->name );
+        output( handle, 1, "engine->submodule_call_propagate( all_signals.instance_%s.handle );\n", module_instance->name );
     }
 
     /*b   Finish
@@ -3058,7 +3070,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         {
             if (signal->data.input.levels_used_for_reset[level])
             {
-                output( handle, 1, "if (inputs.%s[0]==%d)\n", signal->name, level );
+                output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
                 output( handle, 1, "{\n");
                 output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                 output( handle, 1, "}\n");
@@ -3089,7 +3101,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
          */
         for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
         {
-            output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+            output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
             output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
             output( handle, -1, ";\n" );
         }
@@ -3121,7 +3133,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         {
             if (signal->data.input.levels_used_for_reset[level])
             {
-                output( handle, 1, "if (inputs.%s[0]==%d)\n", signal->name, level );
+                output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
                 output( handle, 1, "{\n");
                 output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                 output( handle, 1, "}\n");
@@ -3189,7 +3201,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 output( handle, 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
                 output( handle, 0, "{\n");
                 output( handle, 1, "DEBUG_PROBE;\n");
-                output( handle, 1, "memcpy( &%s_%s_state, &next_%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
+                output( handle, 1, "memcpy( &all_signals.%s_%s_state, &all_signals.next_%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
 
                 /*b   Handle asynchronous reset
                  */
@@ -3199,7 +3211,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                     {
                         if (signal->data.input.levels_used_for_reset[level])
                         {
-                            output( handle, 1, "if (inputs.%s[0]==%d)\n", signal->name, level );
+                            output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
                             output( handle, 1, "{\n");
                             output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                             output( handle, 1, "}\n");
@@ -3219,7 +3231,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                             {
                                 if (module->number_submodule_clock_calls==0)
                                 {
-                                    output( handle, 1, "engine->submodule_call_clock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
+                                    output( handle, 1, "engine->submodule_call_clock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
                             }
                         }
@@ -3272,7 +3284,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 output( handle, 0, "t_sl_error_level c_%s::preclock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
                 output( handle, 0, "{\n");
                 output( handle, 1, "DEBUG_PROBE;\n");
-                output( handle, 1, "memcpy( &next_%s_%s_state, &%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
+                output( handle, 1, "memcpy( &all_signals.next_%s_%s_state, &all_signals.%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
 
                 /*b   Output code for this clock for this module - effects next state only
                  */
@@ -3293,7 +3305,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                             {
                                 if (module->number_submodule_clock_calls==0)
                                 {
-                                    output( handle, 1, "engine->submodule_call_preclock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
+                                    output( handle, 1, "engine->submodule_call_preclock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
                                 else
                                 {
@@ -3319,7 +3331,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                 output( handle, 1, "clock_enable__%s_%s = ", edge_name[edge], clk2->name );
                                 if (clk2->data.clock.gate_state)
                                 {
-                                    output( handle, -1, "(%s_%s_state.%s==%d);\n",
+                                    output( handle, -1, "(all_signals.%s_%s_state.%s==%d);\n",
                                             edge_name[clk2->data.clock.gate_state->edge], clk2->data.clock.gate_state->clock_ref->name, clk2->data.clock.gate_state->name,
                                             clk2->data.clock.gate_level );
                                 }
@@ -3329,20 +3341,20 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                     switch (signal->type)
                                     {
                                     case md_signal_type_input:
-                                        output( handle, -1, "(input_state.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                        output( handle, -1, "(all_signals.input_state.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_output:
                                         if (signal->data.output.combinatorial_ref)
-                                            output( handle, -1, "(combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( handle, -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_combinatorial:
-                                        output( handle, -1, "(combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                        output( handle, -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_net:
                                         if (signal->instance->vector_driven_in_parts)
-                                            output( handle, -1, "(nets.%s[0]==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( handle, -1, "(all_signals.nets.%s[0]==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         else
-                                            output( handle, -1, "(nets.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( handle, -1, "(all_signals.nets.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     default: // clock and possibly others
                                         break;
@@ -3453,7 +3465,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 if ( module_instance->module_definition &&
                      module_instance->module_definition->clocks)
                 {
-                    output( handle, 1, "engine->submodule_call_prepreclock( instance_%s.handle );\n", module_instance->name );
+                    output( handle, 1, "engine->submodule_call_prepreclock( all_signals.instance_%s.handle );\n", module_instance->name );
                 }
             }
         }

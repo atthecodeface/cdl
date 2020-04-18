@@ -643,11 +643,11 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
      */
     switch (expr->type)
     {
-    case md_expr_type_value:
-        // Jason wants:
-        // output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0] & ((~0ULL) >> (64 - expr->data.value.value.width))); 
-        output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0] ); 
+    case md_expr_type_value: {
+        t_sl_uint64 mask = ((1ULL)<<expr->data.value.value.width)-1;
+        output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0]&mask ); 
         break;
+    }
     case md_expr_type_lvar:
         output_module_rtl_architecture_lvar( model, output, handle , code_block, expr->data.lvar, -1, sub_indent, rtl_lvar_out_ignore_none, id );
         break;
