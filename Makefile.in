@@ -55,6 +55,7 @@ reconfigure: configure.ac
 clean:
 	rm -rf ${CDL_BUILD_INCLUDE_DIR}/*
 	rm -rf ${CDL_BUILD_LIB_DIR}/*
+	rm -rf ${CDL_BUILD_OBJ_DIR}/*__library_dir*
 	rm -f ${CDL_BUILD_OBJ_DIR}/*
 	rm -f ${CDL_BUILD_BIN_DIR}/*
 	rm -f ${CDL_BUILD_STAMPS_DIR}/*

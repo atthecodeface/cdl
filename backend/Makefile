@@ -27,6 +27,7 @@ BACKEND_SRCS = \
 
 INCLUDES = cdl_version.h be_model_includes.h
 
+SRC_DIR = .
 SRCS = ${BACKEND_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/backend
 
@@ -37,15 +38,9 @@ BACKEND_OBJS = $(call objs_from_srcs,${BACKEND_SRCS})
 #a Resultant 'libraries'
 BACKEND_LIB = ${CDL_BUILD_OBJ_DIR}/be_backend.o
 
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
-
-#a Make include - copy relevant header files
 $(eval $(call add_includes,${INCLUDES}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${BACKEND_SRCS}))
 
-#a Make build
 build: ${BACKEND_LIB}
 $(eval $(call make_static_library,${BACKEND_LIB},${BACKEND_OBJS}))
 
@@ -53,7 +48,3 @@ $(eval $(call make_static_library,${BACKEND_LIB},${BACKEND_OBJS}))
 clean:
 	@rm -f ${CMDLINE_PROG} ${BACKEND_OBJS} ${OBJ_DIR}/*.P core.*
 	mkdir -p ${OBJ_DIR}
-
-
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
-

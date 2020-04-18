@@ -13,8 +13,9 @@
 include ${CDL_MAKEFILE_CONFIG}
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
-$(eval $(call install_script,cdl_create_make))
-$(eval $(call install_data,cdl_simulation.mk))
-$(eval $(call install_data,cdl_templates.mk))
-$(eval $(call install_data,cdl_templates_old.mk))
-$(eval $(call install_data,cdl_desc.py))
+$(eval $(call install_script,${CDL_SCRIPTS_DIR},cdl_create_make))
+$(eval $(call install_data,${CDL_SCRIPTS_DIR},cdl_simulation.mk))
+$(eval $(call install_data,${CDL_SCRIPTS_DIR},cdl_templates.mk))
+$(eval $(call install_data,${CDL_SCRIPTS_DIR},cdl_templates_old.mk))
+$(eval $(call install_data,${CDL_SCRIPTS_DIR},cdl_desc.py))
+$(eval $(call install_data,${CDL_CONFIGURED_DIR}/scripts,Makefile_cdl_template_config))

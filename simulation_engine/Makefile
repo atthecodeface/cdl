@@ -49,6 +49,7 @@ INCLUDES = se_cmodel_assist.h \
 			se_errors.h \
 			se_external_module.h
 
+SRC_DIR = .
 SRCS = ${ENGINE_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/simulation_engine
 
@@ -58,22 +59,16 @@ ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
 #a Make include - copy relevant header files
 $(eval $(call add_includes,${INCLUDES}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${ENGINE_SRCS}))
 
 #a Resultant 'libraries'
+# This library is not installed, as it has to be combined with an execution harness
 build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY},${ENGINE_OBJS}))
-# $(eval $(call install_static_library,${SUPPORT_PLAIN_LIBRARY}))
-
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 
 #a Clean, depend, etc
 clean:
 	@rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${ENGINE_OBJS} ${OBJ_DIR}/*.P core.*
 	mkdir -p ${OBJ_DIR}
-
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
 

@@ -14,6 +14,9 @@
 #a Global variables
 CDL_ROOT ?= /set/cdl/root/please
 CDL_SCRIPTS_DIR = ${CDL_ROOT}/lib/cdl
+
+-include ${CDL_SCRIPTS_DIR}/Makefile_cdl_template_config
+
 CREATE_MAKE   = ${CDL_ROOT}/libexec/cdl/cdl_create_make
 BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
 CDL_INCLUDE_DIR = ${CDL_ROOT}/include/cdl
@@ -21,14 +24,13 @@ CYCLICITY_BIN_DIR      = ${CDL_ROOT}/bin
 Q:=@
 
 CYCLICITY_LIBS          = ${ENGINE_LIBS} ${SUPPORT_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch
-PYTHONLINKLIB          := ${CXX} -bundle -o
-CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python -L/Users/gavinprivate/Git/brew/opt/python/Frameworks/Python.framework/Versions/3.7/lib/python3.7/config-3.7m-darwin -lpython3.7m -ldl -framework CoreFoundation -lc++ -lc 
+CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python ${PYTHON_LIBS} -lc++ -lc 
 
 CFLAGS   += -I${CDL_INCLUDE_DIR}
 CXXFLAGS += -I${CDL_INCLUDE_DIR}
-LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
+LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR} ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
 LD_LIBS ?=
-LD_LIBS += ${CYCLICITY_LIBS} -lm -lc -lpthread
+LD_LIBS += ${CYCLICITY_LIBS} -lm -lc 
 
 SUPPORT_COMMAND_OBJS := 
 SUPPORT_PYTHON_OBJS  := 
@@ -50,12 +52,12 @@ ${TARGET_DIR}/derived_model.a: $(TARGET_DIR)/derived_model_list.o ${ENGINE_OBJEC
 ALL: $(CMDLINE_PROG)
 ${CMDLINE_PROG}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a$ ${SUPPORT_COMMAND_OBJS} 
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${CXX} -o ${CMDLINE_PROG} $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${LD_LIBS}
+	${Q}${MAKE_STATIC_BINARY} $@ $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${LD_LIBS}
 
 ALL: ${PYTHON_LIB}
 ${PYTHON_LIB}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} 
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
-	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
+	${Q}${MAKE_DYNAMIC_LIBRARY} $@ $(call os_lib_hdr,$@) $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_PYTHON_LIBS}
 
 # ${VPI_LIB}: $(TARGET_DIR)/derived_model_list.a ${SUPPORT_VPI_OBJS} 
 # 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"

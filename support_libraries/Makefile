@@ -33,6 +33,11 @@ BASIC_LIB_SRCS := \
 		sl_pthread_barrier.cpp \
 		sl_general.cpp
 
+EXTRA_LIB_SRCS := \
+	sl_exec_file.cpp \
+	sl_option.cpp
+
+
 INCLUDES = c_sl_error.h \
             sl_ef_lib_event.h \
             sl_exec_file.h \
@@ -54,6 +59,7 @@ INCLUDES = c_sl_error.h \
             sl_pthread_barrier.h \
             sl_work_list.h
 
+SRC_DIR = .
 SRCS    = ${BASIC_LIB_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/support_libraries
 
@@ -67,10 +73,9 @@ PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OBJ_DIR}/sl_exec_file_python.o ${OBJ_DIR}
 $(eval $(call add_includes,${INCLUDES}))
 
 #a Clean, dependencies and build requirements
-${OBJ_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
-	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_exec_file.cpp -o ${OBJ_DIR}/sl_exec_file_python.o
-${OBJ_DIR}/sl_option_python.o: sl_option.cpp
-	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_option.cpp -o ${OBJ_DIR}/sl_option_python.o
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${BASIC_LIB_SRCS}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${EXTRA_LIB_SRCS}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${EXTRA_LIB_SRCS},-DSL_PYTHON ${PYTHON_INCLUDE},,_python))
 
 clean:
 	@rm -f ${PLAIN_LIBRARY} ${PYTHON_LIBRARY} ${PLAIN_LIB_OBJS} ${PLAIN_LIB_OBJS} ${PYTHON_LIB_OBJS} ${OBJ_DIR}/*.P
@@ -78,19 +83,14 @@ clean:
 
 build: ${CDL_BUILD_LIB_DIR}/${SUPPORT_PLAIN_LIBRARY}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SUPPORT_PLAIN_LIBRARY},${PLAIN_LIB_OBJS}))
-$(eval $(call install_static_library,${SUPPORT_PLAIN_LIBRARY}))
+$(eval $(call install_static_library,${CDL_BUILD_LIB_DIR},${SUPPORT_PLAIN_LIBRARY}))
 
 ifeq ($(BUILD_PYTHON),yes)
 build: ${CDL_BUILD_LIB_DIR}/${SUPPORT_PYTHON_LIBRARY}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SUPPORT_PYTHON_LIBRARY},${PYTHON_LIB_OBJS}))
-$(eval $(call install_static_library,${SUPPORT_PYTHON_LIBRARY}))
+$(eval $(call install_static_library,${CDL_BUILD_LIB_DIR},${SUPPORT_PYTHON_LIBRARY}))
 endif
 
 #a Include dependencies
 -include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
-
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
 

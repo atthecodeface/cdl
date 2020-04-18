@@ -117,14 +117,15 @@ define compile_cpp
 # @param $3 source filename (.cpp)
 # @param $4 Extra C flags
 # @param $5 Extra dependencies
+# @param $6 object suffix prior to .o extension
 
-$1/$(3:.cpp=.o): $2/$3
-	@echo "C++ $3 -o $$@ ${CXXFLAGS}"
-	${Q}${CXX} ${CXXFLAGS} -c -Wp,-MD,$1/$(3:.cpp=.P) $2/$3 $4 -o $$@
+$1/$(3:.cpp=$6.o): $2/$3
+	@echo "C++ $3$6 -o $$@ ${CXXFLAGS}"
+	${Q}${CXX} ${CXXFLAGS} -c -Wp,-MD,$1/$(3:.cpp=$6.P) $2/$3 $4 -o $$@
 
-$1/$(3:.cpp=.o): $5
+$1/$(3:.cpp=$6.o): $5
 
--include $1/$(3:.cpp=.P)
+-include $1/$(3:.cpp=$6.P)
 
 endef
 
@@ -135,14 +136,15 @@ define compile_c
 # @param $3 source filename (.c)
 # @param $4 Extra C flags
 # @param $5 Extra dependencies
+# @param $6 object suffix prior to .o extension
 
-$1/$(3:.c=.o): $2/$3
-	@echo "C++ $3 -o $$@ ${CFLAGS}"
-	${Q}${CC} ${CFLAGS} -c -Wp,-MD,$1/$(3:.c=.P) $2/$3 $4 -o $$@
+$1/$(3:.c=$6.o): $2/$3
+	@echo "C++ $3$6 -o $$@ ${CFLAGS}"
+	${Q}${CC} ${CFLAGS} -c -Wp,-MD,$1/$(3:.c=$6.P) $2/$3 $4 -o $$@
 
-$1/$(3:.c=.o): $5
+$1/$(3:.c=$6.o): $5
 
--include $1/$(3:.c=.P)
+-include $1/$(3:.c=$6.P)
 
 endef
 
@@ -153,8 +155,9 @@ define compile_cpps
 # @param $3 source filenames (.cpp)
 # @param $4 Extra C flags
 # @param $5 Extra dependencies
-$(foreach x,$(filter %.cpp,$3),$(eval $(call compile_cpp,$1,$2,$x,$4,$5)))
-$(foreach x,$(filter %.c,$3),$(eval $(call compile_c,$1,$2,$x,$4,$5)))
+# @param $6 object suffix prior to .o extension
+$(foreach x,$(filter %.cpp,$3),$(eval $(call compile_cpp,$1,$2,$x,$4,$5,$6)))
+$(foreach x,$(filter %.c,$3),$(eval $(call compile_c,$1,$2,$x,$4,$5,$6)))
 endef
 
 #f bison_to_h_and_o
@@ -204,20 +207,14 @@ $1:$2
 	${Q}(cd $1__library_dir $(foreach l,$3,&& ar x ${CDL_BUILD_LIB_DIR}/lib$l.a))
 	${Q}(cd $1__library_dir && cp $2 $1__library_dir)
 	${Q}(cd $1__library_dir && ${MAKE_STATIC_LIBRARY} $$@ *)
+	${Q}(cd $1__library_dir && rm *)
+	${Q}(rmdir $1__library_dir)
 
-endef
-
-#f install_static_library - installs in lib (from CDL_BUILD_LIB_DIR)
-define install_static_library
-# @param $1 library name (must be built as ${CDL_BUILD_LIB_DIR}/$1)
-
-install_bin: install__$1
-
-# Use INSTALL_DATA as it does not strip the library - that would make it uselss
-install__$1: ${CDL_BUILD_LIB_DIR}/$1
-	@echo "install static library $1"
-	${Q} [ -d ${INSTALL_LIB_DIR} ] || mkdir -p ${INSTALL_LIB_DIR}
-	${Q}${INSTALL_DATA} $$< ${INSTALL_LIB_DIR}
+clean_libraries: clean_library_$1
+clean_library_$1:
+	@echo "Clean library build directory"
+	${Q}(cd $1__library_dir && rm *)
+	${Q}(rmdir $1__library_dir)
 
 endef
 
@@ -233,14 +230,30 @@ $1:$2
 
 endef
 
+#f install_static_library - installs in lib
+define install_static_library
+# @param $1 library directory
+# @param $2 library name
+
+install_bin: install__$2
+
+# Use INSTALL_DATA as it does not strip the library - that would make it uselss
+install__$2: $1/$2
+	@echo "install static library $2"
+	${Q} [ -d ${INSTALL_LIB_DIR} ] || mkdir -p ${INSTALL_LIB_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_LIB_DIR}
+
+endef
+
 #f install_static_binary - installs in bin (from CDL_BUILD_BIN_DIR)
 define install_static_binary
-# @param $1 binary name (must be built in to ${CDL_BUILD_BIN_DIR}/$1
+# @param $1 binary directory (usually ${CDL_BUILD_BIN_DIR})
+# @param $2 binary name
 
-install_bin: install__$1
+install_bin: install__$2
 
-install__$1: ${CDL_BUILD_BIN_DIR}/$1
-	@echo "install static binary $1"
+install__$2: $1/$2
+	@echo "install static binary $2"
 	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
 	${Q}${INSTALL_PROGRAM} $$< ${INSTALL_BIN_DIR}
 
@@ -248,35 +261,38 @@ endef
 
 #f install_script - installs in libexec/cdl normally (from CDL_SCRIPTS_DIR)
 define install_script
-# @param $1 script filename - should be in ${CDL_SCRIPTS_DIR}
-install_script: install__$1
+# @param $1 script directory
+# @param $2 script filename
+install_script: install__$2
 
-install__$1: ${CDL_SCRIPTS_DIR}/$1
-	@echo "install script $1"
+install__$2: $1/$2
+	@echo "install script $2"
 	${Q} [ -d ${INSTALL_SCRIPT_DIR} ] || mkdir -p ${INSTALL_SCRIPT_DIR}
 	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_SCRIPT_DIR}
 
 endef
 
-#f install_bin_script - installs in bin normally (from CDL_SCRIPTS_DIR)
+#f install_bin_script - installs in bin normally
 define install_bin_script
-# @param $1 executable filename - should be in ${CDL_SCRIPTS_DIR}
-install_script: install__$1
+# @param $1 executable directory
+# @param $2 executable filename
+install_script: install__$2
 
-install__$1: ${CDL_SCRIPTS_DIR}/$1
-	@echo "install binary script $1"
+install__$2: $1/$2
+	@echo "install binary script $2"
 	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
 	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_BIN_DIR}
 
 endef
 
-#f install_data - installs in lib/cdl normally (from CDL_SCRIPTS_DIR)
+#f install_data - installs in lib/cdl normally
 define install_data
-# @param $1 executable filename - should be in ${CDL_SCRIPTS_DIR}
-install_script: install__$1
+# @param $1 script directory
+# @param $2 script filename
+install_script: install__$2
 
-install__$1: ${CDL_SCRIPTS_DIR}/$1
-	@echo "install data script $1"
+install__$2: $1/$2
+	@echo "install data script $2"
 	${Q} [ -d ${INSTALL_DATA_DIR} ] || mkdir -p ${INSTALL_DATA_DIR}
 	${Q}${INSTALL_DATA} $$< ${INSTALL_DATA_DIR}
 

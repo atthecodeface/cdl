@@ -55,7 +55,7 @@ clean:
 
 build: ${CMDLINE_PROG}
 $(eval $(call make_static_binary,${CMDLINE_PROG},${CMD_OBJS},${CYCLICITY_LIBS} -lc))
-$(eval $(call install_static_binary,cdl))
+$(eval $(call install_static_binary,${CDL_BUILD_BIN_DIR},cdl))
 
 #a Clean, depend, etc
 $DEPFILES := $(patsubst %.y,${OBJ_DIR}/%.P,$(SRCS:%.cpp=${OBJ_DIR}/%.P))

@@ -52,12 +52,12 @@ $(eval $(call add_includes,${INCLUDES}))
 #a Resultant 'libraries'
 build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_BATCH}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_BATCH},${CMDLINE_OBJS},cdl_se_no_harness cdl_sl))
-$(eval $(call install_static_library,${SIMULATION_LIBRARY_BATCH}))
+$(eval $(call install_static_library,${CDL_BUILD_LIB_DIR},${SIMULATION_LIBRARY_BATCH}))
 
 ifeq ($(BUILD_PYTHON),yes)
 build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_PYTHON}
 $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY_PYTHON},${PYTHON_OBJS},cdl_se_no_harness cdl_sl_python))
-$(eval $(call install_static_library,${SIMULATION_LIBRARY_PYTHON}))
+$(eval $(call install_static_library,${CDL_BUILD_LIB_DIR},${SIMULATION_LIBRARY_PYTHON}))
 endif
 
 ifeq ($(BUILD_VPI),yes)
