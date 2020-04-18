@@ -245,6 +245,7 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
      output( handle, 0, "#include <stdio.h>\n");
      output( handle, 0, "#include <stdlib.h>\n");
      output( handle, 0, "#include <string.h>\n");
+     output( handle, 0, "#include <cstddef>\n");
      output( handle, 0, "\n");
 
 }
@@ -256,7 +257,6 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
 
     output( handle, 0, "/*a Defines\n");
     output( handle, 0, " */\n");
-    output( handle, 0, "#define struct_offset( ptr, a ) (((char *)&(ptr->a))-(char *)ptr)\n");
     output( handle, 0, "#define struct_resolve( t, ptr, a ) ((t)(((char *)(ptr))+(a)))\n");
     output( handle, 0, "#define DEBUG_PROBE_CYCLE_284 {if (engine->cycle()==284) {WHERE_I_AM_VERBOSE_ENGINE;}}\n");
     output( handle, 0, "#define DEBUG_PROBE {}\n");
@@ -695,10 +695,6 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     output( handle, 0, "/*a Static variables for %s\n", module->output_name);
     output( handle, 0, "*/\n");
 
-    output( handle, 0, "/*v struct_offset required variable\n");
-    output( handle, 0, "*/\n");
-    output( handle, 0, "static c_%s *___%s__ptr;\n", module->output_name, module->output_name );
-
     /*b Output input descriptor
      */
     if (module->inputs)
@@ -716,7 +712,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 instance->output_args[0] = signal_number;
                 signal_number++;
                 if (instance->type != md_type_instance_type_bit_vector) { fprintf(stderr,"BUG - port is an array, and cannot output that\n"); }
-                output( handle, 1, "{\"%s\",struct_offset(___%s__ptr, inputs.%s),struct_offset(___%s__ptr, input_state.%s),%d,%d},\n",
+                output( handle, 1, "{\"%s\",offsetof(c_%s, inputs.%s),offsetof(c_%s, input_state.%s),%d,%d},\n",
                         instance->output_name,
                         module->output_name, instance->output_name,
                         module->output_name, instance->output_name,
@@ -734,7 +730,6 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     {
         output( handle, 0, "/*v net_desc_%s\n", module->output_name );
         output( handle, 0, "*/\n");
-        output( handle, 0, "static t_%s_nets *___%s_nets__ptr;\n", module->output_name, module->output_name );
         output( handle, 0, "static t_se_cma_net_desc net_desc_%s[] = \n", module->output_name );
         output( handle, 0, "{\n");
         signal_number = 0;
@@ -751,7 +746,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 }
                 else
                 {
-                    output( handle, 1, "{\"%s\",struct_offset(___%s_nets__ptr, %s),%d,0},\n",
+                    output( handle, 1, "{\"%s\",offsetof(t_%s_nets, %s),%d,0},\n",
                             instance->output_name,
                             module->output_name, instance->output_name,
                             instance->type_def.data.width );
@@ -776,7 +771,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             t_md_module_instance_output_port *output_port;
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
-                output( handle, 1, "{ \"%s\", NULL, struct_offset( ___%s__ptr, instance_%s.inputs.%s ), -1, %d, 1, %d },\n",
+                output( handle, 1, "{ \"%s\", NULL, offsetof(c_%s, instance_%s.inputs.%s ), -1, %d, 1, %d },\n",
                         input_port->module_port_instance->output_name,
                         module->output_name,
                         module_instance->name, input_port->module_port_instance->output_name,
@@ -801,18 +796,18 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 }
                 else if (output_port->lvar->instance->array_driven_in_parts)
                 {
-                    snprintf( driven_net, sizeof(driven_net), "struct_offset( ___%s__ptr, nets.%s[%lld] )",
+                    snprintf( driven_net, sizeof(driven_net), "offsetof(c_%s, nets.%s[%lld] )",
                               module->output_name, 
                               output_port->lvar->instance->output_name,
                               output_port->lvar->index.data.integer );
                 }
                 else
                 {
-                    snprintf( driven_net, sizeof(driven_net), "struct_offset( ___%s__ptr, nets.%s )",
+                    snprintf( driven_net, sizeof(driven_net), "offsetof(c_%s, nets.%s )",
                               module->output_name, 
                               output_port->lvar->instance->output_name );
                 }
-                output( handle, 1, "{ \"%s\", %s, struct_offset( ___%s__ptr, instance_%s.outputs.%s ), %s, %d, 0, %d },\n",
+                output( handle, 1, "{ \"%s\", %s, offsetof(c_%s, instance_%s.outputs.%s ), %s, %d, 0, %d },\n",
                         output_port->module_port_instance->output_name,
                         output_port_name,
                         module->output_name, module_instance->name, output_port->module_port_instance->output_name,
@@ -845,7 +840,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     instance = reg->instance_iter->children[i];
                     instance->output_args[0] = signal_number;
                     signal_number++;
-                    output( handle, 1, "{\"%s\", struct_offset(___%s__ptr, %s_%s_state.%s), %d, %d },\n", instance->output_name, module->output_name, edge_name[reg->edge], reg->clock_ref->name, instance->output_name, instance->type_def.data.width, 0);
+                    output( handle, 1, "{\"%s\", offsetof(c_%s, %s_%s_state.%s), %d, %d },\n", instance->output_name, module->output_name, edge_name[reg->edge], reg->clock_ref->name, instance->output_name, instance->type_def.data.width, 0);
                 }
             }
             if (signal->data.output.combinatorial_ref)
@@ -855,7 +850,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                     instance->output_args[0] = signal_number;
                     signal_number++;
-                    output( handle, 1, "{\"%s\", struct_offset(___%s__ptr, combinatorials.%s), %d, %d },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially);
+                    output( handle, 1, "{\"%s\", offsetof(c_%s, combinatorials.%s), %d, %d },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially);
                 }
             }
             if (signal->data.output.net_ref)
@@ -1130,10 +1125,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                         switch (instance->type)
                         {
                         case md_type_instance_type_bit_vector:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, struct_offset(___%s_indirect_net__ptr, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_nets, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
                             break;
                         case md_type_instance_type_array_of_bit_vectors:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, struct_offset(___%s_indirect_net__ptr, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_nets, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
                             break;
                         default:
                             output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1162,10 +1157,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                         switch (instance->type)
                         {
                         case md_type_instance_type_bit_vector:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, struct_offset(___%s_direct_net__ptr, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_nets, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
                             break;
                         case md_type_instance_type_array_of_bit_vectors:
-                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, struct_offset(___%s_direct_net__ptr, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                            output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_nets, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
                             break;
                         default:
                             output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1196,10 +1191,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 switch (instance->type)
                 {
                 case md_type_instance_type_bit_vector:
-                    output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, struct_offset(___%s_comb__ptr, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                    output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_combinatorials, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
                     break;
                 case md_type_instance_type_array_of_bit_vectors:
-                    output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, struct_offset(___%s_comb__ptr, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
+                    output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_combinatorials, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, instance->size );
                     break;
                 default:
                     output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");
@@ -1240,10 +1235,10 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                             switch (instance->type)
                             {
                             case md_type_instance_type_bit_vector:
-                                output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, struct_offset(___%s_%s_%s__ptr, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width );
+                                output( handle, 1, "{\"%s\",engine_state_desc_type_bits, NULL, offsetof(t_%s_%s_%s_state, %s), {%d,0,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width );
                                 break;
                             case md_type_instance_type_array_of_bit_vectors:
-                                output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, struct_offset(___%s_%s_%s__ptr, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width, instance->size );
+                                output( handle, 1, "{\"%s\",engine_state_desc_type_array, NULL, offsetof(t_%s_%s_%s_state, %s), {%d,%d,0,0}, {NULL,NULL,NULL,NULL} },\n", instance->output_name, module->output_name, edge_name[edge], clk->name, instance->output_name, instance->type_def.data.width, instance->size );
                                 break;
                             default:
                                 output( handle, 1, "<NO TYPE FOR STRUCTURES>\n");

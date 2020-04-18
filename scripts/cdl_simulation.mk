@@ -47,7 +47,7 @@ ALL2: ALL
 include $(MODELS_MAKE)
 
 ${TARGET_DIR}/derived_model.a: $(TARGET_DIR)/derived_model_list.o ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
-	ar rcs -o $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
+	${MAKE_STATIC_LIBRARY} $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
 
 ALL: $(CMDLINE_PROG)
 ${CMDLINE_PROG}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a$ ${SUPPORT_COMMAND_OBJS} 
