@@ -10,8 +10,10 @@ Q?=@
 #a Templates
 #v Notes
 #
-# MODELS contains a list of model names for this library that are to be 'init'ed
-# C_MODEL_OBJS contains a list of object files to be included in the static library
+# LIB__lib__MODELS contains a list of model names for this library that are to be 'init'ed
+# LIB__lib__C_OBJS contains a list of object files to be included in the static library
+# BIN__lib__bin__OBJS contains a list of object files to be included in a binary for a library
+# LIB__lib__VERILOG contains a list of verilog files to be included in a library
 
 #f cdl_makefile_template
 define cdl_makefile_template
@@ -44,7 +46,7 @@ define cpp_template
 # @param $7 C flags
 # @param $8 Destination make variable to add object file to
 
-$(if $8,BIN__$8__OBJS,LIB__$1__C_MODEL_OBJS) += $3/$6
+$(if $8,BIN__$1__$8__OBJS,LIB__$1__C_OBJS) += $3/$6
 LIB__$1__MODELS += $5
 $3/$6 : $2/$4
 	@echo "CC $4 -o $6" 
@@ -73,10 +75,12 @@ $3/$6 : $2/$4
 
 -include $3/$6.dep
 
-LIB__$1__C_MODEL_OBJS  += $3/$7
+LIB__$1__C_OBJS  += $3/$7
 $3/$7 : $3/$6
 	@echo "CC $6 -o $7" 
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
+
+LIB__$1__VERILOG += $(if $8,$3/$8,)
 
 $3/$8 : $2/$4
 	@echo "CDL $4 -v $8" 
@@ -133,7 +137,7 @@ $2/$3.cpp: $${LIB__$1__MAKEFILE}
 	${Q}for a in $${LIB__$1__MODELS} ; do echo "$$$${a}__init();" >> $$@ ; done
 	${Q}echo "};" >> $$@
 
-LIB__$1__C_MODEL_OBJS  += $2/$3.o
+LIB__$1__C_OBJS  += $2/$3.o
 $2/$3.o: $2/$3.cpp
 	@echo "Compile library init module $$@"
 	${Q}${CXX} ${CXXFLAGS} -c -o $$@ $$<
@@ -148,9 +152,12 @@ library: $2/lib_$1.a
 
 lib_$1: $2/lib_$1.a
 
-$2/lib_$1.a: $${LIB__$1__C_MODEL_OBJS}
+$2/lib_$1.a: $${LIB__$1__C_OBJS}
 	@echo "Link static library $$@"
-	${Q}${MAKE_STATIC_LIBRARY} $$@ $${LIB__$1__C_MODEL_OBJS}
+	${Q}${MAKE_STATIC_LIBRARY} $$@ $${LIB__$1__C_OBJS}
+
+verilog_$1: $${LIB__$1__VERILOG}
+verilog: verilog_$1
 
 endef
 
