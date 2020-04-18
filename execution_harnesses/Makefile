@@ -23,7 +23,8 @@ CMDLINE_SRCS = \
 
 PYTHON_SRCS = \
 	eh_scripting_python.cpp \
-	eh_py_engine.cpp
+	eh_py_engine.c \
+	eh_c_py_engine.cpp
 
 VPI_SRCS = eh_vpi.cpp
 
@@ -71,8 +72,6 @@ clean:
 	mkdir -p ${OBJ_DIR}
 
 #a Clean etc
-
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
 
 

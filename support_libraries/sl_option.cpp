@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "sl_general.h"
 #include "sl_option.h"
 #include "sl_debug.h"
 

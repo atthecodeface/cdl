@@ -27,7 +27,8 @@ CYCLICITY_PYTHON_LIBS  := -L${CDL_ROOT}/lib -lcdl_se_python -L/Users/gavinprivat
 CFLAGS   += -I${CDL_INCLUDE_DIR}
 CXXFLAGS += -I${CDL_INCLUDE_DIR}
 LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
-LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
+LD_LIBS ?=
+LD_LIBS += ${CYCLICITY_LIBS} -lm -lc -lpthread
 
 SUPPORT_COMMAND_OBJS := 
 SUPPORT_PYTHON_OBJS  := 
@@ -44,7 +45,7 @@ ALL2: ALL
 include $(MODELS_MAKE)
 
 ${TARGET_DIR}/derived_model.a: $(TARGET_DIR)/derived_model_list.o ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
-	libtool -static -o $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
+	ar rcs -o $@ ${ENGINE_OBJECTS} ${C_MODEL_OBJS} 
 
 ALL: $(CMDLINE_PROG)
 ${CMDLINE_PROG}: $(TARGET_DIR)/derived_model_list.o ${TARGET_DIR}/derived_model.a$ ${SUPPORT_COMMAND_OBJS} 

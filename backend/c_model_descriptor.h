@@ -21,6 +21,7 @@
 /*a Includes
  */
 #include "c_sl_error.h"
+#include "sl_general.h"
 #include "sl_option.h"
 
 /*a Defines

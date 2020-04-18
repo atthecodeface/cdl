@@ -24,7 +24,7 @@ all:
 	(cd build; ${MAKE} CDL_ROOT=${CDL_ROOT})
 
 clean:
-	(cd build; ${MAKE} CDL_ROOT=${CDL_ROOT} clean)
+	(cd build; mkdir -p build ; ${MAKE} CDL_ROOT=${CDL_ROOT} clean)
 
 regress_python:
 	CDL_ROOT=${CDL_ROOT} ./regress.py

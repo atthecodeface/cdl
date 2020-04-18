@@ -79,6 +79,6 @@ INSTALL_PYTHON_DIR  = ${libdir}/cdl/python/pycdl
 BUILD_PYTHON = yes
 
 MAKE_STATIC_BINARY   = ${CXX} ${LINKFLAGS} -o
-MAKE_STATIC_LIBRARY  = libtool -static -o
+MAKE_STATIC_LIBRARY  = ar rcs -o
 MAKE_DYNAMIC_LIBRARY = ${CXX} -bundle -o
 CXXFLAGS       += -std=c++11

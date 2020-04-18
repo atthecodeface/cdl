@@ -19,7 +19,6 @@
 /*a Includes
  */
 #include "sl_general.h"
-#include "c_sl_error.h"
 
 /*a Defines
  */
