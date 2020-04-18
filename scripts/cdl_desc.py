@@ -704,7 +704,7 @@ class ImportedLibrarySet:
         library_build_path = Path(self.build_root,library_name)
         write("-include %s/Makefile"%(str(library_build_path)))
         write("$(eval $(call sim_add_cdl_library,%s,%s))"%(str(library_build_path),library_name))
-        write("${BUILD_ROOT}/Makefile: %s/library_desc.py"%(str(library.get_path())))
+        write("${BUILD_ROOT}/%s/Makefile: %s/library_desc.py"%(library_name, str(library.get_path())))
         write("")
         pass
     #f makefile_write_footer
