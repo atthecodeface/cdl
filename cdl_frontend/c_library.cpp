@@ -174,6 +174,7 @@ void c_library_set::read_library_descriptor(const char *filename)
                                      error_arg_type_const_string, filename,
                                      error_arg_type_malloc_filename, "library description",
                                      error_arg_type_none );
+        return;
     }
     fclose(f);
 
