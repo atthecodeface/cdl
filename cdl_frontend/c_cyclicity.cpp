@@ -257,25 +257,10 @@ void c_cyclicity::fill_object_handle( char *buffer, int file_number, int file_po
  */
 /*f c_cyclicity::parse_input_file
  */
-int c_cyclicity::parse_input_file( FILE *f )
-{
-    SL_DEBUG( sl_debug_level_info, "Parse file (stream) %p", f );
-    if (!lexical_analyzer->set_file( f, true ))
-    {
-        set_parse_error( co_compile_stage_tokenize, "Failed to open file" );
-        return number_of_errors;
-    }
-    cyclicity_parse( this );
-    return number_of_errors;
-}
-
-/*f c_cyclicity::parse_input_file
- */
-int c_cyclicity::parse_input_file( char *filename )
+int c_cyclicity::parse_input_file( const char *filename )
 {
     SL_DEBUG( sl_debug_level_info, "Parse filename %s", filename );
-    if (!lexical_analyzer->set_file( filename, true ))
-    {
+    if (!lexical_analyzer->set_file(filename)) {
         set_parse_error( co_compile_stage_tokenize, "Failed to open file '%s'", filename );
         return number_of_errors;
     }

@@ -41,8 +41,7 @@ public:
     void set_library_root( const char *directory );
     void read_library_descriptor( const char *filename );
 
-	int parse_input_file( FILE *f );
-	int parse_input_file( char *filename );
+	int parse_input_file( const char *filename );
     int parse_repeat_eof( void );
     t_lex_file_posn parse_get_current_location( void );
     void set_parse_error_va_list( t_lex_file_posn lex_file_posn, t_co_compile_stage co_compile_stage, const char *format, va_list ap);

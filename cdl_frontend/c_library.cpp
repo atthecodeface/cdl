@@ -35,12 +35,10 @@
 /*f open_file_from_path */
 static FILE *open_file_from_path(const char *path1, const char *path2, const char *filename, char **buffer, int *buffer_size)
 {
-    FILE *f;
     if (!(*buffer)) {
         *buffer_size = 8;
         *buffer = (char *)malloc(*buffer_size);
     }
-    f = NULL;
     while (1) {
         int n;
         if (filename[0]=='/') {
@@ -222,20 +220,21 @@ c_library *c_library_set::find_library(const std::string &name, int start, int e
 
 /*f c_library_set::open_filename
  */
-FILE *c_library_set::open_filename(const std::string &filename, char **pathname)
+FILE *c_library_set::open_filename(const std::string &filename, char **pathname, void **library)
 {
     SL_DEBUG( sl_debug_level_info, "Opening file %s", filename.c_str() );
 
     FILE *f;
 
-    int library_marker=filename.find("::", 0);
+    auto library_marker=filename.find("::", 0);
     if (library_marker!=std::string::npos) {
         auto filename_in_library = filename.substr(library_marker+2,std::string::npos);
         auto l = find_library(filename, 0, library_marker);
-        SL_DEBUG( sl_debug_level_info, "Library : %p", l );
+        SL_DEBUG(sl_debug_level_info, "Library : %p", l );
+        if (library) {*library=l;}
         if (l) {
             return l->open_filename(root_dirname, filename_in_library, pathname);
-        } else {
+        } else { // If library is not in the directory, lib::blah should be in lib/blah
             auto library_name = filename.substr(0, library_marker);
             char *buffer;
             int buffer_size;
@@ -250,13 +249,21 @@ FILE *c_library_set::open_filename(const std::string &filename, char **pathname)
         }
     }
 
-    f = fopen(filename.c_str(), "r" );
-    if (f) {
-        if (pathname) {
-            *pathname = sl_str_alloc_copy(filename.c_str());
+    if (library && (*library)) {
+        SL_DEBUG(sl_debug_level_info, "Using library %p for include without library", *library);
+        c_library *l = *((c_library **)library);
+        return l->open_filename(root_dirname, filename, pathname);
+    } else {
+        SL_DEBUG(sl_debug_level_info, "Using cwd for include without library");
+        f = fopen(filename.c_str(), "r" );
+        if (f) {
+            if (pathname) {
+                *pathname = sl_str_alloc_copy(filename.c_str());
+            }
+            return f;
         }
-        return f;
     }
+    SL_DEBUG(sl_debug_level_info, "Searching include directories for include without library");
     return find_file_in_directories(NULL, include_directories, filename, pathname);
 }
 /*a Editor preferences and notes
