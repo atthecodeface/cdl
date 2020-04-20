@@ -691,7 +691,9 @@ class ImportedLibrarySet:
         pass
     #f makefile_write_header
     def makefile_write_header(self, write):
-        write("CDL_ROOT ?= set_cdl_root")
+        default_cdl_root = "set_cdl_root"
+        if "CDL_ROOT" in os.environ: default_cdl_root=os.environ["CDL_ROOT"]
+        write("CDL_ROOT ?= %s"%default_cdl_root)
         write("include ${CDL_ROOT}/lib/cdl/cdl_templates.mk")
         write("BUILD_ROOT = %s"%str(self.build_root))
         write("SIM ?= ${BUILD_ROOT}/sim")

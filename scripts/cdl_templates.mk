@@ -159,6 +159,12 @@ $2/lib_$1.a: $${LIB__$1__C_OBJS}
 verilog_$1: $${LIB__$1__VERILOG}
 verilog: verilog_$1
 
+clean_verilog_$1:
+	@echo "Delete library $1 verilog files"
+	${Q} rm -f $${LIB__$1__VERILOG}
+
+clean_verilog: clean_verilog_$1
+
 endef
 
 #f sim_add_cdl_library
