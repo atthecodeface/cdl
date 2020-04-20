@@ -34,7 +34,7 @@ public:
     ~c_library();
 
     void add_source_directory( const char *directory );
-    FILE *open_filename(const char *root_pathname, const std::string &filename, char **pathname );
+    FILE *open_filename(const char *root_pathname, const std::string &filename, char **pathname);
     const char *library_name;
 
 private:
@@ -54,7 +54,12 @@ public:
     void add_include_directory(const char *directory);
     c_library *add_new_library(const char *name);
     c_library *find_library(const std::string &name, int start, int len);
-    FILE *open_filename(const std::string &filename, char **pathname );
+    /* open a file from a string filename, using library search path
+     *library is the library to start looking if the file has no library specifier
+     Put found pathname in *pathname (if pathname!=NULL), and library file is found in in
+     *library (if not library!=NULL)
+     */
+    FILE *open_filename(const std::string &filename, char **pathname, void **library );
 
 private:
     class c_cyclicity *cyclicity;

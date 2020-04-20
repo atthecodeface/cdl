@@ -116,7 +116,7 @@ typedef struct t_lex_file
 
     struct t_lex_file *included_by;
 
-    FILE *handle;
+    void *library;
     char *filename;
     char *pathname;
     int file_size;
@@ -261,25 +261,26 @@ extern int get_symbol_type( t_lex_symbol *lex_symbol )
  */
 c_lexical_analyzer::c_lexical_analyzer( c_cyclicity *cyclicity, c_library_set *libraries )
 {
-     int i;
+    int i;
 
-     this->cyclicity = cyclicity;
-     this->libraries = libraries;;
+    this->cyclicity = cyclicity;
+    this->libraries = libraries;;
 
-     include_directories = NULL;
-     last_include_directory = NULL;
+    include_directories = NULL;
+    last_include_directory = NULL;
+    force_includes = NULL;
+    last_force_include = NULL;
 
-     current_file = NULL;
-     file_list = NULL;
+    current_file = NULL;
+    file_list = NULL;
 
-     sym_table = NULL;
+    sym_table = NULL;
 
-     for (i = 0; default_tokens[i].token_name != 0; i++)
-     {
-          putsym( default_tokens[i].token_name, strlen(default_tokens[i].token_name), default_tokens[i].token_type );
-     }
-     // sl_debug_enable(1);
-     // sl_debug_set_level(sl_debug_level_verbose_info);
+    for (i = 0; default_tokens[i].token_name != 0; i++) {
+        putsym( default_tokens[i].token_name, strlen(default_tokens[i].token_name), default_tokens[i].token_type );
+    }
+    // sl_debug_enable(1);
+    // sl_debug_set_level(sl_debug_level_verbose_info);
 }
 
 /*f c_lexical_analyzer::~c_lexical_analyzer
@@ -352,22 +353,19 @@ c_lexical_analyzer::~c_lexical_analyzer()
  */
 void c_lexical_analyzer::add_force_include( const char *filename )
 {
-     t_string_chain *new_str;
-     new_str = (t_string_chain *)malloc(sizeof(t_string_chain) + strlen(filename) );
-     if (new_str)
-     {
-          if (!force_includes)
-          {
-              force_includes = new_str;
-          }
-          else
-          {
-               last_force_include->next = new_str;
-          }
-          last_force_include = new_str;
-          new_str->next = NULL;
-          strcpy( new_str->string, filename );
-     }
+    t_string_chain *new_str;
+    new_str = (t_string_chain *)malloc(sizeof(t_string_chain) + strlen(filename) );
+    if (new_str)
+    {
+        if (!force_includes) {
+            force_includes = new_str;
+        } else {
+            last_force_include->next = new_str;
+        }
+        last_force_include = new_str;
+        new_str->next = NULL;
+        strcpy( new_str->string, filename );
+    }
 }
 
 /*f c_lexical_analyzer::reset_files
@@ -456,7 +454,7 @@ static int read_file_data( t_lex_file *file, FILE *f, int file_length )
 
 /*f c_lexical_analyzer::allocate_and_read_file
  */
-t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, const char *pathname, FILE *f, int length, int toplevel )
+t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, const char *pathname, void *library, FILE *f, int length, int toplevel )
 {
      t_lex_file *file;
      int i, j;
@@ -468,6 +466,7 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, co
      strcpy( file->filename, filename );
      file->pathname = (char *)malloc(strlen(pathname)+1);
      strcpy( file->pathname, pathname );
+     file->library = library;
      file->file_size = 0;
      file->file_data = NULL;
      file->number_lines = 0;
@@ -553,25 +552,30 @@ t_lex_file *c_lexical_analyzer::allocate_and_read_file( const char *filename, co
  */
 t_lex_file *c_lexical_analyzer::include_file( t_lex_file *included_by, const char *filename, int filename_length )
 {
-     char buffer[256];
-     t_lex_file *file;
+    char buffer[256];
+    t_lex_file *file;
+    char *pathname;
+    void *library=NULL;
 
-     strncpy( buffer, filename, filename_length );
-     buffer[filename_length] = 0;
+    if (included_by) {library = included_by->library;}
 
-     for (file=file_list; file; file=file->next)
-     {
-          if (!strcmp( buffer, file->filename ))
-          {
-               return NULL;
-          }
-     }
-     if (!set_file( buffer, false ))
-     {
-          cyclicity->set_parse_error( co_compile_stage_tokenize, "Failed to include file '%s'", buffer );
-          return NULL;
-     }
-     return current_file;
+    strncpy( buffer, filename, filename_length );
+    buffer[filename_length] = 0;
+
+    FILE *f = libraries->open_filename(std::string(buffer), &pathname, &library);
+    if (f) {
+        for (file=file_list; file; file=file->next) {
+            if (!strcmp(pathname, file->pathname)) {
+                fclose(f);
+                // free(pathname);
+                return NULL;
+            }
+        }
+        if (set_file(f, filename, pathname, library, 0))
+            return current_file;
+    }
+    cyclicity->set_parse_error( co_compile_stage_tokenize, "Failed to include file '%s'", buffer );
+    return NULL;
 }
 
 /*f file_reset_position
@@ -591,29 +595,29 @@ static int file_reset_position( t_lex_file *file )
 
 /*f c_lexical_analyzer::set_file
  */
-int c_lexical_analyzer::set_file( FILE *f, int toplevel )
+int c_lexical_analyzer::set_file(FILE *f, const char *filename, const char *pathname, void *library, int toplevel)
 {
-    current_file = allocate_and_read_file( "<stream>", "<path_to_stream>", f, -1, toplevel );
-     return (file_reset_position(current_file));
+    int i;
+    fseek( f, 0,SEEK_END );
+    i = ftell(f);
+    fseek( f, 0, SEEK_SET );
+    current_file = allocate_and_read_file( filename, pathname, library, f, i, toplevel );
+    fclose(f);
+    return file_reset_position(current_file);
 }
 
 /*f c_lexical_analyzer::set_file
  */
-int c_lexical_analyzer::set_file( const char *filename, int toplevel )
+int c_lexical_analyzer::set_file( const char *filename )
 {
     FILE *f;
     char *pathname;
+    void *library=NULL;
 
-    SL_DEBUG( sl_debug_level_info, "Opening file %s", filename );
-    f = libraries->open_filename(std::string(filename), &pathname);
+    SL_DEBUG( sl_debug_level_info, "Opening toplevel file %s", filename );
+    f = libraries->open_filename(std::string(filename), &pathname, &library);
     if (f) {
-        int i;
-        fseek( f, 0,SEEK_END );
-        i = ftell(f);
-        fseek( f, 0, SEEK_SET );
-        current_file = allocate_and_read_file( filename, pathname, f, i, toplevel );
-        fclose(f);
-        return file_reset_position(current_file);
+        return set_file(f, filename, pathname, library, 1);
     }
     return 0;
 }
