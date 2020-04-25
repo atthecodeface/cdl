@@ -401,14 +401,14 @@ extern t_sl_error_level sl_mif_read_mif_file( c_sl_error *error,
 
                    /*b Invoke callback to write the data
                     */
-                   if ( address<size )
+                   if ( rel_address<size )
                    {
                        if (callback)
                        {
                            callback( callback_handle, address, values );
                        }
-                       address++;
                    }
+                   address++;
                }
 
                /*b Done

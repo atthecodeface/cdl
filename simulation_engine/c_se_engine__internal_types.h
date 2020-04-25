@@ -24,10 +24,17 @@ for more details.
 #include "sl_work_list.h"
 #include "c_sl_error.h"
 #include "c_se_engine.h"
+#include "se_engine_callbacks.h"
 
 /*a Defines
  */
 #define INPUT_BIT( iptr, bit ) ( (iptr[(bit/64)]>>(bit%64))&1 )
+// #define DEPRECATED_SEGFAULT
+#ifdef DEPRECATED_SEGFAULT
+#define DEPRECATED(caller,reason) do {fprintf(stderr,"DEPRECATED:%s:%s:%s:%d\n",(caller),(reason),__func__,__LINE__ );volatile char *x=NULL;char y=x[0];} while (0)
+#else
+#define DEPRECATED(caller,reason) do {fprintf(stderr,"DEPRECATED:%s:%s:%s:%d\n",(caller),(reason),__func__,__LINE__ );} while (0)
+#endif
 
 /*a Types
  */
@@ -59,29 +66,14 @@ typedef struct t_engine_function
     struct t_engine_function *next_in_list;
     struct t_engine_module_instance *module_instance;
     char *name;
-    void *handle; // Handle for any callback
-    union
+    struct // union
     {
-        struct {
-            t_engine_callback_arg_fn reset_fn; // Callback for reset, if this is on the chain of reset functions; there should be just one per module instance
-        } reset;
-        struct {
-            t_engine_callback_fn comb_fn; // Callback for combinatorial function; there should be just one per module instance
-        } comb;
-        struct {
-            t_engine_callback_fn propagate_fn; // Callback for propagate inputs function; there should be just one per module instance
-        } propagate;
-        struct {
-            t_engine_callback_fn prepreclock_fn; // Callback for prepreclock function; there should be just one per module instance
-        } prepreclock;
         struct
         {
-            t_engine_callback_fn posedge_prepreclock_fn;
-            t_engine_callback_fn posedge_preclock_fn;
-            t_engine_callback_fn posedge_clock_fn;
-            t_engine_callback_fn negedge_prepreclock_fn;
-            t_engine_callback_fn negedge_preclock_fn;
-            t_engine_callback_fn negedge_clock_fn;
+            t_se_engine_std_function posedge_preclock_fn;
+            t_se_engine_std_function posedge_clock_fn;
+            t_se_engine_std_function negedge_preclock_fn;
+            t_se_engine_std_function negedge_clock_fn;
             struct t_engine_clock *driven_by; // Main simulation engine clock that drives this clock
         } clock;
         struct
@@ -117,15 +109,7 @@ typedef struct t_engine_function_reference
 
 /*t t_engine_function_list
  */
-typedef struct t_engine_function_list
-{
-    struct t_engine_function_list *next_in_list;
-    void *handle;
-    struct t_engine_function *signal;
-    t_engine_callback_fn callback_fn;
-    t_sl_timer timer; // For profiling - time spent in the callback
-    int invocation_count; // For profiling - number of times callback has been invoked
-} t_engine_function_list;
+typedef struct t_engine_function_list t_engine_function_list;
 
 /*t t_engine_state_desc_list
  */
@@ -167,20 +151,20 @@ typedef struct t_engine_signal_reference
  */
 typedef struct t_engine_clock_fns
 {
-    t_engine_function_list *prepreclock; // Copied from module instance in the scheduler
-    t_engine_function_list *preclock;
-    t_engine_function_list *clock;
-    t_engine_function_list *comb;
-    t_engine_function_list *propagate; // Copied from module instance in the scheduler
+    c_se_engine_callbacks_void preclock;
+    c_se_engine_callbacks_void clock;
+    c_se_engine_callbacks_void comb;
+    c_se_engine_callbacks_void propagate;
 } t_engine_clock_fns;
 
-/*t t_engine_clock
+/*t t_engine_clock - a global clock signal in the simulation
  */
 typedef struct t_engine_clock
 {
     struct t_engine_clock *next_in_list;
     char *global_name;
-    t_engine_function_reference *clocks_list; // List of module instances' clocks (efr's) bound to this global clock
+    std::list<t_engine_function *> clocks_list; // List of module instances' clocks (efr's) bound to this global clock
+    std::list<c_se_engine_callbacks_void *> prepreclock_set;
     t_engine_clock_fns posedge;
     t_engine_clock_fns negedge;
     int delay; // delay in cycles before first posedge
@@ -221,12 +205,15 @@ typedef struct t_engine_module_instance
     char *type; // Module type
 
     t_sl_option_list option_list;
-    t_engine_function_list *delete_fn_list;
-    t_engine_function_list *reset_fn_list;
+
+    c_se_engine_callbacks_void     delete_cb;
+    c_se_engine_callbacks_int      reset_cb;
+    c_se_engine_callbacks_void     propagate_cb;
+    c_se_engine_callbacks_void     prepreclock_cb;
+    
+    c_se_engine_callbacks_void comb_cb;
+
     t_engine_function *clock_fn_list;
-    t_engine_function *comb_fn_list;
-    t_engine_function *propagate_fn_list;
-    t_engine_function *prepreclock_fn_list;
     t_engine_function *input_list;
     t_engine_function *output_list;
     t_engine_state_desc_list *state_desc_list;

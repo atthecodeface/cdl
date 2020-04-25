@@ -118,16 +118,13 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     int i, j;
     int width;
     char *arg, *names[SL_EXEC_FILE_MAX_CMD_ARGS+1];
-    //fprintf(stderr,"cmd_cb->cmd %d\n",cmd_cb->cmd);
     switch (cmd_cb->cmd)
     {
     case cmd_module:
-        //fprintf(stderr,"Instantiate %s %s\n",cmd_cb->args[0].p.string, cmd_cb->args[1].p.string);
         instantiate( NULL,
                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                      option_list );
-        //fprintf(stderr,"Instantiation complete\n");
         option_list = NULL;
         break;
     case cmd_module_force_option_int:
@@ -262,7 +259,6 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
         generic_logic( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), j-2, names[0], names[1], (const char **)(names+2) );
         break;
     case cmd_clock:
-        //fprintf(stderr,"Create clock %s %lld %lld %lld\n",cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         create_clock( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         break;
     case cmd_clock_divide:
@@ -454,7 +450,6 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
          {
              if (!strcmp(fopt->full_name, full_name))
              {
-                 //fprintf(stderr,"Prepending forces option for module %s\n",full_name);
                  combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
              }
          }
@@ -463,7 +458,6 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      /*b Find any forced implementation name
       */
      const char *implementation_name = sl_option_get_string(combined_option_list,"__implementation_name");
-     //fprintf(stderr,"Implementation name %s before forced options for type for module %s\n",implementation_name?implementation_name:"<none>", full_name );
      if (implementation_name==NULL)
      {
          t_engine_module_instance *root;
@@ -512,7 +506,7 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
                                    error_arg_type_none );
      }
 
-     emi = (t_engine_module_instance *)malloc(sizeof(t_engine_module_instance));
+     emi = new t_engine_module_instance();
      emi->next_instance = module_instance_list;
      module_instance_list = emi;
      emi->parent_instance = pemi;
@@ -536,19 +530,21 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->full_name       = full_name;
      emi->full_name_hash  = sl_str_hash( emi->full_name, -1 );
 
-     emi->option_list = combined_option_list;
-     emi->delete_fn_list = NULL;
-     emi->reset_fn_list = NULL;
-     emi->clock_fn_list = NULL;
-     emi->comb_fn_list = NULL;
-     emi->propagate_fn_list = NULL;
-     emi->prepreclock_fn_list = NULL;
-     emi->input_list = NULL;
+     emi->option_list    = combined_option_list;
+     // emi->delete_cb      = new c_se_engine_callbacks_void();
+     // emi->reset_cb       = new c_se_engine_callbacks_int();
+     // emi->propagate_cb   = new c_se_engine_callbacks_void();
+     // emi->prepreclock_cb = new c_se_engine_callbacks_void();
+     // emi->comb_fn_list   = NULL;
+
+     emi->checkpoint_fn_list = NULL;
+     emi->message_fn_list = NULL;
+
+     emi->clock_fn_list  = NULL;
+     emi->input_list  = NULL;
      emi->output_list = NULL;
      emi->state_desc_list = NULL;
      emi->coverage_desc = NULL;
-     emi->checkpoint_fn_list = NULL;
-     emi->message_fn_list = NULL;
      emi->log_event_list = NULL;
 
      emi->sdl_to_view = NULL;
@@ -732,58 +728,49 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      return error_level_okay;
 }
 
-/*f c_engine::bind_clock
+/*f c_engine::bind_clock - bind a global clock to a toplevel modules instance name and signal
  */
 t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, const char *module_instance_name, const char *module_signal_name, const char *global_clock_name )
 {
-     t_engine_module_instance *emi;
-     t_engine_function *clk;
-     t_engine_clock *global_clock;
+    auto emi = (t_engine_module_instance *)find_module_instance( NULL, module_instance_name );
+    if (!emi) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_instance_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     emi = (t_engine_module_instance *)find_module_instance( NULL, module_instance_name );
-     if (!emi)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_instance_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    auto clk = se_engine_function_find_function( emi->clock_fn_list, module_signal_name );
+    if (!clk) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_signal_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     clk = se_engine_function_find_function( emi->clock_fn_list, module_signal_name );
-     if (!clk)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    if (clk->data.clock.driven_by) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_signal_name,
+                          error_arg_type_malloc_string, clk->data.clock.driven_by->global_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     if (clk->data.clock.driven_by)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_signal_name,
-                                   error_arg_type_malloc_string, clk->data.clock.driven_by->global_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    auto global_clock = find_clock( global_clock_name );
+    if (!global_clock) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, global_clock_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     global_clock = find_clock( global_clock_name );
-     if (!global_clock)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, global_clock_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
-
-     clk->data.clock.driven_by = global_clock;
-     se_engine_function_references_add( &global_clock->clocks_list, clk );
-
-     return error_level_okay;
+    clk->data.clock.driven_by = global_clock;
+    global_clock->clocks_list.push_back(clk);
+    return error_level_okay;
 }
 
 /*f c_engine::bit_extract

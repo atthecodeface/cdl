@@ -86,24 +86,6 @@ static t_sl_error_level sram_message( void *handle, void *arg )
     return sram->message( (t_se_message *)arg );
 }
 
-/*f sram_preclock
- */
-static t_sl_error_level sram_preclock( void *handle )
-{
-    t_sram_clock_domain *cd = (t_sram_clock_domain *)handle;
-    WHERE_I_AM;
-    return cd->mod->preclock_posedge_clock(cd);
-}
-
-/*f sram_clock
- */
-static t_sl_error_level sram_clock( void *handle )
-{
-    t_sram_clock_domain *cd = (t_sram_clock_domain *)handle;
-    WHERE_I_AM;
-    return cd->mod->clock_posedge_clock(cd);
-}
-
 /*a Constructors and destructors for sram_srw
 */
 /*f c_se_internal_module__sram::c_se_internal_module__sram
@@ -164,8 +146,8 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
     data_byte_width = BITS_TO_BYTES(data_width); // In 64-bit words
     data_word_width = (data_width+8*sizeof(t_sl_uint64)-1)/(sizeof(t_sl_uint64)*8); // In 64-bit words, for the signals
 
-    engine->register_delete_function( engine_handle, (void *)this,  sram_delete );
-    engine->register_reset_function( engine_handle, (void *)this,   sram_reset );
+    engine->register_delete_function( engine_handle, [this](){sram_delete(this);} );
+    engine->register_reset_function( engine_handle,  [this](int pass){sram_reset(this, pass);} );
     engine->register_message_function( engine_handle, (void *)this, sram_message );
 
     clock_domains = (t_sram_clock_domain *)malloc(sizeof(t_sram_clock_domain)*num_ports);
@@ -179,7 +161,10 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
 
         sprintf( clk_name, "sram_clock_%d", i );
         if (!multiport) sprintf( clk_name, "sram_clock" );
-        engine->register_clock_fns( engine_handle, (void *)(&clock_domains[i]), clk_name, sram_preclock, sram_clock );
+        engine->register_clock_fns(engine_handle, clk_name,
+                                   [this,i](){this->preclock_posedge_clock(&this->clock_domains[i]);},
+                                   [this,i](){this->clock_posedge_clock(&this->clock_domains[i]);},
+                                   t_se_engine_std_function(), t_se_engine_std_function() );
 
         sprintf( signal_name, "select_%d", i );
         if (!multiport) sprintf( signal_name, "select" );

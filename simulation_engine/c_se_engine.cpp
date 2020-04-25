@@ -34,6 +34,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "sl_cons.h"
+#include "sl_debug.h"
 #include "sl_token.h"
 #include "sl_option.h"
 #include "se_internal_module.h"
@@ -62,6 +63,9 @@ static t_sl_error_text default_error_messages[] = {
 c_engine::c_engine( c_sl_error *error, const char *name )
 {
      int i;
+
+     // sl_debug_set_level(sl_debug_level_verbose_info);
+     // sl_debug_enable(1);
 
      instance_name = NULL;
      next_instance = engine_list;
@@ -153,19 +157,14 @@ void c_engine::delete_instances_and_signals( void )
      for (emi=module_instance_list; emi; emi = next_emi)
      {
           next_emi = emi->next_instance;
-          se_engine_function_call_invoke_all( emi->delete_fn_list );
-          for (sdl=emi->state_desc_list; sdl; sdl=next_sdl)
-          {
+          emi->delete_cb.invoke_all();
+          for (sdl=emi->state_desc_list; sdl; sdl=next_sdl) {
                next_sdl = sdl->next_in_list;
                free(sdl->prefix);
                free(sdl);
           }
-          se_engine_function_call_free( emi->delete_fn_list );
-          se_engine_function_call_free( emi->reset_fn_list );
           se_engine_function_free_functions( emi->clock_fn_list );
-          se_engine_function_free_functions( emi->comb_fn_list );
-          for (efn=emi->input_list; efn; efn=efn->next_in_list)
-          {
+          for (efn=emi->input_list; efn; efn=efn->next_in_list) {
                se_engine_function_references_free( efn->data.input.used_by_clocks );
           }
           se_engine_function_free_functions( emi->input_list );
@@ -183,18 +182,7 @@ void c_engine::delete_instances_and_signals( void )
      {
           next_clk = clk->next_in_list;
           free(clk->global_name);
-          se_engine_function_call_free( clk->posedge.prepreclock );
-          se_engine_function_call_free( clk->posedge.preclock );
-          se_engine_function_call_free( clk->posedge.clock );
-          se_engine_function_call_free( clk->posedge.comb );
-          se_engine_function_call_free( clk->posedge.propagate );
-          se_engine_function_call_free( clk->negedge.prepreclock );
-          se_engine_function_call_free( clk->negedge.preclock );
-          se_engine_function_call_free( clk->negedge.clock );
-          se_engine_function_call_free( clk->negedge.propagate );
-          se_engine_function_call_free( clk->negedge.comb );
-          se_engine_function_references_free( clk->clocks_list );
-          free(clk);
+          delete(clk);
      }
      global_clock_list = NULL;
      for (sig=global_signal_list; sig; sig=next_sig)
@@ -239,21 +227,10 @@ t_engine_clock *c_engine::create_clock( const char *name )
      if (find_clock(name))
           return NULL;
 
-     clk = (t_engine_clock *)malloc(sizeof(t_engine_clock));
+     clk = new t_engine_clock();
      clk->next_in_list = global_clock_list;
      global_clock_list = clk;
      clk->global_name = sl_str_alloc_copy( name );
-     clk->clocks_list = NULL;
-     clk->posedge.prepreclock = NULL;
-     clk->posedge.preclock = NULL;
-     clk->posedge.clock = NULL;
-     clk->posedge.propagate = NULL;
-     clk->posedge.comb = NULL;
-     clk->negedge.prepreclock = NULL;
-     clk->negedge.preclock = NULL;
-     clk->negedge.clock = NULL;
-     clk->negedge.propagate = NULL;
-     clk->negedge.comb = NULL;
      clk->delay = 0;
      clk->high_cycles = 0;
      clk->low_cycles = 0;

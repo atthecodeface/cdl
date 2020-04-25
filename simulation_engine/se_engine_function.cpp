@@ -45,6 +45,22 @@
 #define WHERE_I_AM(x) {}
 #endif
 
+/*a Types */
+/*t t_engine_function_list
+ */
+typedef struct t_engine_function_list
+{
+    struct t_engine_function_list *next_in_list;
+    struct t_engine_function *signal;
+    union {
+        t_se_engine_std_function       callback_void_fn;
+        t_se_engine_int_std_function   callback_int_fn;
+        t_se_engine_voidp_std_function callback_voidp_fn;
+    };
+    t_sl_timer timer; // For profiling - time spent in the callback
+    int invocation_count; // For profiling - number of times callback has been invoked
+} t_engine_function_list;
+
 /*a Signal reference function add
  */
 /*f se_engine_signal_reference_add
@@ -74,7 +90,7 @@ extern void se_engine_function_free_functions( t_engine_function *list )
           {
                free(efn->name);
           }
-          free( efn );
+          delete (efn);
      }
 }
 
@@ -84,7 +100,7 @@ extern t_engine_function *se_engine_function_add_function( t_engine_module_insta
 {
      t_engine_function *efn;
 
-     efn = (t_engine_function *)malloc(sizeof(t_engine_function));
+     efn = new t_engine_function();
      efn->next_in_list = *efn_list;
      *efn_list = efn;
      efn->module_instance = emi;
@@ -139,7 +155,7 @@ extern void se_engine_function_references_add( t_engine_function_reference **ref
  */
 /*f se_engine_function_call_add
  */
-extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_fn callback_fn )
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr )
 {
      t_engine_function_list *efl, **efl_prev;
 
@@ -148,8 +164,6 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
      efl = (t_engine_function_list *)malloc(sizeof(t_engine_function_list));
      efl->next_in_list = NULL;
      efl->signal = NULL;
-     efl->handle = handle;
-     efl->callback_fn = callback_fn;
      efl->invocation_count = 0;
      SL_TIMER_INIT(efl->timer);
      *efl_prev = efl;
@@ -160,24 +174,39 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
  */
 extern void se_engine_function_call_add( t_engine_function_list **list_ptr, t_engine_function_reference *efr, t_engine_callback_fn callback_fn )
 {
-     t_engine_function_list *efl;
-
-     efl = se_engine_function_call_add( list_ptr, efr->signal->handle, callback_fn );
-     efl->signal = efr->signal;
+    DEPRECATED("se_engine_function_call_add","fn efr handle - MUST BE REMOVED - signal no longer has a handle");
+    // auto efl = se_engine_function_call_add( list_ptr, efr->signal->handle, callback_fn );
+    // efl->signal = efr->signal;
 }
 
 /*f se_engine_function_call_add
  */
-extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_arg_fn callback_arg_fn )
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_fn callback_fn )
 {
-     return se_engine_function_call_add( list_ptr, handle, (t_engine_callback_fn) callback_arg_fn );
+    DEPRECATED("se_engine_function_call_add","fn void handle");
+    auto *efl = se_engine_function_call_add(list_ptr);
+    efl->callback_void_fn = [handle, callback_fn](void)->t_sl_error_level{return (*callback_fn)(handle);};
+    return efl;
 }
 
-/*f se_engine_function_call_add
+/*f se_engine_function_call_add - int
  */
-extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_argp_fn callback_argp_fn )
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_arg_fn callback_fn )
 {
-     return se_engine_function_call_add( list_ptr, handle, (t_engine_callback_fn) callback_argp_fn );
+    DEPRECATED("se_engine_function_call_add","fn int handle");
+    auto *efl = se_engine_function_call_add(list_ptr);
+    efl->callback_int_fn = [handle, callback_fn](int x)->t_sl_error_level{return (*callback_fn)(handle, x);};
+    return efl;
+}
+
+/*f se_engine_function_call_add - voidp
+ */
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_argp_fn callback_fn )
+{
+    DEPRECATED("se_engine_function_call_add","fn voidp handle");
+    auto *efl = se_engine_function_call_add(list_ptr);
+    efl->callback_voidp_fn = [handle, callback_fn](void *p)->t_sl_error_level{return (*callback_fn)(handle, p);};
+    return efl;
 }
 
 /*f se_engine_function_call_invoke_all
@@ -190,7 +219,7 @@ extern void se_engine_function_call_invoke_all( t_engine_function_list *list )
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
         WHERE_I_AM(efl->handle);
-        (efl->callback_fn)( efl->handle );
+        efl->callback_void_fn();
         SL_TIMER_EXIT(efl->timer);
     }
 }
@@ -205,7 +234,7 @@ extern void se_engine_function_call_invoke_all_arg( t_engine_function_list *list
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
         WHERE_I_AM(efl->handle);
-        ((t_engine_callback_arg_fn)(efl->callback_fn))( efl->handle, arg );
+        efl->callback_int_fn(arg);
         SL_TIMER_EXIT(efl->timer);
     }
 }
@@ -220,7 +249,7 @@ extern void se_engine_function_call_invoke_all_argp( t_engine_function_list *lis
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
         WHERE_I_AM(efl->handle);
-        ((t_engine_callback_argp_fn)(efl->callback_fn))( efl->handle, arg );
+        efl->callback_voidp_fn(arg);
         SL_TIMER_EXIT(efl->timer);
     }
 }

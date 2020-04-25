@@ -18,6 +18,7 @@
 
 /*a Includes
  */
+#include <functional>
 #include "sl_general.h"
 
 /*a Defines
@@ -36,6 +37,10 @@ typedef struct
  */
 typedef void (*t_sl_wl_callback_fn)( void *handle );
 
+/*t t_sl_wl_std_callback
+ */
+typedef std::function<void (void)> t_sl_wl_std_callback;
+
 /*t t_sl_wl_thread_ptr
  */
 typedef struct t_sl_wl_thread *t_sl_wl_thread_ptr;
@@ -50,21 +55,13 @@ typedef void *t_sl_wl_thread_affinity_ptr;
 
 /*t t_sl_wl_head
  */
-typedef struct
+typedef struct t_sl_wl_head
 {
     t_sl_wl_thread_affinity_ptr affinity;
     const char *name;
     const char *subname;
     int *guard_ptr;
 } t_sl_wl_head;
-
-/*t t_sl_wl_data
- */
-typedef struct
-{
-    t_sl_wl_callback_fn callback;
-    void *handle;
-} t_sl_wl_data;
 
 /*t t_sl_wl_worklist
  */
@@ -75,8 +72,8 @@ typedef struct t_sl_wl_worklist
     t_sl_wl_thread_pool_ptr thread_pool;
     int number_of_items;
     int data_per_item; // 2 for two function calls per work item
-    t_sl_wl_data *data; // pointer to data for each entry index by (item*data_per_item+entry_in_item)
-    t_sl_wl_head heads[1]; // heads for all 'number_of_items' items
+    struct t_sl_wl_data *data; // pointer to data for each entry index by (item*data_per_item+entry_in_item)
+    struct t_sl_wl_head heads[1]; // heads for all 'number_of_items' items
 } t_sl_wl_worklist;
 
 /*a External functions
@@ -137,6 +134,10 @@ extern void sl_wl_set_work_head( t_sl_wl_worklist *worklist, int item, const cha
 /*f sl_wl_set_work_item
  */
 extern void sl_wl_set_work_item( t_sl_wl_worklist *worklist, int item, int entry_number, t_sl_wl_callback_fn callback, void *handle );
+
+/*f sl_wl_set_work_item
+ */
+extern void sl_wl_set_work_item( t_sl_wl_worklist *worklist, int item, int entry_number, t_sl_wl_std_callback callback );
 
 /*f sl_wl_assign_work_to_thread
  */

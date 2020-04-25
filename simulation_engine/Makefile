@@ -32,6 +32,7 @@ ENGINE_SRCS = \
 		se_internal_module__logger.cpp \
 		se_internal_module__test_harness.cpp \
 		se_external_module.cpp \
+		se_wrapped_verilator.cpp \
 		se_engine_function.cpp \
 		c_se_engine__checkpoint_restore.cpp \
 		c_se_engine__interrogation.cpp \
@@ -59,7 +60,7 @@ ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
 #a Make include - copy relevant header files
 $(eval $(call add_includes,${INCLUDES}))
-$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${ENGINE_SRCS}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${ENGINE_SRCS},-I /home/gavin/Git/cdl_tools_grip/tools/share/verilator/include))
 
 #a Resultant 'libraries'
 # This library is not installed, as it has to be combined with an execution harness

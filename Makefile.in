@@ -85,12 +85,20 @@ rebuild:
 
 $(eval $(call new_stamp,build))
 ${MK_build}: ${MK_include}
-	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} build
-	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} build
-	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} build
-	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} build
-	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} build
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} -j4 build
+	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} -j4 build
+	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} -j4 build
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} -j4 build
+	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} -j4 build
 	date > $@
+
+rebuild_se:
+	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} -j4 build
+	rm -f ${MK_build}
+
+rebuild_eh:
+	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} -j4 build
+	rm -f ${MK_build}
 
 install: ${MK_build}
 	cd ${CDL_SRC_ROOT}/scripts             && ${SUBMAKE} install
@@ -99,4 +107,5 @@ install: ${MK_build}
 	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} install
 	cd ${CDL_SRC_ROOT}/backend             && ${SUBMAKE} install
 	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} install
-	cd ${CDL_SRC_ROOT}/pycdl               && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/python              && ${SUBMAKE} install
+	cd ${CDL_SRC_ROOT}/verilog             && ${SUBMAKE} install

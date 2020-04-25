@@ -1322,10 +1322,8 @@ static void output_wrapper_functions( c_model_descriptor *model, t_md_module *mo
     output( handle, 0, "\n");
     output( handle, 0, "/*f %s_reset_fn\n", module->output_name);
     output( handle, 0, "*/\n");
-    output( handle, 0, "static t_sl_error_level %s_reset_fn( void *handle, int pass )\n", module->output_name);
+    output( handle, 0, "static t_sl_error_level %s_reset_fn(c_%s *mod, int pass )\n", module->output_name, module->output_name);
     output( handle, 0, "{\n");
-    output( handle, 1, "c_%s *mod;\n", module->output_name);
-    output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
     output( handle, 1, "return mod->reset( pass );\n");
     output( handle, 0, "}\n");
     output( handle, 0, "\n");
@@ -1334,10 +1332,8 @@ static void output_wrapper_functions( c_model_descriptor *model, t_md_module *mo
     {
         output( handle, 0, "/*f %s_combinatorial_fn\n", module->output_name );
         output( handle, 0, "*/\n");
-        output( handle, 0, "static t_sl_error_level %s_combinatorial_fn( void *handle )\n", module->output_name );
+        output( handle, 0, "static t_sl_error_level %s_combinatorial_fn(c_%s *mod)\n", module->output_name, module->output_name );
         output( handle, 0, "{\n");
-        output( handle, 1, "c_%s *mod;\n", module->output_name);
-        output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
         output( handle, 1, "mod->capture_inputs();\n" );
         output( handle, 1, "return mod->comb();\n" );
         output( handle, 0, "}\n");
@@ -1426,73 +1422,46 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     output( handle, 0, "*/\n");
     output( handle, 0, "c_%s::c_%s( class c_engine *eng, void *eng_handle )\n", module->output_name, module->output_name);
     output( handle, 0, "{\n");
-    output( handle, 1, "engine = eng;\n");
-    output( handle, 1, "engine_handle = eng_handle;\n");
-    output( handle, 0, "\n");
-    output( handle, 1, "engine->register_delete_function( engine_handle, (void *)this, %s_delete_fn );\n", module->output_name);
-    output( handle, 1, "engine->register_reset_function( engine_handle, (void *)this, %s_reset_fn );\n", module->output_name);
+    output( handle, 1, "this->engine = eng;\n");
+    output( handle, 1, "this->engine_handle = eng_handle;\n");
     output( handle, 0, "\n");
 
     /*b Clear all state and combinatorial data in case of use of unused data elsewhere
      */
-    if (1)
-    {
-        output( handle, 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
-        //output( handle, 1, "memset(&all_signals.input_state,    0, sizeof(all_signals.input_state));\n" ); 
-        //output( handle, 1, "memset(&all_signals.combinatorials, 0, sizeof(all_signals.combinatorials));\n" ); 
-        //output( handle, 1, "memset(&all_signals.nets,           0, sizeof(all_signals.nets));\n" ); 
-        //for (clk=module->clocks; clk; clk=clk->next_in_list) {
-        //    for (edge=0; edge<2; edge++) {
-        //        if (clk->data.clock.edges_used[edge]) {
-        //            output( handle, 1, "memset(&all_signals.%s_%s_state,       0, sizeof(all_signals.%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
-        //            output( handle, 1, "memset(&all_signals.next_%s_%s_state,  0, sizeof(all_signals.%s_%s_state));\n", edge_name[edge], clk->name, edge_name[edge], clk->name );
-        //         }
-        //    }
-        //}
-        output( handle, 1, "propagating_in_reset=0;\n" ); 
-        output( handle, 0, "\n");
-    }
+    output( handle, 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
+    output( handle, 1, "propagating_in_reset=0;\n" ); 
+    output( handle, 1, "engine->register_delete_function( engine_handle, [this](){delete(this);} );\n" );
+    output( handle, 1, "engine->register_reset_function( engine_handle, [this](int pass){this->reset(pass);} );\n" );
+    output( handle, 0, "\n");
 
     /*b Register combinatorial, input propagation and clock/preclock functions
      */
-    if (module->combinatorial_component) // If there is a combinatorial component to this module, then propagate_inputs will work wonders
-    {
-        output( handle, 1, "engine->register_comb_fn( engine_handle, (void *)this, %s_combinatorial_fn );\n", module->output_name );
+    if (module->combinatorial_component) { // If there is a combinatorial component to this module, then propagate_inputs will work wonders
+        output( handle, 1, "engine->register_comb_fn( engine_handle,  [this](){%s_combinatorial_fn(this);} );\n", module->output_name );
     }
-    output( handle, 1, "engine->register_propagate_fn( engine_handle, (void *)this, %s_propagate_fn );\n", module->output_name );
-    if (module->clocks)
-    {
-        output( handle, 1, "engine->register_prepreclock_fn( engine_handle, (void *)this, %s_prepreclock_fn );\n", module->output_name );
+    output( handle, 1, "engine->register_propagate_fn( engine_handle, [this](){%s_propagate_fn(this);} );\n", module->output_name );
+    if (module->clocks) {
+        output( handle, 1, "engine->register_prepreclock_fn( engine_handle, [this](){this->prepreclock();} );\n");
     }
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        if (!clk->data.clock.clock_ref) // Not a gated clock
-        {
-            if (clk->data.clock.edges_used[1])
-            {
-                if (clk->data.clock.edges_used[0])
-                {
-                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, %s_preclock_%s_%s_fn );\n", clk->name,
-                            module->output_name, edge_name[0], clk->name, 
-                            module->output_name, edge_name[1], clk->name );
-                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_posedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
-                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_negedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
+    for (clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) { // Not a gated clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) {
+                output( handle, 1, "engine->register_clock_fns(engine_handle, \"%s\",\n", clk->name );
+                if (clk->data.clock.edges_used[0]){
+                    output( handle, 2, "[this](){%s_preclock_%s_%s_fn(this);},\n", module->output_name, edge_name[0], clk->name );
+                    output( handle, 2, "[this](){this->clock();},\n");
+                } else {
+                    output( handle, 2, "t_se_engine_std_function(),\n" );
+                    output( handle, 2, "t_se_engine_std_function(),\n" );
                 }
-                else
-                {
-                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", (t_engine_callback_fn) NULL, %s_preclock_%s_%s_fn );\n", clk->name,
-                            module->output_name, edge_name[1], clk->name );
-                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_negedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
+                if (clk->data.clock.edges_used[1]){
+                    output( handle, 2, "[this](){%s_preclock_%s_%s_fn(this);},\n", module->output_name, edge_name[1], clk->name );
+                    output( handle, 2, "[this](){this->clock();}\n");
+                } else {
+                    output( handle, 2, "t_se_engine_std_function(),\n" );
+                    output( handle, 2, "t_se_engine_std_function()\n" );
                 }
-            }
-            else
-            {
-                if (clk->data.clock.edges_used[0])
-                {
-                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, (t_engine_callback_fn) NULL );\n", clk->name,
-                            module->output_name, edge_name[0], clk->name );
-                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_posedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
-                }
+                output( handle, 2, ");\n");
             }
         }
     }
