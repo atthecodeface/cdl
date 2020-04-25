@@ -15,17 +15,30 @@ A CDL library has the form:
 > from cdl_desc import CdlModule, CModel
 > class Library(cdl_desc.Library):
 >    name = "<library name>"
->    modules=cdl_desc.Modules.__subclasses__
 >    pass
 > class SomeModules(cdl_desc.Modules):
 >    name = "<module set name>"
 >    libraries = {"<required library>":True, "<optional library>":False, ...}
 >    export_dirs = ["<header files directory relative to library_desc.py directory>", ...]
+>    modules = [ cdl_desc.Modules.__subclasses__() instances ]
+>    ...
+>    pass
+>
+> class SomeMoreModules(cdl_desc.Modules):
+>    ...
+> 
+> class ExecutableBlah(cdl_desc.Executable):
+>    name = "<executable name>"
+>    srcs = [ cdl_desc.CSrc() instances ]
 >    ...
 >    pass
 > ...
 
 The Modules subclasses contain descriptions of sets of modules in the library
+
+The Executable subclasses contains descriptions of specific C++/C
+Sources required by an executable, in addition to any sources in the
+rest of the library.
 
 Using this information a build system can put together a Makefile for a library to create
 verilog files, lists of verilog files, CDL C models, and compilation scripts to create C
@@ -36,6 +49,77 @@ given any required information such as the toplevel for a verilog build, or the 
 C file for a verilator build. (CDL simulation builds do not require a 'toplevel', as they have a
 run-time toplevel instantiation.)
 
+"""
+
+"""
+
+SRC_ROOT    = ${GRIP_ROOT_PATH}/atcf_hardware_bbc
+BUILD_ROOT  = $(abspath ${CURDIR})/build
+VERILOG_DIR = $(abspath ${CURDIR})/verilog
+CDL_EXTRA_FLAGS='--v_clks_must_have_enables  --v_use_always_at_star'
+MAKE_OPTIONS = SRC_ROOT=${SRC_ROOT} BUILD_ROOT=${BUILD_ROOT} CDL_EXTRA_FLAGS=${CDL_EXTRA_FLAGS}
+VERILATOR = PATH=${VERILATOR_ROOT}/bin:${PATH} ${VERILATOR_ROOT}/bin/verilator
+BUILD_VERILATOR_DIR = ${BUILD_ROOT}/verilator
+
+FPGA_ROOT    = ${GRIP_ROOT_PATH}/atcf_fpga
+
+TOP = bbc_micro_with_rams
+TOP = bbc_micro_de1_cl
+all:
+
+make_verilog:
+	mkdir -p ${BUILD_ROOT}
+	${MAKE} ${MAKE_OPTIONS} -f ${SRC_ROOT}/Makefile clean
+	${MAKE} ${MAKE_OPTIONS} -f ${SRC_ROOT}/Makefile makefiles
+	${MAKE} ${MAKE_OPTIONS} -f ${SRC_ROOT}/Makefile clean_verilog verilog
+	mkdir ${BUILD_ROOT}/verilog
+	cp ${BUILD_ROOT}/*/*.v ${BUILD_ROOT}/verilog
+
+make_verilator_old:
+	(cd ${BUILD_ROOT} && ${VERILATOR} --cc --top-module ${TOP} -Wno-fatal ${BUILD_ROOT}/verilog/${TOP}.v +incdir+${BUILD_ROOT}/verilog ${VERILOG_DIR}/*v ${VERILOG_DIR}/xilinx/srams.v)
+	(cd ${BUILD_ROOT}/obj_dir && make VERILATOR_ROOT=${VERILATOR_SHARE} -f V${TOP}.mk )
+	(cd ${BUILD_ROOT}/obj_dir && g++ -o vsim__${TOP} -include V${TOP}.h -DCLK1=clk -DCLK1_P=2 -DVTOP=V${TOP} ${SRC_ROOT}/tb_v/tb_bbc_micro_with_rams.cpp ${VERILATOR_SHARE}/include/verilated.cpp V${TOP}__ALL.a -I ${VERILATOR_SHARE}/include -I.)
+
+VERILATOR_C_FLAGS = -D VM_THREADS=1 -std=c++11 
+VERILATOR_C_FLAGS = -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14
+VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++
+
+$(eval $(call make_verilator_lib,${BUILD_ROOT},${BUILD_VERILATOR_DIR},bbc_micro_de1_cl,${BUILD_ROOT}/verilog/,${BUILD_ROOT}/verilog,${VERILOG_DIR}/*v ${VERILOG_DIR}/verilate/srams.v))
+
+make_verilator:
+	(${VERILATOR} --cc --top-module ${TOP} --threads 1 -Mdir ${BUILD_VERILATOR_DIR} -Wno-fatal ${BUILD_ROOT}/verilog/${TOP}.v +incdir+${BUILD_ROOT}/verilog ${VERILOG_DIR}/*v ${VERILOG_DIR}/xilinx/srams.v)
+	(cd ${BUILD_VERILATOR_DIR} && make VERILATOR_ROOT=${VERILATOR_SHARE} -f V${TOP}.mk )
+	(cd ${BUILD_VERILATOR_DIR} && g++ -o vsim__${TOP} ${VERILATOR_C_FLAGS} -include V${TOP}.h -DCLK1=clk -DCLK1_P=2 -DVTOP=V${TOP} ${SRC_ROOT}/tb_v/tb_bbc_micro_with_rams.cpp ${VERILATOR_SHARE}/include/verilated.cpp V${TOP}__ALL.a -I ${VERILATOR_SHARE}/include -I. ${VERILATOR_LIBS})
+
+y: ${VLIB__bbc_micro_de1_cl__H} ${VLIB__bbc_micro_de1_cl__LIB}
+	g++ -o cv_bbc_micro_de1_cl.o -c csrc/cv_bbc_micro_de1_cl.cpp  -I ${CDL_ROOT}/include/cdl/ -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -I ${BUILD_VERILATOR_DIR}
+	g++ -o cdl_wrapped_verilator.o -c csrc/cdl_wrapped_verilator.cpp -I ${CDL_ROOT}/include/cdl/ -I ${CDL_ROOT}/../build/cdl/include
+	g++ ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp cdl_wrapped_verilator.o cv_bbc_micro_de1_cl.o ${BUILD_VERILATOR_DIR}/Vbbc_micro_de1_cl__ALL.a -I ${VERILATOR_SHARE}/include -I. ${VERILATOR_LIBS} -L ${CDL_ROOT}/lib -lcdl_se_batch
+
+z: ${VLIB__bbc_micro_de1_cl__H} ${VLIB__bbc_micro_de1_cl__LIB}
+	g++ -g -o cv_bbc_micro_de1_cl.o -r csrc/cv_bbc_micro_de1_cl.cpp  -I ${CDL_ROOT}/include/cdl/ -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -I ${BUILD_VERILATOR_DIR} ${BUILD_VERILATOR_DIR}/Vbbc_micro_de1_cl__ALL.a  -nostartfiles -nodefaultlibs
+	g++ -g -o cdl_wrapped_verilator.o -c csrc/cdl_wrapped_verilator.cpp -I ${CDL_ROOT}/include/cdl/ -I ${VERILATOR_SHARE}/include -I ${CDL_ROOT}/../build/cdl/include
+	g++ -g ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp cdl_wrapped_verilator.o cv_bbc_micro_de1_cl.o  -I ${VERILATOR_SHARE}/include -I. ${VERILATOR_LIBS} -L ${CDL_ROOT}/lib -lcdl_se_batch
+
+
+x_clean:
+	make -f ${FPGA_ROOT}/Makefile ROOT=${FPGA_ROOT} SRC_ROOT=${BUILD_ROOT} VERILOG_DIR=${BUILD_ROOT}/verilog RTL_DIR=${VERILOG_DIR} BUILD_ROOT=${BUILD_ROOT} PROJECTS_DIR=${CURDIR}/projects PROJECT=de1_cl/bbc USE_MTL_AS_VGA= clean
+
+x:
+	make -f ${FPGA_ROOT}/Makefile ROOT=${FPGA_ROOT} SRC_ROOT=${BUILD_ROOT} VERILOG_DIR=${BUILD_ROOT}/verilog RTL_DIR=${VERILOG_DIR} BUILD_ROOT=${BUILD_ROOT} PROJECTS_DIR=${CURDIR}/projects PROJECT=de1_cl/bbc USE_MTL_AS_VGA= synth timing fit 
+
+
+mount_xilinx:
+	sudo modprobe nbd max_part=8
+	sudo qemu-nbd --connect=/dev/nbd0 /vm/images/Vivado19.0.qcow
+	sudo qemu-nbd --connect=/dev/nbd1 /vm/images/Altera18_1.qcow2
+	sudo mount /dev/nbd0p1 /xilinx
+	sudo mount /dev/nbd1p1 /altera
+
+mount_altera:
+	sudo modprobe nbd max_part=8
+	sudo qemu-nbd --connect=/dev/nbd1 /vm/images/Altera18_1.qcow2
+	sudo mount /dev/nbd1p1 /altera
 """
 
 #a Classes used in library_desc.py files

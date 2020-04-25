@@ -26,6 +26,14 @@
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
 
+/*a Defines
+ */
+#if 0
+#define WHERE_I_AM {fprintf(stderr,"%s:%d\n",__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
+
 /*a Types
  */
 /*t t_engine_submodule_clock_set_entry
@@ -106,69 +114,11 @@ void c_engine::submodule_call_reset( void *submodule_handle, int pass )
     if (!emi) return;
     SL_DEBUG( sl_debug_level_info,
               "c_se_engine::submodule_call_reset",
-              "calling reset of %s", emi->name); 
-    if (emi->reset_fn_list)
-    {
-        ((t_engine_callback_arg_fn)(emi->reset_fn_list->callback_fn))( emi->reset_fn_list->handle, pass );
-    }
+              "calling reset of %s", emi->name);
+    emi->reset_cb.invoke_all(pass);
     SL_TIMER_INIT(emi->timer_clk_fns);
     SL_TIMER_INIT(emi->timer_comb_fns);
     SL_TIMER_INIT(emi->timer_propagate_fns);
-}
-
-/*f c_engine::submodule_call_prepreclock
- */
-void c_engine::submodule_call_prepreclock( void *submodule_handle )
-{
-    t_engine_module_instance *emi;
-    emi = (t_engine_module_instance *)submodule_handle;
-    if (!emi) return;
-    SL_TIMER_ENTRY(emi->timer_clk_fns);
-    if (emi->prepreclock_fn_list)
-    {
-        (emi->prepreclock_fn_list->data.prepreclock.prepreclock_fn)( emi->prepreclock_fn_list->handle );
-    }
-    SL_TIMER_EXIT(emi->timer_clk_fns);
-}
-
-/*f c_engine::submodule_call_preclock
- */
-void c_engine::submodule_call_preclock( void *submodule_clock_handle, int posedge )
-{
-    t_engine_function *clk;
-    clk = (t_engine_function *)submodule_clock_handle;
-    if (!clk)
-        return;
-    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
-    if (posedge && clk->data.clock.posedge_preclock_fn)
-    {
-        (clk->data.clock.posedge_preclock_fn)(clk->handle);
-    }
-    if (!posedge && clk->data.clock.negedge_clock_fn)
-    {
-        (clk->data.clock.negedge_preclock_fn)(clk->handle);
-    }
-    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
-}
-
-/*f c_engine::submodule_call_clock
- */
-void c_engine::submodule_call_clock( void *submodule_clock_handle, int posedge )
-{
-    t_engine_function *clk;
-    clk = (t_engine_function *)submodule_clock_handle;
-    if (!clk)
-        return;
-    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
-    if (posedge && clk->data.clock.posedge_preclock_fn)
-    {
-        (clk->data.clock.posedge_clock_fn)(clk->handle);
-    }
-    if (!posedge && clk->data.clock.negedge_clock_fn)
-    {
-        (clk->data.clock.negedge_clock_fn)(clk->handle);
-    }
-    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
 }
 
 /*f c_engine::submodule_call_propagate
@@ -179,12 +129,7 @@ void c_engine::submodule_call_propagate( void *submodule_handle )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
     if (!emi) return;
-    SL_TIMER_ENTRY(emi->timer_propagate_fns);
-    if (emi->propagate_fn_list)
-    {
-        (emi->propagate_fn_list->data.propagate.propagate_fn)( emi->propagate_fn_list->handle );
-    }
-    SL_TIMER_EXIT(emi->timer_propagate_fns);
+    emi->propagate_cb.invoke_all();
 }
 
 /*f c_engine::submodule_call_comb
@@ -195,12 +140,57 @@ void c_engine::submodule_call_comb( void *submodule_handle )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
     if (!emi) return;
-    SL_TIMER_ENTRY(emi->timer_comb_fns);
-    if (emi->comb_fn_list)
-    {
-        (emi->comb_fn_list->data.comb.comb_fn)( emi->comb_fn_list->handle );
+    emi->comb_cb.invoke_all();
+}
+
+/*f c_engine::submodule_call_prepreclock
+ */
+void c_engine::submodule_call_prepreclock( void *submodule_handle )
+{
+    t_engine_module_instance *emi;
+    emi = (t_engine_module_instance *)submodule_handle;
+    if (!emi) return;
+    emi->prepreclock_cb.invoke_all();
+}
+
+/*f c_engine::submodule_call_preclock
+ */
+void c_engine::submodule_call_preclock( void *submodule_clock_handle, int posedge )
+{
+    t_engine_function *clk;
+    clk = (t_engine_function *)submodule_clock_handle;
+    if (!clk) return;
+    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
+    if (posedge) {
+        if (clk->data.clock.posedge_preclock_fn) {
+            clk->data.clock.posedge_preclock_fn();
+        }
+    } else {
+        if (clk->data.clock.negedge_preclock_fn) {
+            clk->data.clock.negedge_preclock_fn();
+        }
     }
-    SL_TIMER_EXIT(emi->timer_comb_fns);
+    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
+}
+
+/*f c_engine::submodule_call_clock
+ */
+void c_engine::submodule_call_clock( void *submodule_clock_handle, int posedge )
+{
+    t_engine_function *clk;
+    clk = (t_engine_function *)submodule_clock_handle;
+    if (!clk) return;
+    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
+    if (posedge) {
+        if (clk->data.clock.posedge_clock_fn) {
+            clk->data.clock.posedge_clock_fn();
+        }
+    } else {
+        if (clk->data.clock.negedge_clock_fn) {
+            clk->data.clock.negedge_clock_fn();
+        }
+    }
+    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
 }
 
 /*a Handle clock sets
@@ -249,12 +239,12 @@ void c_engine::submodule_clock_set_invoke( t_engine_submodule_clock_set_ptr scs,
             {
                 switch (type)
                 {
-                case engine_sim_function_type_posedge_prepreclock: clk->data.clock.posedge_prepreclock_fn(clk->handle); break;
-                case engine_sim_function_type_posedge_preclock:    clk->data.clock.posedge_preclock_fn(clk->handle); break;
-                case engine_sim_function_type_posedge_clock:       clk->data.clock.posedge_clock_fn(clk->handle); break;
-                case engine_sim_function_type_negedge_prepreclock: clk->data.clock.negedge_prepreclock_fn(clk->handle); break;
-                case engine_sim_function_type_negedge_preclock:    clk->data.clock.negedge_preclock_fn(clk->handle); break;
-                case engine_sim_function_type_negedge_clock:       clk->data.clock.negedge_clock_fn(clk->handle); break;
+                    // case engine_sim_function_type_posedge_prepreclock: clk->data.clock.posedge_prepreclock_fn(clk->handle); break;
+                case engine_sim_function_type_posedge_preclock:    clk->data.clock.posedge_preclock_fn(); break;
+                case engine_sim_function_type_posedge_clock:       clk->data.clock.posedge_clock_fn(); break;
+                    // case engine_sim_function_type_negedge_prepreclock: clk->data.clock.negedge_prepreclock_fn(clk->handle); break;
+                case engine_sim_function_type_negedge_preclock:    clk->data.clock.negedge_preclock_fn(); break;
+                case engine_sim_function_type_negedge_clock:       clk->data.clock.negedge_clock_fn(); break;
                 }
             }
         }
@@ -306,6 +296,7 @@ t_sl_error_level c_engine::submodule_drive_input( void *submodule_handle, const 
      }
      if (input->data.input.size!=size)
      {
+         WHERE_I_AM;
          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, size,
                                   error_arg_type_integer, input->data.input.size,
@@ -347,6 +338,7 @@ t_sl_error_level c_engine::submodule_drive_input_with_module_input( void *module
      }
      if (module_input->data.input.size!=submodule_input->data.input.size)
      {
+         WHERE_I_AM;
          return add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, module_input->data.input.size,
                                   error_arg_type_integer, submodule_input->data.input.size,
@@ -388,6 +380,7 @@ t_sl_error_level c_engine::submodule_drive_input_with_submodule_output( void *su
      }
      if (submodule_input->data.input.size!=submodule_output->data.output.size)
      {
+         WHERE_I_AM;
          return add_error( (void *)semi_i->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, submodule_input->data.input.size,
                                   error_arg_type_integer, submodule_output->data.output.size,
@@ -442,10 +435,11 @@ t_sl_error_level c_engine::submodule_output_add_receiver( void *submodule_handle
                                    error_arg_type_none );
      }
 
-     if (output->data.input.size!=size)
+     if (output->data.output.size!=size)
      {
+         WHERE_I_AM;
          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
-                                  error_arg_type_integer, output->data.input.size,
+                                  error_arg_type_integer, output->data.output.size,
                                   error_arg_type_integer, size,
                                   error_arg_type_malloc_filename, name,
                                   error_arg_type_none );
@@ -485,9 +479,10 @@ t_sl_error_level c_engine::submodule_output_drive_module_output( void *submodule
      }
      if (module_output->data.output.size!=submodule_output->data.output.size)
      {
+         WHERE_I_AM;
          return add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
-                                  error_arg_type_integer, module_output->data.input.size,
-                                  error_arg_type_integer, submodule_output->data.input.size,
+                                  error_arg_type_integer, module_output->data.output.size,
+                                  error_arg_type_integer, submodule_output->data.output.size,
                                   error_arg_type_malloc_filename, submodule_output->name,
                                   error_arg_type_none );
      }
@@ -686,10 +681,10 @@ t_sl_error_level c_engine::submodule_set_clock_worklist_prepreclock( void *engin
         return error_level_serious;
 
     sl_wl_set_work_head( (t_sl_wl_worklist *)(emi->worklist), call_number, smi->name, "prepreclock", NULL );
-    if (smi->prepreclock_fn_list)
-    {
-        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_prepreclock, (t_sl_wl_callback_fn)(smi->prepreclock_fn_list->data.prepreclock.prepreclock_fn), smi->prepreclock_fn_list->handle );
-    }
+    sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist),
+                         call_number,
+                         se_wl_item_prepreclock,
+                         [emi](){emi->prepreclock_cb.invoke_all();} );
 
     const char *thread_name;
     thread_name = thread_pool_submodule_mapping( emi, smi );
@@ -716,15 +711,12 @@ t_sl_error_level c_engine::submodule_set_clock_worklist_clock( void *engine_hand
         return error_level_fatal;
 
     sl_wl_set_work_head( (t_sl_wl_worklist *)(emi->worklist), call_number, smi->name, clk->name, NULL );
-    if (posedge)
-    {
-        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, (t_sl_wl_callback_fn)(clk->data.clock.posedge_preclock_fn), clk->handle );
-        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    (t_sl_wl_callback_fn)(clk->data.clock.posedge_clock_fn), clk->handle );
-    }
-    else
-    {
-        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, (t_sl_wl_callback_fn)(clk->data.clock.negedge_preclock_fn), clk->handle );
-        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    (t_sl_wl_callback_fn)(clk->data.clock.negedge_clock_fn), clk->handle );
+    if (posedge) {
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, clk->data.clock.posedge_preclock_fn);
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    clk->data.clock.posedge_clock_fn);
+    } else {
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, clk->data.clock.negedge_preclock_fn);
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    clk->data.clock.negedge_clock_fn);
     }
 
     const char *thread_name;

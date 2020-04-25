@@ -91,6 +91,4 @@ $(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SUPPORT_PYTHON_LIBRARY}
 $(eval $(call install_static_library,${CDL_BUILD_LIB_DIR},${SUPPORT_PYTHON_LIBRARY}))
 endif
 
-#a Include dependencies
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 

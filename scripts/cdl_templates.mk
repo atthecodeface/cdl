@@ -215,3 +215,39 @@ $1: ${MODEL_LIBS} $3
 	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
 
 endef
+#f make_verilator_lib
+define make_verilator_lib
+# @param $1 output directory (for .h file and V<module>.a archive)
+# @param $2 verilator build directory
+# @param $3 module (top for verilator)
+# @param $4 verilog source directory (containing <module>.v)
+# @param $5 verilog source directories to include
+# @param $6 other verilog source files
+# $5 = {BUILD_ROOT}/verilog
+# $6 = ${VERILOG_DIR}/*v ${VERILOG_DIR}/xilinx/srams.v
+
+VLIB__$3__H    := $1/V$3.h
+VLIB__$3__SYMS := $1/V$3__Syms.h
+VLIB__$3__LIB  := $1/V$3__ALL.a
+
+.PHONY:verilate_libs
+verilate_libs: $${VLIB__$3__H} $${VLIB__$3__LIB}
+
+$${VLIB__$3__H}: $2/V$3.h
+	cp $$< $$@
+
+$${VLIB__$3__SYMS}: $2/V$3__Syms.h
+	cp $$< $$@
+
+$${VLIB__$3__LIB}: $2/V$3__ALL.a
+	cp $$< $$@
+
+$2/V$3.h: $2/V$3__ALL.a
+
+$2/V$3__Syms.h: $2/V$3__ALL.a
+
+$2/V$3__ALL.a: $4/$3.v
+	${Q}${VERILATOR} --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
+	(cd $2 && make CFLAGS=-g VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
+
+endef

@@ -23,6 +23,7 @@
 #include "c_sl_error.h"
 #include "sl_option.h"
 #include "sl_general.h"
+#include <functional>
 #ifndef Py_PYTHON_H
 #ifdef SE_ENGINE_PYTHON
 #include <Python.h>
@@ -105,6 +106,11 @@ typedef void (*t_se_engine_monitor_callback_fn)( void *handle, void *handle_b );
  */
 typedef int (*t_se_engine_simulation_callback_fn)( void *handle, void *handle_b );
 
+/*t t_se_engine_*_std_function */
+typedef std::function<void(void)>   t_se_engine_std_function;
+typedef std::function<void(int)>    t_se_engine_int_std_function;
+typedef std::function<void(void *)> t_se_engine_voidp_std_function;
+
 /*t t_engine_message_level
  */
 typedef enum
@@ -142,6 +148,7 @@ typedef enum
 /*t t_engine_callback_fn
  */
 typedef t_sl_error_level (*t_engine_callback_fn)( void *handle );
+// typedef std::function<t_sl_error_level(void)> t_engine_std_function;
 
 /* t_engine_log_event_callback_fn
  */
@@ -155,14 +162,12 @@ typedef t_sl_error_level (*t_engine_callback_arg_fn)( void *handle, int pass );
  */
 typedef t_sl_error_level (*t_engine_callback_argp_fn)( void *handle, void *arg );
 
-/*t t_engine_sim_function_type
+/*t t_engine_sim_function_type -- REMOVE ME
  */
 typedef enum t_engine_sim_function_type
 {
-    engine_sim_function_type_posedge_prepreclock,
     engine_sim_function_type_posedge_preclock,
     engine_sim_function_type_posedge_clock,
-    engine_sim_function_type_negedge_prepreclock,
     engine_sim_function_type_negedge_preclock,
     engine_sim_function_type_negedge_clock,
 } t_engine_sim_function_type;
@@ -286,6 +291,7 @@ public:
 
      /*b Option handling methods - called by modules instances at their instantiation
       */
+     // GJS Need get options for module from force options
      int get_option_int( void *handle, const char *keyword, int default_value );
      const char *get_option_string( void *handle, const char *keyword, const char *default_value );
      void *get_option_object( void *handle, const char *keyword );
@@ -294,20 +300,37 @@ public:
 
      /*b Module, signal, clock, state registration methods - called by modules instances at their instantiation
       */
+     void register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr, int may_be_unconnected=0 );
+     void register_output_signal( void *engine_handle, const char *name, int size, t_se_signal_value *value_ptr );
+
+     void register_delete_function( void *engine_handle, t_se_engine_std_function delete_fn );
+     void register_reset_function( void *engine_handle, t_se_engine_int_std_function reset_fn );
+     void register_prepreclock_fn( void *engine_handle, t_se_engine_std_function prepreclock_fn );
+     void register_clock_fns( void *engine_handle, const char *clock_name,
+                              t_se_engine_std_function pos_pclk_fn,
+                              t_se_engine_std_function pos_clk_fn,
+                              t_se_engine_std_function neg_pclk_fn,
+                              t_se_engine_std_function neg_clk_fn );
+     void register_clock_fns( void *engine_handle, const char *clock_name,
+                              t_se_engine_std_function pos_pclk_fn,
+                              t_se_engine_std_function pos_clk_fn );
+     void register_comb_fn( void *engine_handle, t_se_engine_std_function comb_fn );
+     void register_propagate_fn( void *engine_handle, t_se_engine_std_function propagate_fn );
+     void register_message_function( void *engine_handle, t_se_engine_voidp_std_function message_fn );
+     
+     // Deprecated functions
      void register_delete_function( void *engine_handle, void *handle, t_engine_callback_fn delete_fn );
      void register_reset_function( void *engine_handle, void *handle, t_engine_callback_arg_fn reset_fn );
-     void register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr );
-     void register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr, int may_be_unconnected );
-     void register_output_signal( void *engine_handle, const char *name, int size, t_se_signal_value *value_ptr );
+     void register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn );
      void register_clock_fns( void *engine_handle, void *handle, t_engine_callback_fn prepreclock_fn, t_engine_callback_fn clock_fn ); // for use with modules that just declare preclock for each clock signal
      void register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn );
      void register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn, t_engine_callback_fn negedge_preclock_fn, t_engine_callback_fn negedge_clock_fn );
      void register_preclock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn negedge_preclock_fn ); // for use with modules that support prepreclock
-     void register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn );
      int register_clock_fn( void *engine_handle, void *handle, const char *clock_name, t_engine_sim_function_type type, t_engine_callback_fn x_clock_fn );
      void register_comb_fn( void *engine_handle, void *handle, t_engine_callback_fn comb_fn );
      void register_propagate_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn );
      void register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn );
+     
      void register_input_used_on_clock( void *engine_handle, const char *name, const char *clock_name, int posedge );
      void register_output_generated_on_clock( void *engine_handle, const char *name, const char *clock_name, int posedge );
      void register_comb_input( void *engine_handle, const char *name );

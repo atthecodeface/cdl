@@ -16,13 +16,16 @@ include ${CDL_MAKEFILE_CONFIG}
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 PYTHON_FILES= \
-	__init__.py \
-	c_httpd.py \
-	c_logs.py \
-	c_python_telnetd.py \
-	c_telnetd.py \
-	doc-wiki.txt \
-	log_server.py
+	cdl/__init__.py \
+	cdl/verilog.py \
+	cdl/parametrize_verilog.py \
+	cdl/sim/__init__.py \
+	cdl/sim/c_httpd.py \
+	cdl/sim/c_logs.py \
+	cdl/sim/c_python_telnetd.py \
+	cdl/sim/c_telnetd.py \
+	cdl/sim/doc-wiki.txt \
+	cdl/sim/log_server.py
 
 #a Add python files
 $(eval $(call add_python_files,${PYTHON_FILES}))

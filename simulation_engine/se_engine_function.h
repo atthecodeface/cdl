@@ -20,6 +20,7 @@
 
 /*a Includes
  */
+#include <list>
 #include "c_sl_error.h"
 #include "c_se_engine__internal_types.h"
 #include "c_se_engine.h"
@@ -29,6 +30,15 @@
 
 /*a Types
  */
+
+/*a Callback template class
+ */
+template <typename T> class efblah {
+    struct T_entry {T callback;t_sl_timer timer;int invocation_count;};
+    efblah();
+    ~efblah();
+    std::list<T_entry> entries;
+};
 
 /*a External functions
  */
