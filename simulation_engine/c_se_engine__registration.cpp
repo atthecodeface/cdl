@@ -227,7 +227,7 @@ void c_engine::register_clock_fns( void *engine_handle,
                                    t_se_engine_std_function pos_pclk_fn,
                                    t_se_engine_std_function pos_clk_fn )
 {
-    register_clock_fns(engine_handle, clock_name, pos_pclk_fn, pos_pclk_fn, t_se_engine_std_function(), t_se_engine_std_function());
+    register_clock_fns(engine_handle, clock_name, pos_pclk_fn, pos_clk_fn, t_se_engine_std_function(), t_se_engine_std_function());
 }
 
 /*f c_engine::register_comb_fn
