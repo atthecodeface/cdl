@@ -67,6 +67,8 @@ define cdl_template
 # @param $7 object filename to go in output dir [model name .o]
 # @param $8 verilog filename to go in output dir [model name .v]
 # @param $9 CDL options
+do_all_cdl: $3/$6 $3/$8 $3/$5.cdlh $3/$5.xml
+
 .PHONY: $5
 $5: $3/$6 $3/$7 $3/$8  $3/$5.cdlh  $3/$5.xml
 

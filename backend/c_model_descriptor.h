@@ -132,6 +132,51 @@ enum
     md_edge_neg
 };
 
+/*t t_md_verilog_options
+ */
+typedef struct
+{
+    int vmod_mode;
+    const char *clock_gate_module_instance_type;
+    const char *clock_gate_module_instance_extra_ports;
+    const char *assert_delay_string;
+    const char *verilog_comb_reg_suffix;
+    const char *additional_port_include;
+    const char *additional_body_include;
+    const char *assertions_ifdef;
+    int include_displays;
+    int include_assertions;
+    int sv_assertions;
+    int include_coverage;
+    int use_always_at_star;
+    int clocks_must_have_enables;
+} t_md_verilog_options;
+
+/*t t_md_cpp_options
+ */
+typedef struct
+{
+    int include_assertions;
+    int include_coverage;
+    int include_stmt_coverage;
+    int multithread;
+} t_md_cpp_options;
+
+/*t t_md_cdl_header_options
+ */
+typedef struct
+{
+    int reserved;
+} t_md_cdl_header_options;
+
+/*t t_md_options
+ */
+typedef struct {
+    t_md_cpp_options cpp;
+    t_md_cdl_header_options cdlh;
+    t_md_verilog_options verilog;
+} t_md_options;
+
 /*t t_md_client_reference
   A client reference that is supplied by the client of the backend has three items
   A base handle - a void *
@@ -1130,6 +1175,9 @@ public:
     t_md_labelled_expression *labelled_expression_create( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, const char *text, int copy_text, t_md_expression *expression );
     void labelled_expression_append( t_md_labelled_expression **labelled_expression_list, t_md_labelled_expression *labelled_expression );
     void labelled_expressions_free( t_md_labelled_expression *list );
+
+    /*b Options */
+    t_md_options options;
 
     /*b Output generation methods
      */
