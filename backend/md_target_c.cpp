@@ -186,6 +186,7 @@ public:
     void output_header(void);
     void output_defines(void);
     void output_static_variables(void);
+    void output_constructors_destructors(void);
 };
 
 /*a Static variables
@@ -585,7 +586,6 @@ void c_md_target_c::output_types(void)
     output( 1, "c_%s( class c_engine *eng, void *eng_handle );\n", module->output_name);
     output( 1, "~c_%s();\n", module->output_name);
     output( 1, "t_c_%s_clock_callback_fns clocks_fired[1000];\n", module->output_name);
-    output( 1, "t_sl_error_level delete_instance( void );\n" );
     output( 1, "t_sl_error_level reset( int pass );\n" );
     output( 1, "t_sl_error_level capture_inputs( void );\n" );
     output( 1, "t_sl_error_level comb( void );\n" );
@@ -1129,117 +1129,90 @@ void c_md_target_c::output_wrapper_functions(void)
 {
 }
 
-/*f output_constructors_destructors
+/*f c_md_target_c::output_constructors_destructors
  */
-static void output_constructors_destructors( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int include_coverage, int include_stmt_coverage )
+void c_md_target_c::output_constructors_destructors(void)
 {
-    int edge;
-    t_md_signal *clk;
-    t_md_signal *signal;
-    t_md_state *reg;
-    t_md_module_instance *module_instance;
-    int i;
-
     /*b Header
      */
-    output( handle, 0, "/*a Constructors and destructors for %s\n", module->output_name);
-    output( handle, 0, "*/\n");
+    output( 0, "/*a Constructors and destructors for %s */\n", module->output_name);
 
     /*b Constructor header
      */
-    output( handle, 0, "/*f c_%s::c_%s\n", module->output_name, module->output_name);
-    output( handle, 0, "*/\n");
-    output( handle, 0, "c_%s::c_%s( class c_engine *eng, void *eng_handle )\n", module->output_name, module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "this->engine = eng;\n");
-    output( handle, 1, "this->engine_handle = eng_handle;\n");
-    output( handle, 0, "\n");
+    output( 0, "/*f c_%s::c_%s */\n", module->output_name, module->output_name);
+    output( 0, "c_%s::c_%s( class c_engine *engine, void *engine_handle ) {\n", module->output_name, module->output_name);
+    output( 1, "this->engine = engine;\n");
+    output( 1, "this->engine_handle = engine_handle;\n");
+    output( 0, "\n");
 
     /*b Clear all state and combinatorial data in case of use of unused data elsewhere
      */
-    output( handle, 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
-    output( handle, 1, "propagating_in_reset=0;\n" ); 
-    output( handle, 1, "engine->register_delete_function( engine_handle, [this](){delete(this);} );\n" );
-    output( handle, 1, "engine->register_reset_function( engine_handle, [this](int pass){this->reset(pass);} );\n" );
-    output( handle, 0, "\n");
-
-    /*b Register combinatorial, input propagation and clock/preclock functions
-     */
-    if (module->combinatorial_component) { // If there is a combinatorial component to this module, then propagate_inputs will work wonders
-        output( handle, 1, "engine->register_comb_fn( engine_handle,  [this](){this->capture_inputs();this->comb();} );\n", module->output_name );
+    output( 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
+    output( 1, "propagating_in_reset=0;\n" ); 
+    output( 1, "engine->register_delete_function( engine_handle, [this](){delete(this);} );\n" );
+    output( 1, "engine->register_reset_function( engine_handle, [this](int pass){this->reset(pass);} );\n" );
+    output( 1, "engine->register_propagate_fn( engine_handle, [this](){this->capture_inputs();this->propagate_all();} );\n");
+    if (module->combinatorial_component) {
+        output( 1, "engine->register_comb_fn( engine_handle,  [this](){this->capture_inputs();this->comb();} );\n");
     }
-    output( handle, 1, "engine->register_propagate_fn( engine_handle, [this](){this->capture_inputs();this->propagate_all();} );\n", module->output_name );
     if (module->clocks) {
-        output( handle, 1, "engine->register_prepreclock_fn( engine_handle, [this](){this->prepreclock();} );\n");
+        output( 1, "engine->register_prepreclock_fn( engine_handle, [this](){this->prepreclock();} );\n");
     }
-    for (clk=module->clocks; clk; clk=clk->next_in_list) {
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
         if (!clk->data.clock.clock_ref) { // Not a gated clock
             if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) {
-                output( handle, 1, "engine->register_clock_fns(engine_handle, \"%s\",\n", clk->name );
+                output( 1, "engine->register_clock_fns(engine_handle, \"%s\",\n", clk->name );
                 for (auto i=0; i<2; i++) {
                     if (clk->data.clock.edges_used[i]){
-                        output( handle, 2, "[this](){this->preclock(&c_%s::preclock_%s_%s, &c_%s::clock_%s_%s);},\n", module->output_name, edge_name[i], clk->name, module->output_name, edge_name[i], clk->name );
-                        output( handle, 2, "[this](){this->clock();}%s\n",(i==0)?",":"");
+                        output( 2, "[this](){this->preclock(&c_%s::preclock_%s_%s, &c_%s::clock_%s_%s);},\n", module->output_name, edge_name[i], clk->name, module->output_name, edge_name[i], clk->name );
+                        output( 2, "[this](){this->clock();}%s\n",(i==0)?",":"");
                     } else {
-                        output( handle, 2, "t_se_engine_std_function(),\n" );
-                        output( handle, 2, "t_se_engine_std_function()%s\n",(i==0)?",":"" );
+                        output( 2, "t_se_engine_std_function(),\n" );
+                        output( 2, "t_se_engine_std_function()%s\n",(i==0)?",":"" );
                     }
                 }
-                output( handle, 2, ");\n");
+                output( 2, ");\n");
             }
         }
     }
-    output( handle, 0, "\n");
+    output( 0, "\n");
 
     /*b Register inputs and outputs and clocks they depend on
      */
-    output( handle, 1, "se_cmodel_assist_module_declaration( engine, engine_handle, (void *)&(all_signals), &module_desc_%s );\n", module->output_name);
+    output( 1, "se_cmodel_assist_module_declaration( engine, engine_handle, (void *)&(all_signals), &module_desc_%s );\n", module->output_name);
 
     /*b Instantiate submodules and get their handles
      */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        if (module_instance->module_definition)
-        {
-            output( handle, 1, "engine->instantiate( engine_handle, \"%s\", \"%s\", NULL );\n", module_instance->output_type, module_instance->name );
-            output( handle, 1, "all_signals.instance_%s.handle = engine->submodule_get_handle( engine_handle, \"%s\" );\n", module_instance->name, module_instance->name);
-            for (clk=module_instance->module_definition->clocks; clk; clk=clk->next_in_list)
-            {
-                output( handle, 1, "all_signals.instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( all_signals.instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        if (module_instance->module_definition) {
+            output( 1, "engine->instantiate( engine_handle, \"%s\", \"%s\", NULL );\n", module_instance->output_type, module_instance->name );
+            output( 1, "all_signals.instance_%s.handle = engine->submodule_get_handle( engine_handle, \"%s\" );\n", module_instance->name, module_instance->name);
+            for (auto clk=module_instance->module_definition->clocks; clk; clk=clk->next_in_list) {
+                output( 1, "all_signals.instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( all_signals.instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
             }
         }
     }
-    output( handle, 0, "\n");
+    output( 0, "\n");
 
     /*b Submodule clock worklist
      */
-    if (module->number_submodule_clock_calls>0)
-    {
-        t_md_module_instance_clock_port *clock_port;
-        output( handle, 1, "engine->submodule_init_clock_worklist( engine_handle, %d );\n", module->number_submodule_clock_calls );
+    if (module->number_submodule_clock_calls>0) {
+        output( 1, "engine->submodule_init_clock_worklist( engine_handle, %d );\n", module->number_submodule_clock_calls );
 
-        for (clk=module->clocks; clk; clk=clk->next_in_list)
-        {
-            for (edge=0; edge<2; edge++)
-            {
-                if (clk->data.clock.edges_used[edge])
-                {
-                    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-                    {
-                        if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
-                        {
-                            for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
-                            {
-                                if (clock_port->local_clock_signal==clk)
-                                {
-                                    int worklist_item;
-                                    worklist_item = output_markers_value( clock_port, -1 );
-                                    if (output_markers_value(module_instance,om_valid_mask)!=om_valid)
-                                    {
-                                        output( handle, 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, all_signals.instance_%s.handle );\n", worklist_item, module_instance->name );
+        for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+            for (auto edge=0; edge<2; edge++) {
+                if (clk->data.clock.edges_used[edge]) {
+                    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+                        if (model->reference_set_includes( &module_instance->dependencies, clk, edge )) {
+                            for (auto clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) {
+                                if (clock_port->local_clock_signal==clk) {
+                                    int worklist_item = output_markers_value( clock_port, -1 );
+                                    if (output_markers_value(module_instance,om_valid_mask)!=om_valid) {
+                                        output( 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, all_signals.instance_%s.handle );\n", worklist_item, module_instance->name );
                                         output_markers_mask(module_instance,om_valid,0);
                                     }
-                                    output( handle, 1, "engine->submodule_set_clock_worklist_clock( engine_handle, all_signals.instance_%s.handle, %d, all_signals.instance_%s.%s__clock_handle, %d );\n", // Do not use a gate for the enable, as the parent will enable it
+                                    // Do not use a gate for the enable, as the parent will enable iter                                    
+                                    output( 1, "engine->submodule_set_clock_worklist_clock( engine_handle, all_signals.instance_%s.handle, %d, all_signals.instance_%s.%s__clock_handle, %d );\n",
                                             module_instance->name,
                                             worklist_item,
                                             module_instance->name, clock_port->port_name, edge==md_edge_pos );
@@ -1250,69 +1223,53 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 }
             }
         }
-        output( handle, 0, "\n" );
+        output( 0, "\n" );
     }
 
     /*b Tie instance inputs and outputs
      */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        if (module_instance->module_definition)
-        {
-            output( handle, 1, "se_cmodel_assist_instantiation_wire_ports( engine, engine_handle, (void *)&all_signals, \"%s\", \"%s\", all_signals.instance_%s.handle, instantiation_desc_%s_%s );\n" ,
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        if (module_instance->module_definition) {
+            output( 1, "se_cmodel_assist_instantiation_wire_ports( engine, engine_handle, (void *)&all_signals, \"%s\", \"%s\", all_signals.instance_%s.handle, instantiation_desc_%s_%s );\n" ,
             module->output_name,
             module_instance->name,
             module_instance->name,
             module->output_name, module_instance->name );
         }
     }
-    output( handle, 0, "\n");
+    output( 0, "\n");
 
     /*b Register state descriptors
      */
-    if (module->nets)
-    {
+    if (module->nets) {
         int has_indirect;
         int has_direct;
         has_indirect = has_direct = 0;
-        for (signal=module->nets; signal; signal=signal->next_in_list)
-        {
-            for (i=0; i<signal->instance_iter->number_children; i++)
-            {
-                if (signal->instance_iter->children[i]->vector_driven_in_parts)
-                {
+        for (auto signal=module->nets; signal; signal=signal->next_in_list) {
+            for (auto i=0; i<signal->instance_iter->number_children; i++) {
+                if (signal->instance_iter->children[i]->vector_driven_in_parts){
                     has_direct=1;
-                }
-                else
-                {
+                } else {
                     has_indirect=1;
                 }
             }
         }
-        if (has_direct)
-        {
-            output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_direct_nets, &all_signals, NULL );\n", module->output_name );
+        if (has_direct) {
+            output( 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_direct_nets, &all_signals, NULL );\n", module->output_name );
         }
-        if (has_indirect)
-        {
-            output( handle, 1, "engine->register_state_desc( engine_handle, 3, state_desc_%s_indirect_nets, &all_signals, NULL );\n", module->output_name );
+        if (has_indirect) {
+            output( 1, "engine->register_state_desc( engine_handle, 3, state_desc_%s_indirect_nets, &all_signals, NULL );\n", module->output_name );
         }
     }
-    if (module->combinatorials)
-    {
-        output( handle, 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_combs, &all_signals, NULL );\n", module->output_name );
+    if (module->combinatorials) {
+        output( 1, "engine->register_state_desc( engine_handle, 1, state_desc_%s_combs, &all_signals, NULL );\n", module->output_name );
     }
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        for (edge=0; edge<2; edge++)
-        {
-            if (clk->data.clock.edges_used[edge])
-            {
-                for (reg=module->registers; reg; reg=reg->next_in_list)
-                {
-                    if ( (reg->clock_ref==clk) && (reg->edge==edge) )
-                    {
-                        output( handle, 1, "engine->register_state_desc( engine_handle, 5, state_desc_%s_%s_%s, &all_signals, NULL );\n", module->output_name, edge_name[edge], clk->name );
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        for (auto edge=0; edge<2; edge++) {
+            if (clk->data.clock.edges_used[edge]) {
+                for (auto reg=module->registers; reg; reg=reg->next_in_list){
+                    if ( (reg->clock_ref==clk) && (reg->edge==edge) ) {
+                        output( 1, "engine->register_state_desc( engine_handle, 5, state_desc_%s_%s_%s, &all_signals, NULL );\n", module->output_name, edge_name[edge], clk->name );
                         break;
                     }
                 }
@@ -1322,43 +1279,32 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
 
     /*b Register for coverage
      */
-    if (include_coverage)
-    {
-        output( handle, 1, "se_cmodel_assist_code_coverage_register( engine, engine_handle, code_coverage );\n" );
-        output( handle, 0, "\n");
+    if (options->cpp.include_coverage) {
+        output( 1, "se_cmodel_assist_code_coverage_register( engine, engine_handle, code_coverage );\n" );
+        output( 0, "\n");
     }
-    if (include_stmt_coverage)
-    {
-        output( handle, 1, "se_cmodel_assist_stmt_coverage_register( engine, engine_handle, stmt_coverage );\n" );
-        output( handle, 0, "\n");
+    if (options->cpp.include_stmt_coverage) {
+        output( 1, "se_cmodel_assist_stmt_coverage_register( engine, engine_handle, stmt_coverage );\n" );
+        output( 0, "\n");
     }
 
     /*b Logging declarations
      */
-    if (module->output.total_log_args>0)
-    {
-        output( handle, 1, "log_signal_data = (t_se_signal_value *)malloc(sizeof(t_se_signal_value)*%d);\n", module->output.total_log_args );
-        output( handle, 1, "log_event_array = engine->log_event_register_array( engine_handle, %s_log_event_descriptor, log_signal_data );\n", module->output_name );
+    if (module->output.total_log_args>0) {
+        output( 1, "log_signal_data = (t_se_signal_value *)malloc(sizeof(t_se_signal_value)*%d);\n", module->output.total_log_args );
+        output( 1, "log_event_array = engine->log_event_register_array( engine_handle, %s_log_event_descriptor, log_signal_data );\n", module->output_name );
     }
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output destructor
      */
-    output( handle, 0, "/*f c_%s::~c_%s\n", module->output_name, module->output_name);
-    output( handle, 0, "*/\n");
-    output( handle, 0, "c_%s::~c_%s()\n", module->output_name, module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "delete_instance();\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
-    output( handle, 0, "/*f c_%s::delete_instance\n", module->output_name);
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::delete_instance( void )\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 0, "/*f c_%s::~c_%s */\n", module->output_name, module->output_name);
+    output( 0, "c_%s::~c_%s() {\n", module->output_name, module->output_name);
+    output( 0, "}\n");
+    output( 0, "\n");
+
+    /*b All done */
 }
 
 /*a Output simulation methods functions (to convert CDL model to C)
@@ -3291,7 +3237,7 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
         mdt.output_types();
         mdt.output_static_variables();
         mdt.output_wrapper_functions();
-        output_constructors_destructors( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
+        mdt.output_constructors_destructors();
         output_simulation_methods( model, module, output_fn, output_handle );
     }
 
