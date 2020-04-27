@@ -44,7 +44,7 @@ enum // max of MD_OUTPUT_MAX_SIGNAL_ARGS, which is now 8
 
 /*a Static variables
  */
-static t_md_verilog_options options;
+static t_md_verilog_options *soptions;
 static const char *edge_name[] = {
      "posedge",
      "negedge",
@@ -72,25 +72,25 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
 {
 
     output( handle, 0, "//a Note: created by CDL " __CDL__SHORT_VERSION_STRING " - do not hand edit without recognizing it will be out of sync with the source\n");
-    output( handle, 0, "// Output mode %d (VMOD=1, standard verilog=0)\n", options.vmod_mode );
-    output( handle, 0, "// Verilog option comb reg suffix '%s'\n", options.verilog_comb_reg_suffix );
-    output( handle, 0, "// Verilog option include_displays %d\n", options.include_displays );
-    output( handle, 0, "// Verilog option include_assertions %d\n", options.include_assertions );
-    output( handle, 0, "// Verilog option sv_assertions %d\n", options.sv_assertions );
-    output( handle, 0, "// Verilog option assert delay string '%s'\n", options.assert_delay_string?options.assert_delay_string:"<NULL>" );
-    output( handle, 0, "// Verilog option include_coverage %d\n", options.include_coverage );
-    output( handle, 0, "// Verilog option clock_gate_module_instance_type '%s'\n", options.clock_gate_module_instance_type );
-    output( handle, 0, "// Verilog option clock_gate_module_instance_extra_ports '%s'\n", options.clock_gate_module_instance_extra_ports );
-    if (options.additional_port_include)
-        output( handle, 0, "// Verilog option additional_port_include '%s'\n", options.additional_port_include );
-    if (options.additional_body_include)
-        output( handle, 0, "// Verilog option additional_port_include '%s'\n", options.additional_body_include );
-    if (options.assertions_ifdef)
-        output( handle, 0, "// Verilog option assertions_ifdef '%s'\n", options.assertions_ifdef );
-    if (options.use_always_at_star)
-        output( handle, 0, "// Verilog option use_always_at_star %d\n", options.use_always_at_star );
-    if (options.clocks_must_have_enables)
-        output( handle, 0, "// Verilog option clocks_must_have_enables %d\n", options.clocks_must_have_enables );
+    output( handle, 0, "// Output mode %d (VMOD=1, standard verilog=0)\n", soptions->vmod_mode );
+    output( handle, 0, "// Verilog option comb reg suffix '%s'\n", soptions->verilog_comb_reg_suffix );
+    output( handle, 0, "// Verilog option include_displays %d\n", soptions->include_displays );
+    output( handle, 0, "// Verilog option include_assertions %d\n", soptions->include_assertions );
+    output( handle, 0, "// Verilog option sv_assertions %d\n", soptions->sv_assertions );
+    output( handle, 0, "// Verilog option assert delay string '%s'\n", soptions->assert_delay_string?soptions->assert_delay_string:"<NULL>" );
+    output( handle, 0, "// Verilog option include_coverage %d\n", soptions->include_coverage );
+    output( handle, 0, "// Verilog option clock_gate_module_instance_type '%s'\n", soptions->clock_gate_module_instance_type );
+    output( handle, 0, "// Verilog option clock_gate_module_instance_extra_ports '%s'\n", soptions->clock_gate_module_instance_extra_ports );
+    if (soptions->additional_port_include)
+        output( handle, 0, "// Verilog option additional_port_include '%s'\n", soptions->additional_port_include );
+    if (soptions->additional_body_include)
+        output( handle, 0, "// Verilog option additional_port_include '%s'\n", soptions->additional_body_include );
+    if (soptions->assertions_ifdef)
+        output( handle, 0, "// Verilog option assertions_ifdef '%s'\n", soptions->assertions_ifdef );
+    if (soptions->use_always_at_star)
+        output( handle, 0, "// Verilog option use_always_at_star %d\n", soptions->use_always_at_star );
+    if (soptions->clocks_must_have_enables)
+        output( handle, 0, "// Verilog option clocks_must_have_enables %d\n", soptions->clocks_must_have_enables );
     output( handle, 0, "\n");
 
 }
@@ -192,7 +192,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
         if (!CLOCK_IS_GATED(clk))
         {
             output( handle, 1, "%s,\n", clk->name );
-            if (options.clocks_must_have_enables) {
+            if (soptions->clocks_must_have_enables) {
                 output( handle, 1, "%s__enable,\n", clk->name );
             }
         }
@@ -222,9 +222,9 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
 
     /*b Output additional include if required
      */
-    if (options.additional_port_include)
+    if (soptions->additional_port_include)
     {
-        output( handle, 0, "`include \"%s\"\n", options.additional_port_include );
+        output( handle, 0, "`include \"%s\"\n", soptions->additional_port_include );
     }
 
     output( handle, 0, ");\n" );
@@ -238,7 +238,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
             t_md_signal *clk2;
             output_documentation( model, output, handle, 1, clk->documentation, 0 );
             output( handle, 1, "input %s;\n", clk->name );
-            if (options.clocks_must_have_enables) {
+            if (soptions->clocks_must_have_enables) {
                 output( handle, 1, "input %s__enable;\n", clk->name );
             }
             for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
@@ -246,7 +246,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
                 if ((clk2!=clk) && (clk2->data.clock.clock_ref==clk))
                 {
                     output( handle, 1, "wire %s; // Gated version of clock '%s' enabled by '%s'\n", clk2->name, clk->name, clk2->data.clock.gate_state?clk2->data.clock.gate_state->name:clk2->data.clock.gate_signal->name );
-                    if (options.clocks_must_have_enables) {
+                    if (soptions->clocks_must_have_enables) {
                         output( handle, 1, "wire %s__enable;\n", clk2->name );
                     }
                 }
@@ -333,7 +333,7 @@ static void output_signal_definition( c_model_descriptor *model, t_md_output_fn 
         }
         break;
     case md_type_instance_type_array_of_bit_vectors:
-        if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
+        if (soptions->vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
         {
             int i;
             for (i=0; i<instance->size; i++ )
@@ -398,7 +398,7 @@ static void output_module_rtl_architecture_internal_signals( c_model_descriptor 
         output_documentation( model, output, handle, 1, signal->documentation, 0 );
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            if (options.vmod_mode)
+            if (soptions->vmod_mode)
             {
                 output_signal_definition( model, output, handle, module, signal->instance_iter->children[i], "reg", "", "wire signal array", NULL );
             }
@@ -408,7 +408,7 @@ static void output_module_rtl_architecture_internal_signals( c_model_descriptor 
             }
         }
     }
-    if (options.vmod_mode)
+    if (soptions->vmod_mode)
     {
         t_md_module_instance *module_instance;
         for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
@@ -473,7 +473,7 @@ static void output_module_rtl_architecture_internal_signals( c_model_descriptor 
         output_documentation( model, output, handle, 1, signal->documentation, 0 );
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            if (options.vmod_mode)
+            if (soptions->vmod_mode)
             {
                 output_signal_definition( model, output, handle, module, signal->instance_iter->children[i], "reg", "", "wire signal array", NULL );
             }
@@ -524,7 +524,7 @@ static void output_module_rtl_architecture_lvar( c_model_descriptor *model, t_md
                     {
                         if (lvar->instance->output_args[output_arg_use_comb_reg])
                         {
-                            output( handle, main_indent, "%s%s", lvar->instance->output_name, options.verilog_comb_reg_suffix );
+                            output( handle, main_indent, "%s%s", lvar->instance->output_name, soptions->verilog_comb_reg_suffix );
                         }
                         else
                         {
@@ -539,7 +539,7 @@ static void output_module_rtl_architecture_lvar( c_model_descriptor *model, t_md
                 case md_signal_type_combinatorial:
                     if (lvar->instance->output_args[output_arg_use_comb_reg])
                     {
-                        output( handle, main_indent, "%s%s", lvar->instance->output_name, options.verilog_comb_reg_suffix );
+                        output( handle, main_indent, "%s%s", lvar->instance->output_name, soptions->verilog_comb_reg_suffix );
                     }
                     else
                     {
@@ -558,7 +558,7 @@ static void output_module_rtl_architecture_lvar( c_model_descriptor *model, t_md
 
         if (!(rtl_lvar_out & rtl_lvar_out_ignore_index))
         {
-            if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(lvar->instance) && !(lvar->instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
+            if (soptions->vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(lvar->instance) && !(lvar->instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
             {
                 output( handle, -1, "__%d", lvar->index.data.integer );
             }
@@ -947,7 +947,7 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                   output_push_usage_type( model, output, handle, md_usage_type_assert );
                   output( handle, indent+1, "default:\n");
                   output( handle, indent+2, "begin\n");
-                  output( handle, indent+3, "%s\n", (options.assert_delay_string) ? options.assert_delay_string : "if (1)" );
+                  output( handle, indent+3, "%s\n", (soptions->assert_delay_string) ? soptions->assert_delay_string : "if (1)" );
                   output( handle, indent+3, "begin\n");
                   output( handle, indent+4, "$display(\"%%t *********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\", $time);\n", code_block->module->output_name, code_block->name);
                   output( handle, indent+3, "end\n");
@@ -1140,12 +1140,12 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
     case md_statement_type_print_assert:
         if ( !statement->data.print_assert_cover.expression && !statement->data.print_assert_cover.statement)  // Print statement
         {
-            if (options.include_displays)
+            if (soptions->include_displays)
             {
                 output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 0 );
             }
         }
-        else if (options.include_assertions)
+        else if (soptions->include_assertions)
         {
             int named_assert_end; // Offset from start of text string for assert to ':' - a named assert has a message of the form 'blah_Mumble1:Message'
             char assert_name[1024];
@@ -1172,9 +1172,9 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
                 assert_name[named_assert_end]=0;
             }
 
-            if (options.assertions_ifdef)
+            if (soptions->assertions_ifdef)
             {
-                output( handle, 0, "`ifdef %s\n", options.assertions_ifdef );
+                output( handle, 0, "`ifdef %s\n", soptions->assertions_ifdef );
             }
 
             output_push_usage_type( model, output, handle, md_usage_type_assert );
@@ -1188,7 +1188,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
                 // Also need 'else' before the begin
                 // Also need $error not $display
                 t_md_expression *value;
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output( handle, indent+1, "assert_%s: assert( !( (1'b0==1'b0)\n", assert_name );
                 }
@@ -1205,7 +1205,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
                     output_module_rtl_architecture_expression( model, output, handle, code_block, value, indent+2, 4, statement->output.unique_id );
                     output( handle, -1, "))" );
                 }
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output( handle, -1, ")) else\n", assert_name );
                 }
@@ -1217,7 +1217,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             }
             else if (statement->data.print_assert_cover.expression)
             {
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output( handle, indent+1, "assert_%s: assert(", assert_name );
                 }
@@ -1226,7 +1226,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
                     output( handle, indent+1, "if ( !(");
                 }
                 output_module_rtl_architecture_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 4, statement->output.unique_id );
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output( handle, -1, ") else\n" );
                 }
@@ -1238,7 +1238,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             }
             else
             {
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output( handle, indent+1, "assert_%s: assert(1'b0!=1'b0) else\n", assert_name );
                 }
@@ -1250,7 +1250,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             }
             if (statement->data.print_assert_cover.message)
             {
-                if (options.sv_assertions && (named_assert_end>=0))
+                if (soptions->sv_assertions && (named_assert_end>=0))
                 {
                     output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 3 );
                 }
@@ -1263,7 +1263,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             {
                 output_module_rtl_architecture_statement( model, output, handle, code_block, statement->data.print_assert_cover.statement, indent+1, signal, edge, reset, reset_level );
             }
-            if (options.sv_assertions && (named_assert_end>=0))
+            if (soptions->sv_assertions && (named_assert_end>=0))
             {
                 output( handle, indent+1, "end //assert_%s\n", assert_name );
             }
@@ -1274,14 +1274,14 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             output_pop_usage_type( model, output, handle );
             output_set_usage_type( model, output, handle );
 
-            if (options.assertions_ifdef)
+            if (soptions->assertions_ifdef)
             {
                 output( handle, 0, "`endif\n" );
             }
         }
         break;
     case md_statement_type_cover:
-        if (options.include_coverage)
+        if (soptions->include_coverage)
         {
             output( handle, 1, "//Ignoring cover for now\n");
         }
@@ -1474,7 +1474,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
         /*b Do an always that depends on the dependencies, but skip anything generated by the comb block as it must already only be used if live.
           If there are no dependencies then use an initial block, else do an
          */
-        if (options.use_always_at_star)
+        if (soptions->use_always_at_star)
         {
             output( handle, 1, "always @ ( * )//%s%s\n", code_block->name, has_sync?"__comb":"" );
         }
@@ -1513,7 +1513,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                             {
                                 output_push_usage_type( model, output, handle, instance->reference.data.state->usage_type );
                             }
-                            if (options.vmod_mode && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
+                            if (soptions->vmod_mode && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
                             {
                                 output( handle, 2, "%s__%d", instance->output_name, i );
                             }
@@ -1586,14 +1586,14 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 if ((instance->reference.type==md_reference_type_signal) && (instance->number_statements>1))
                 {
                     instance->output_args[output_arg_use_comb_reg] = 1;
-                    output_signal_definition( model, output, handle, module, instance, "reg", options.verilog_comb_reg_suffix, "combinatorial signal array", NULL );
+                    output_signal_definition( model, output, handle, module, instance, "reg", soptions->verilog_comb_reg_suffix, "combinatorial signal array", NULL );
                 }
             }
         }
 
         /*b Output VMOD unique variables if required
          */
-        if (options.vmod_mode)
+        if (soptions->vmod_mode)
         {
             t_md_lvar *lvar;
             for (lvar=module->lvars; lvar; lvar=lvar->next_in_module)
@@ -1617,22 +1617,22 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                     {
                         if (instance->type==md_type_instance_type_array_of_bit_vectors)
                         {
-                            if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
+                            if (soptions->vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
                             {
                                 int i;
                                 for (i=0; i<instance->size; i++)
                                 {
-                                    output( handle, 2, "%s%s__%d = %s__%d\n", instance->output_name, options.verilog_comb_reg_suffix, i, instance->output_name, i );
+                                    output( handle, 2, "%s%s__%d = %s__%d\n", instance->output_name, soptions->verilog_comb_reg_suffix, i, instance->output_name, i );
                                 }
                             }
                             else
                             {
-                                output( handle, 2, "begin:__read__%s__iter integer __iter; for (__iter=0; __iter<%d; __iter=__iter+1) %s%s[__iter] = %s[__iter]; end\n", instance->output_name, instance->size, instance->output_name, options.verilog_comb_reg_suffix, instance->output_name );
+                                output( handle, 2, "begin:__read__%s__iter integer __iter; for (__iter=0; __iter<%d; __iter=__iter+1) %s%s[__iter] = %s[__iter]; end\n", instance->output_name, instance->size, instance->output_name, soptions->verilog_comb_reg_suffix, instance->output_name );
                             }
                         }
                         else
                         {
-                            output( handle, 2, "%s%s = %s;\n", instance->output_name, options.verilog_comb_reg_suffix, instance->output_name );
+                            output( handle, 2, "%s%s = %s;\n", instance->output_name, soptions->verilog_comb_reg_suffix, instance->output_name );
                         }
                     }
                 }
@@ -1650,22 +1650,22 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                     output_push_usage_type( model, output, handle, instance->reference.data.signal->usage_type );
                     if (instance->type==md_type_instance_type_array_of_bit_vectors)
                     {
-                        if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
+                        if (soptions->vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
                         {
                             int i;
                             for (i=0; i<instance->size; i++)
                             {
-                                output( handle, 2, "%s__%d = %s%s__%d;\n", instance->output_name, i, instance->output_name, options.verilog_comb_reg_suffix, i );
+                                output( handle, 2, "%s__%d = %s%s__%d;\n", instance->output_name, i, instance->output_name, soptions->verilog_comb_reg_suffix, i );
                             }
                         }
                         else
                         {
-                            output( handle, 2, "begin:__set__%s__iter integer __iter; for (__iter=0; __iter<%d; __iter=__iter+1) %s[__iter] = %s%s[__iter]; end\n", instance->output_name, instance->size, instance->output_name, instance->output_name, options.verilog_comb_reg_suffix );
+                            output( handle, 2, "begin:__set__%s__iter integer __iter; for (__iter=0; __iter<%d; __iter=__iter+1) %s[__iter] = %s%s[__iter]; end\n", instance->output_name, instance->size, instance->output_name, instance->output_name, soptions->verilog_comb_reg_suffix );
                         }
                     }
                     else
                     {
-                        output( handle, 2, "%s = %s%s;\n", instance->output_name, instance->output_name, options.verilog_comb_reg_suffix );
+                        output( handle, 2, "%s = %s%s;\n", instance->output_name, instance->output_name, soptions->verilog_comb_reg_suffix );
                     }
                     output_pop_usage_type( model, output, handle );
                 }
@@ -1717,13 +1717,13 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 }
                 output( handle, 1, "//b %s clock process\n", buffer );
                 output_documentation( model, output, handle, 1, code_block->documentation, 0 );
-                if (CLOCK_IS_GATED(clk) && options.clocks_must_have_enables) {
+                if (CLOCK_IS_GATED(clk) && soptions->clocks_must_have_enables) {
                     output( handle, 1, "always @( %s %s or %s %s)\n", edge_name[edge], clk->data.clock.clock_ref->name, edge_name[!reset_level], reset->name );
                 } else {
                     output( handle, 1, "always @( %s %s or %s %s)\n", edge_name[edge], clk->name, edge_name[!reset_level], reset->name );
                 }
                 output( handle, 1, "begin : %s__code\n", buffer);
-                if (options.vmod_mode)
+                if (soptions->vmod_mode)
                 {
                     t_md_lvar *lvar;
                     for (lvar=module->lvars; lvar; lvar=lvar->next_in_module)
@@ -1805,7 +1805,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 }
                 output_set_usage_type( model, output, handle );
                 output( handle, 2, "end\n");
-                if (options.clocks_must_have_enables) {
+                if (soptions->clocks_must_have_enables) {
                     output( handle, 2, "else if (%s__enable)\n", clk->name);
                 } else {
                     output( handle, 2, "else\n", clk->name, clk->name);
@@ -1842,10 +1842,10 @@ static void output_module_rtl_architecture_instance( c_model_descriptor *model, 
     {
         t_md_signal *clk=clock_port->local_clock_signal;
         if (need_comma) output( handle, -1, ",\n" );
-        if (CLOCK_IS_GATED(clk) && options.clocks_must_have_enables) {
+        if (CLOCK_IS_GATED(clk) && soptions->clocks_must_have_enables) {
             output( handle, 2, ".%s(%s),\n", clock_port->port_name, clk->data.clock.root_clock_ref->name );
             output( handle, 2, ".%s__enable(%s__enable)", clock_port->port_name, clock_port->clock_name );
-        } else if (options.clocks_must_have_enables) {
+        } else if (soptions->clocks_must_have_enables) {
             output( handle, 2, ".%s(%s),\n", clock_port->port_name, clock_port->clock_name );
             output( handle, 2, ".%s__enable(%s__enable)", clock_port->port_name, clock_port->clock_name );
         } else {
@@ -1862,7 +1862,7 @@ static void output_module_rtl_architecture_instance( c_model_descriptor *model, 
         output( handle, -1, ")" );
         need_comma = 1;
     }
-    if (options.vmod_mode)
+    if (soptions->vmod_mode)
     {
         for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
         {
@@ -1883,7 +1883,7 @@ static void output_module_rtl_architecture_instance( c_model_descriptor *model, 
         }
     }
     output( handle, 2, " );\n" );
-    if (options.vmod_mode)
+    if (soptions->vmod_mode)
     {
         output( handle, -1, "\n" );
         output( handle, 1, "always @( ");
@@ -1948,7 +1948,7 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
         t_md_type_instance *instance;
         for (instance=module->instances; instance; instance=instance->next_in_module)
         {
-            if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance))
+            if (soptions->vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance))
             {
                 if (instance->output_args[output_arg_vmod_is_indexed_by_runtime])
                 {
@@ -1969,12 +1969,12 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
         for (lvar=module->lvars; lvar; lvar=lvar->next_in_module)
         {
             lvar->output.uniquified_name = NULL;
-            if (options.vmod_mode && (lvar->index.type != md_lvar_data_type_none) && (lvar->subscript_start.type != md_lvar_data_type_none))
+            if (soptions->vmod_mode && (lvar->index.type != md_lvar_data_type_none) && (lvar->subscript_start.type != md_lvar_data_type_none))
             {
                 char buffer[1024];
                 char *unique_name;
                 unique_name = md_unique_name( model, module, lvar );
-                snprintf( buffer, sizeof(buffer), "%s%s", unique_name, options.verilog_comb_reg_suffix );
+                snprintf( buffer, sizeof(buffer), "%s%s", unique_name, soptions->verilog_comb_reg_suffix );
                 lvar->output.uniquified_name = sl_str_alloc_copy( buffer );
                 if (unique_name) free(unique_name);
             }
@@ -1997,7 +1997,7 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
         {
             if (CLOCK_IS_GATED(clk))
             {
-                if (options.clocks_must_have_enables) {
+                if (soptions->clocks_must_have_enables) {
                     output( handle, 1, "assign %s__enable = (%s__enable && %s%s);\n",
                             clk->name,
                             clk->data.clock.clock_ref->name,
@@ -2006,13 +2006,13 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
                         );
                 } else {
                     output( handle, 1, "%s %s__gen( .CLK_IN(%s), .ENABLE(%s%s), .CLK_OUT(%s)%s );\n",
-                            options.clock_gate_module_instance_type,
+                            soptions->clock_gate_module_instance_type,
                             clk->name,
                             clk->data.clock.clock_ref->name,
                             clk->data.clock.gate_level?"":"!",
                             clk->data.clock.gate_state?clk->data.clock.gate_state->name:clk->data.clock.gate_signal->name,
                             clk->name,
-                            options.clock_gate_module_instance_extra_ports );
+                            soptions->clock_gate_module_instance_extra_ports );
                 }
             }
         }
@@ -2035,9 +2035,9 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
 
     /*b Output additional include and endmodule
      */
-    if (options.additional_body_include)
+    if (soptions->additional_body_include)
     {
-        output( handle, 0, "`include \"%s\"\n", options.additional_body_include );
+        output( handle, 0, "`include \"%s\"\n", soptions->additional_body_include );
     }
 
     output( handle, 0, "endmodule // %s\n", module->output_name );
@@ -2059,51 +2059,15 @@ static void output_modules( c_model_descriptor *model, t_md_output_fn output, vo
 
 /*a External functions
  */
-extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_verilog_options *options_in )
+void c_md_target_verilog::output_verilog_model(void)
 {
-    options.vmod_mode=0;
-    options.include_displays = 0;
-    options.include_assertions = 0;
-    options.include_coverage = 0;
-    options.sv_assertions = 0;
-    options.clock_gate_module_instance_type = "clock_gate_module";
-    options.clock_gate_module_instance_extra_ports = "";
-    options.assert_delay_string = NULL;
-    options.verilog_comb_reg_suffix = "__var";
-    options.additional_port_include = NULL;
-    options.additional_body_include = NULL;
-    options.assertions_ifdef = NULL;
-    options.use_always_at_star = 0;
-    options.clocks_must_have_enables = 0;
-
-    if (options_in)
-    {
-        options.vmod_mode = options_in->vmod_mode;
-        options.include_displays = options_in->include_displays;
-        options.include_assertions = options_in->include_assertions;
-        options.include_coverage = options_in->include_coverage;
-        options.sv_assertions = options_in->sv_assertions;
-        if (options_in->clock_gate_module_instance_extra_ports) { options.clock_gate_module_instance_extra_ports = options_in->clock_gate_module_instance_extra_ports; }
-        if (options_in->clock_gate_module_instance_type)        { options.clock_gate_module_instance_type = options_in->clock_gate_module_instance_type; }
-        if (options_in->assert_delay_string)                    { options.assert_delay_string = options_in->assert_delay_string; }
-        if (options_in->verilog_comb_reg_suffix)                { options.verilog_comb_reg_suffix = options_in->verilog_comb_reg_suffix; }
-        if (options_in->additional_port_include)                { options.additional_port_include = options_in->additional_port_include; }
-        if (options_in->additional_body_include)                { options.additional_body_include = options_in->additional_body_include; }
-        if (options_in->assertions_ifdef)                       { options.assertions_ifdef = options_in->assertions_ifdef; }
-        if (options_in->use_always_at_star)                     { options.use_always_at_star = options_in->use_always_at_star; }
-        if (options_in->clocks_must_have_enables)               { options.clocks_must_have_enables = options_in->clocks_must_have_enables; }
-    }
-
+    soptions = &(this->options->verilog);
     current_output_depth = 0;
     output_usage_type = md_usage_type_rtl;
     desired_output_usage_type = md_usage_type_rtl;
     output_header( model, output_fn, output_handle );
     output_modules( model, output_fn, output_handle );
 }
-
-/*a To do
-  Output constants - whatever they may be!
- */
 
 /*a Editor preferences and notes
 mode: c ***

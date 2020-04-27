@@ -11,18 +11,27 @@
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
   for more details.
 */
+/*a Wrapper
+ */
+#ifdef __INC_MD_TARGET_VERILOG
+#else
+#define __INC_MD_TARGET_VERILOG
+
+/*a Includes
+ */
+#include "c_md_target.h"
 #include "c_model_descriptor.h"
 
-/*a Types
- */
-/*a External functions
- */
-extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_verilog_options *options );
+/*a Subclass of c_md_target for Verilog */
+/*c Class c_md_target_verilog */
+class c_md_target_verilog: public c_md_target {
+public:
+    c_md_target_verilog(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle):
+        c_md_target(model, output_fn, output_handle) {}
+    void output_verilog_model(void);
+};
 
-/*a Editor preferences and notes
-mode: c ***
-c-basic-offset: 4 ***
-c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
-outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
-*/
+/*a Wrapper
+ */
+#endif
 
