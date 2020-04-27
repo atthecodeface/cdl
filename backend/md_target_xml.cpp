@@ -67,6 +67,7 @@ These functions can then be split using pthreads by the simulation engine by pro
 #include "cdl_version.h"
 #include "md_output_markers.h"
 #include "c_model_descriptor.h"
+#include "md_target_xml.h"
 
 /*a Static variables
  */
@@ -1147,14 +1148,12 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
 
 /*a External functions
  */
-/*f target_xml_output
+/*f c_md_target_xml::output_xml_model
  */
-extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage )
+void c_md_target_xml::output_xml_model(void)
 {
-    t_md_module *module;
-
-    output_header( model, output_fn, output_handle, include_assertions, include_coverage, include_stmt_coverage );
-    for (module=model->module_list; module; module=module->next_in_list)
+    output_header( model, output_fn, output_handle, options->cpp.include_assertions, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+    for (auto module=model->module_list; module; module=module->next_in_list)
     {
         output_fn( output_handle, 0, "<module name='%s' external='%d' comb_in_to_out='%d'>\n", module->output_name, module->external, module->combinatorial_component );
         // module->documentation
@@ -1180,10 +1179,10 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_input_dependents( model, module, 4, 0 );
 #endif
-            output_ports_nets_clocks( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_submodules( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_combinatorials( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_registers( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
+            output_ports_nets_clocks( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_submodules( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_combinatorials( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_registers( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
             output_logging( model, module, output_fn, output_handle );
         }
         output_fn( output_handle, 0, "</module>\n" );

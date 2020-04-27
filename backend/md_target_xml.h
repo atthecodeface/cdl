@@ -20,20 +20,18 @@
 
 /*a Includes
  */
+#include "c_md_target.h"
 #include "c_model_descriptor.h"
 
-/*a External functions
- */
-extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage );
+/*a Subclass of c_md_target for Xml */
+/*c Class c_md_target_xml */
+class c_md_target_xml: public c_md_target {
+public:
+    c_md_target_xml(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle):
+        c_md_target(model, output_fn, output_handle) {}
+    void output_xml_model(void);
+};
 
 /*a Wrapper
  */
 #endif
-
-/*a Editor preferences and notes
-mode: c ***
-c-basic-offset: 4 ***
-c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
-outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
-*/
-

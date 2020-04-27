@@ -6061,6 +6061,20 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
     options.cpp.include_coverage = include_coverage;
     options.cpp.include_stmt_coverage = include_stmt_coverage;
     options.cpp.multithread  = multithread;
+    options.verilog.vmod_mode = (sl_option_get_string( env_options, "be_vmod" )!=NULL);
+    options.verilog.clock_gate_module_instance_type         = sl_option_get_string_with_default( env_options, "be_v_clkgate_type", "clock_gate_module" );
+    options.verilog.clock_gate_module_instance_extra_ports  = sl_option_get_string_with_default( env_options, "be_v_clkgate_ports", "" );
+    options.verilog.verilog_comb_reg_suffix                 = sl_option_get_string_with_default( env_options, "be_v_comb_suffix", "__var" );
+    options.verilog.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
+    options.verilog.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
+    options.verilog.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
+    options.verilog.assertions_ifdef                        = sl_option_get_string( env_options, "be_v_assertions_ifdef" );
+    options.verilog.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
+    options.verilog.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
+    options.verilog.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
+    options.verilog.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
+    options.verilog.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
+    options.verilog.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
 
      filename = sl_option_get_string( env_options, "be_coverage_map" );
      if (filename)
@@ -6091,7 +6105,8 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
           f = fopen(filename, "w");
           if (f)
           {
-              target_xml_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage );
+             auto mdt = c_md_target_xml(this, output_indented, (void *)f);
+             mdt.output_xml_model();
               fclose(f);
           }
           else
@@ -6131,26 +6146,12 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_verilogfile" );
      if (filename)
      {
-         t_md_verilog_options options;
-         options.vmod_mode = (sl_option_get_string( env_options, "be_vmod" )!=NULL);
-         options.clock_gate_module_instance_type         = sl_option_get_string( env_options, "be_v_clkgate_type" );
-         options.clock_gate_module_instance_extra_ports  = sl_option_get_string( env_options, "be_v_clkgate_ports" );
-         options.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
-         options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
-         options.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
-         options.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
-         options.assertions_ifdef                        = sl_option_get_string( env_options, "be_v_assertions_ifdef" );
-         options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
-         options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
-         options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
-         options.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
-         options.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
-         options.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
          f = fopen(filename, "w");
           if (f)
           {
-              target_verilog_output( this, output_indented, (void *)f, &options );
-              fclose(f);
+             auto mdt = c_md_target_verilog(this, output_indented, (void *)f);
+             mdt.output_verilog_model();
+             fclose(f);
           }
           else
           {
