@@ -103,8 +103,8 @@ CXXFLAGS  += ${CYCLICITY_INCLUDES}
 LDFLAGS   += -L${CDL_BUILD_LIB_DIR}
 
 #a Install
-.PHONY: install install_include install_bin install_lib install_script install_python
-install: install_include install_bin install_lib install_script install_python
+.PHONY: install install_include install_bin install_lib install_script install_python install_verilog
+install: install_include install_bin install_lib install_script install_python install_verilog
 
 #a Templates
 #f objs_from_srcs
@@ -226,6 +226,8 @@ define make_static_binary
 # @param $2 objects
 # @param $3 libraries
 
+$1: ${CDL_BUILD_OBJ_DIR}/be_backend.o
+
 $1:$2
 	@echo "make static binary $$@"
 	${Q}${MAKE_STATIC_BINARY} $$@ ${G} $2 $3
@@ -331,14 +333,15 @@ endef
 
 #f add_python_file
 define add_python_file
-# @param $1 python filename - to be installed from local directory to INSTALL_PYTHON_DIR
+# @param $1 subdirectory to install into
+# @param $2 python filename - to be installed from local directory to INSTALL_PYTHON_DIR
 
-install_python: install__py__$1
+install_python: install__py__$2
 
-install__py__$1: $1
-	@echo "install python file $1"
-	${Q} [ -d ${INSTALL_PYTHON_DIR} ] || mkdir -p ${INSTALL_PYTHON_DIR}
-	${Q}${INSTALL_DATA} $$< ${INSTALL_PYTHON_DIR}
+install__py__$2: $2
+	@echo "install python file $$<"
+	${Q} [ -d ${INSTALL_PYTHON_DIR}/$1 ] || mkdir -p ${INSTALL_PYTHON_DIR}/$1
+	${Q}${INSTALL_DATA} $$< ${INSTALL_PYTHON_DIR}/$1
 
 endef
 
@@ -346,22 +349,24 @@ endef
 #
 # Add a list of python files
 #
-# @param $1	python files
+# @param $1 subdirectory to install into
+# @param $2	python files
 #
 define add_python_files
-$(foreach x,$1,$(eval $(call add_python_file,$x)))
+$(foreach x,$2,$(eval $(call add_python_file,$1,$x)))
 endef
 
 #f add_verilog_file
 define add_verilog_file
-# @param $1 verilog filename - to be installed from local directory to INSTALL_VERILOG_DIR
+# @param $1 subdirectory to install into
+# @param $2 verilog filename - to be installed from local directory to INSTALL_VERILOG_DIR
 
-install_verilog: install__py__$1
+install_verilog: install__verilog__$2
 
-install__py__$1: $1
-	@echo "install verilog file $1"
-	${Q} [ -d ${INSTALL_VERILOG_DIR} ] || mkdir -p ${INSTALL_VERILOG_DIR}
-	${Q}${INSTALL_DATA} $$< ${INSTALL_VERILOG_DIR}
+install__verilog__$2: $2
+	@echo "install verilog file $$<"
+	${Q} [ -d ${INSTALL_VERILOG_DIR}/$1 ] || mkdir -p ${INSTALL_VERILOG_DIR}/$1
+	${Q}${INSTALL_DATA} $$< ${INSTALL_VERILOG_DIR}/$1
 
 endef
 
@@ -369,10 +374,11 @@ endef
 #
 # Add a list of verilog files
 #
-# @param $1	verilog files
+# @param $1 subdirectory to install into
+# @param $2	verilog files
 #
 define add_verilog_files
-$(foreach x,$1,$(eval $(call add_verilog_file,$x)))
+$(foreach x,$2,$(eval $(call add_verilog_file,$1,$x)))
 endef
 
 #f new_stamp

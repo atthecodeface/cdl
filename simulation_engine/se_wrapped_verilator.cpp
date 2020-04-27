@@ -87,11 +87,11 @@ class c_sram_module
     ssize_t ram_size;
     int bytes_per_entry;
     int bit_width;
-    int num_elements;
+    unsigned int first_element;
+    unsigned int num_elements;
     t_sl_uint64 mask;
     int reset_type;
     int reset_value;
-    int first_element;
     const char *filename;
 public:
     c_sram_module(class c_se_wrapped_verilator *parent, VerilatedVar &vv, int reset_type, int reset_value, const char *filename);
@@ -118,6 +118,7 @@ c_sram_module::c_sram_module(class c_se_wrapped_verilator *parent, VerilatedVar 
     this->ram_size = ram_size;
     this->bytes_per_entry = bytes_per_entry;
     this->bit_width = bit_width;
+    this->first_element = first_element;
     this->num_elements = num_elements;
     this->mask = mask;
     this->reset_type = reset_type;

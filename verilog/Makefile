@@ -15,13 +15,19 @@
 include ${CDL_MAKEFILE_CONFIG}
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
-VERILOG_FILES= \
+VERILATOR_FILES= \
 	verilator/srams.v \
-	verilator/clock_gate_module.v \
+	verilator/clock_gate_module.v
+
+ALTERA_FILES= \
 	altera/srams.v \
-	altera/clock_gate_module.v \
+	altera/clock_gate_module.v
+
+XILINX_FILES= \
 	xilinx/srams.v \
 	xilinx/clock_gate_module.v
 
 #a Add verilog files
-$(eval $(call add_verilog_files,${VERILOG_FILES}))
+$(eval $(call add_verilog_files,verilator,${VERILATOR_FILES}))
+$(eval $(call add_verilog_files,altera,${ALTERA_FILES}))
+$(eval $(call add_verilog_files,xilinx,${XILINX_FILES}))

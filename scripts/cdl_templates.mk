@@ -3,6 +3,7 @@ CDL_SCRIPTS_DIR ?= ${CDL_ROOT}/lib/cdl
 CDL_BIN_DIR     ?= ${CDL_ROOT}/bin
 CDL_LIBEXEC_DIR ?= ${CDL_ROOT}/libexec/cdl
 CDL_INCLUDES    ?= -I${CDL_ROOT}/include/cdl
+CDL_VERILOG_DIR ?= ${CDL_ROOT}/lib/cdl/verilog
 Q?=@
 
 -include ${CDL_SCRIPTS_DIR}/Makefile_cdl_template_config
@@ -26,12 +27,14 @@ makefiles: $2/Makefile
 
 BUILD_MAKEFILE = $2/Makefile
 
-$2/Makefile:
-	${CDL_LIBEXEC_DIR}/cdl_desc.py --require $1 --build_root $2 $3
+# $2/Makefile: $(foreach s,$1,${s}/library_description.py)
+# $2/Makefile: $(foreach s,$3,${s}/library_description.py)
+$2/Makefile: ${CDL_LIBEXEC_DIR}/cdl_desc.py
+	${CDL_LIBEXEC_DIR}/cdl_desc.py $(foreach s,$1,--require ${s}) --build_root $2 $3
 
-clean: clean_makefile
+clean: clean_makefile__$2
 
-clean_makefile:
+clean_makefile__$2:
 	rm -f $2/Makefile
 endef
 
@@ -51,8 +54,6 @@ LIB__$1__MODELS += $5
 $3/$6 : $2/$4
 	@echo "CC $4 -o $6" 
 	${Q}${CXX} ${CXXFLAGS} ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
-
-
 endef
 
 #f cdl_template
@@ -246,8 +247,11 @@ $2/V$3.h: $2/V$3__ALL.a
 
 $2/V$3__Syms.h: $2/V$3__ALL.a
 
+$2/V$3__ALL.a: verilog
 $2/V$3__ALL.a: $4/$3.v
+	@echo "verilate $3"
 	${Q}${VERILATOR} --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
+	@echo "cpp for verilate $3"
 	(cd $2 && make CFLAGS=-g VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
 
 endef
