@@ -173,20 +173,26 @@ class c_md_target_c: public c_md_target {
     void output_net_types(void);
     void output_instance_types(t_md_module_instance *module_instance);
     void output_all_signals_type(void); // t_*_all_signals
+    void output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name );
     void output_simulation_methods_lvar(t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression );
     void output_simulation_methods_expression(t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent );
     void output_simulation_methods_statement_if_else(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
-    void output_simulation_methods_statement_parallel_switch(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_statement_parallel_switch(t_md_statement *statement);
     void output_simulation_methods_port_net_assignment(t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance );
     void output_simulation_methods_assignment(t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr );
-    void output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name );
-    void output_simulation_methods_statement_print_assert_cover(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
-    void output_simulation_methods_statement_log(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
-    void output_simulation_methods_statement_clocked(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge );
-    void output_simulation_methods_statement_combinatorial(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_type_instance *instance );
-    void output_simulation_methods_statement(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_statement_print_assert_cover(t_md_statement *statement);
+    void output_simulation_methods_statement_log(t_md_statement *statement);
+    void output_simulation_methods_statement_clocked(t_md_statement *statement);
+    void output_simulation_methods_statement_combinatorial(t_md_statement *statement);
+    void output_simulation_methods_statement_list(t_md_statement *statement, int subindent );
+    void output_simulation_methods_code_block_statements(t_md_code_block *code_block, int indent );
     void output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance );
     void output_simulation_code_to_make_combinatorial_signals_valid(void);
+    t_md_code_block *code_block; // for output of statements, code_block that we are in (NULL for net assignment)
+    t_md_signal *clock; // for output of statements, clock that output is for (NULL for combinatorial)
+    int edge; // for output of statements, clock edge that output is for (ignored if clock==NULL)
+    t_md_type_instance *instance; // for output of statements, the variable as to why for combinatorial (NULL for clocked)
+    int indent; // for output of statements, current indent
 public:
     c_md_target_c(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_options *options) :
         c_md_target(model, output_fn, output_handle, options)
@@ -1564,13 +1570,13 @@ void c_md_target_c::output_simulation_methods_statement_if_else(t_md_code_block 
           output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
           output( -1, ")\n");
           output( indent+1, "{\n");
-          output_simulation_methods_statement(code_block, statement->data.if_else.if_true, indent+1, clock, edge, instance );
+          output_simulation_methods_statement_list(statement->data.if_else.if_true, indent+1);
           output( indent+1, "}\n");
           if  (statement->data.if_else.if_false)
           {
                output( indent+1, "else\n");
                output( indent+1, "{\n");
-               output_simulation_methods_statement(code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
+               output_simulation_methods_statement_list(statement->data.if_else.if_false, indent+1 );
                output( indent+1, "}\n");
           }
      }
@@ -1580,14 +1586,14 @@ void c_md_target_c::output_simulation_methods_statement_if_else(t_md_code_block 
           output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
           output( -1, "))\n");
           output( indent+1, "{\n");
-          output_simulation_methods_statement(code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
+          output_simulation_methods_statement_list(statement->data.if_else.if_false, indent+1);
           output( indent+1, "}\n");
      }
 }
 
 /*f c_md_target_c::output_simulation_methods_statement_parallel_switch
  */
-void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_statement *statement)
 {
     if (statement->data.switch_stmt.all_static && statement->data.switch_stmt.all_unmasked)
     {
@@ -1621,7 +1627,7 @@ void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_cod
                 {
                     output( indent+1, "case 0x%x: // req %d\n", switem->data.value.value.value[0], stmts_reqd );
                     if (switem->statement)
-                        output_simulation_methods_statement(code_block, switem->statement, indent+1, clock, edge, instance );
+                        output_simulation_methods_statement_list(switem->statement, indent+1);
                     output( indent+2, "break;\n");
                 }
             }
@@ -1631,7 +1637,7 @@ void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_cod
                 {
                     output( indent+1, "default: // req %d\n", stmts_reqd);
                     if (switem->statement)
-                        output_simulation_methods_statement(code_block, switem->statement, indent+1, clock, edge, instance );
+                        output_simulation_methods_statement_list(switem->statement, indent+1);
                     output( indent+2, "break;\n");
                     defaulted = 1;
                 }
@@ -1851,7 +1857,7 @@ void c_md_target_c::output_simulation_methods_display_message_to_buffer(t_md_cod
 
 /*f c_md_target_c::output_simulation_methods_statement_print_assert_cover
  */
-void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_statement *statement)
 {
     const char *string_type = (statement->type==md_statement_type_cover)?"COVER":"ASSERT";
     if ((!clock) && (!statement->data.print_assert_cover.statement))
@@ -1936,14 +1942,14 @@ void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_
     }
     if (statement->data.print_assert_cover.statement)
     {
-        output_simulation_methods_statement(code_block, statement->data.print_assert_cover.statement, indent+1, clock, edge, instance );
+        output_simulation_methods_statement_list(statement->data.print_assert_cover.statement, indent+1);
     }
     output( indent+1, "%s_END\n", string_type );
 }
 
 /*f c_md_target_c::output_simulation_methods_statement_log
  */
-void c_md_target_c::output_simulation_methods_statement_log(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_log(t_md_statement *statement)
 {
     if (!clock) return;
     int i=0;
@@ -1959,14 +1965,13 @@ void c_md_target_c::output_simulation_methods_statement_log(t_md_code_block *cod
 
 /*f c_md_target_c::output_simulation_methods_statement_clocked
  */
-void c_md_target_c::output_simulation_methods_statement_clocked(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge )
+void c_md_target_c::output_simulation_methods_statement_clocked(t_md_statement *statement)
 {
     if (!statement) return;
 
     /*b If the statement does not effect this clock/edge, then return with outputting nothing
      */
     if (!model->reference_set_includes( &statement->effects, clock, edge )) {
-        output_simulation_methods_statement_clocked(code_block, statement->next_in_code, indent, clock, edge );
         return;
     }
 
@@ -1989,32 +1994,30 @@ void c_md_target_c::output_simulation_methods_statement_clocked(t_md_code_block 
         output_simulation_methods_statement_if_else(code_block, statement, indent, clock, edge, NULL );
         break;
     case md_statement_type_parallel_switch:
-        output_simulation_methods_statement_parallel_switch(code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_parallel_switch(statement);
         break;
     case md_statement_type_print_assert:
     case md_statement_type_cover:
-        output_simulation_methods_statement_print_assert_cover(code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_print_assert_cover(statement);
         break;
     case md_statement_type_log:
-        output_simulation_methods_statement_log(code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_log(statement);
         break;
     default:
         output( 1, "Unknown statement type %d\n", statement->type );
         break;
     }
-    output_simulation_methods_statement_clocked(code_block, statement->next_in_code, indent, clock, edge );
 }
 
 /*f c_md_target_c::output_simulation_methods_statement_combinatorial
  */
-void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_statement *statement)
 {
     if (!statement) return;
 
      /*b If the statement does not effect this signal instance, then return with outputting nothing
       */
     if (!model->reference_set_includes( &statement->effects, instance )) {
-        output_simulation_methods_statement_combinatorial(code_block, statement->next_in_code, indent, instance );
         return;
     }
 
@@ -2035,43 +2038,55 @@ void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_code_
           output_simulation_methods_statement_if_else(code_block, statement, indent, NULL, -1, instance );
           break;
      case md_statement_type_parallel_switch:
-          output_simulation_methods_statement_parallel_switch(code_block, statement, indent, NULL, -1, instance );
+          output_simulation_methods_statement_parallel_switch(statement);
           break;
     case md_statement_type_print_assert:
     case md_statement_type_cover:
-        output_simulation_methods_statement_print_assert_cover(code_block, statement, indent, NULL, -1, instance );
+        output_simulation_methods_statement_print_assert_cover(statement);
         break;
      case md_statement_type_log:
-        output_simulation_methods_statement_log(code_block, statement, indent, NULL, -1, instance );
+        output_simulation_methods_statement_log(statement);
         break;
      default:
           output( 1, "Unknown statement type %d\n", statement->type );
           break;
      }
-     output_simulation_methods_statement_combinatorial(code_block, statement->next_in_code, indent, instance );
 }
 
-/*f c_md_target_c::output_simulation_methods_statement
+/*f c_md_target_c::output_simulation_methods_statement_list - output statements in current code block at new indent
  */
-void c_md_target_c::output_simulation_methods_statement(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_list(t_md_statement *statement, int subindent)
 {
-    if (clock){
-        output_simulation_methods_statement_clocked(code_block, statement, indent, clock, edge );
-    } else {
-        output_simulation_methods_statement_combinatorial(code_block, statement, indent, instance );
+    auto keep_indent = indent;
+    this->indent = subindent;
+    for (; statement; statement=statement->next_in_code) {
+        if (clock){
+            output_simulation_methods_statement_clocked(statement);
+        } else {
+            output_simulation_methods_statement_combinatorial(statement);
+        }
     }
+    this->indent = keep_indent;
 }
 
-/*f c_md_target_c::output_simulation_methods_code_block
+/*f c_md_target_c::output_simulation_methods_code_block_statements
+ */
+void c_md_target_c::output_simulation_methods_code_block_statements(t_md_code_block *code_block, int indent)
+{
+    auto keep_code_block = this->code_block;
+    this->code_block = code_block;
+    output_simulation_methods_statement_list(code_block->first_statement, indent);
+    code_block = keep_code_block;
+}
+
+/*f c_md_target_c::output_simulation_methods_code_block - invoked at the top level of code output for clock or comb
  */
 void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
      /*b If the code block does not effect this signal/clock/edge, then return with outputting nothing
       */
-     if (clock && !model->reference_set_includes( &code_block->effects, clock, edge ))
-          return;
-     if (instance && !model->reference_set_includes( &code_block->effects, instance ))
-          return;
+    if (clock && !model->reference_set_includes( &code_block->effects, clock, edge )) return;
+    if (instance && !model->reference_set_includes( &code_block->effects, instance )) return;
 
      /*b Insert comment for the block
       */
@@ -2083,7 +2098,10 @@ void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_b
 
      /*b Display each statement that effects state on the specified clock
       */
-     output_simulation_methods_statement(code_block, code_block->first_statement, 0, clock, edge, instance );
+     this->clock = clock;
+     this->edge = edge;
+     this->instance = instance;
+     output_simulation_methods_code_block_statements(code_block, 0);
 
      /*b Close out with a blank line
       */
@@ -3081,23 +3099,18 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
         mdt.module = module;
         module->number_submodule_clock_calls=0;
         if (multithread) {
-            t_md_module_instance_clock_port *clock_port;
-            t_md_module_instance *module_instance;
-            int edge;
-            t_md_signal *clk;
-
-            for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+            for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
                 output_markers_mask( module_instance, 0, -1 );
-                for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) {
+                for (auto clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) {
                     output_markers_mask( clock_port, 0, -1 );
                 }
             }
-            for (clk=module->clocks; clk; clk=clk->next_in_list) 
-                for (edge=0; edge<2; edge++)
+            for (auto clk=module->clocks; clk; clk=clk->next_in_list) 
+                for (auto edge=0; edge<2; edge++)
                     if (clk->data.clock.edges_used[edge])
-                        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+                        for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
                             if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
-                                for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+                                for (auto clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
                                     if (clock_port->local_clock_signal==clk)
                                         output_markers_mask( clock_port, module->number_submodule_clock_calls++, -1 );
         }
