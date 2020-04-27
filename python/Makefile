@@ -15,10 +15,12 @@
 include ${CDL_MAKEFILE_CONFIG}
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
-PYTHON_FILES= \
+PYTHON_CDL_FILES= \
 	cdl/__init__.py \
 	cdl/verilog.py \
-	cdl/parametrize_verilog.py \
+	cdl/parametrize_verilog.py
+
+PYTHON_CDL_SIM_FILES= \
 	cdl/sim/__init__.py \
 	cdl/sim/c_httpd.py \
 	cdl/sim/c_logs.py \
@@ -28,4 +30,5 @@ PYTHON_FILES= \
 	cdl/sim/log_server.py
 
 #a Add python files
-$(eval $(call add_python_files,${PYTHON_FILES}))
+$(eval $(call add_python_files,cdl,${PYTHON_CDL_FILES}))
+$(eval $(call add_python_files,cdl/sim,${PYTHON_CDL_SIM_FILES}))

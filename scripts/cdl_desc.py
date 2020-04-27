@@ -134,10 +134,12 @@ class Module(object):
     parent = None
     cpp_include_dirs = None
     inherit = ["src_dir", "include_dir"]
+    #f __init__
     def __init__(self, model_name, src_dir=None):
         self.model_name = model_name
         if src_dir is not None: self.src_dir=src_dir
         pass
+    #f validate
     def validate(self):
         for k in self.inherit:
             if hasattr(self, k) and hasattr(self.parent,k):
@@ -147,12 +149,15 @@ class Module(object):
                 pass
             pass
         pass
+    #f value_or_default
     def value_or_default(self, v, d):
         if v is not None: return v
         return d
+    #f set_parent
     def set_parent(self, parent):
         self.parent = parent
         pass
+    #f set_attr_options
     def set_attr_options(self, obj, options):
         for (k,v) in options.items():
             if not hasattr(obj, k):
@@ -160,6 +165,7 @@ class Module(object):
             setattr(obj,k,v)
             pass
         pass
+    #f All done
     pass
 
 #c CdlModule
@@ -380,6 +386,16 @@ class Modules(BuildableGroup):
     modules = []
     libraries = {}
     export_dirs = []
+    #f validate - classmethod
+    @classmethod
+    def validate(cls):
+        """
+        Invoked while examining library_desc.py to validate the file a little
+        """
+        if type(cls.name)!=str: return "name must be a string (but is %s)"%(str(type(cls.name)))
+        if type(cls.libraries)!=dict: return "module '%s' libraries must be a dict (but is %s)"%(cls.name, str(type(cls.libraries)))
+        return None
+    #f __init__
     def __init__(self, **kwargs):
         BuildableGroup.__init__(self, **kwargs)
         for m in self.modules:
@@ -389,11 +405,13 @@ class Modules(BuildableGroup):
             m.validate()
             pass
         pass
+    #f makefile_write_entries
     def makefile_write_entries(self, write, library_name):
         for m in self.modules:
             m.write_makefile(write, library_name)
             pass
         pass
+    #f All done
     pass
 
 #c Executables - subclassed in library_desc.py files
@@ -404,6 +422,16 @@ class Executables(BuildableGroup):
     cpp_include_dirs = []
     srcs = []
     libraries = {}
+    #f validate - classmethod
+    @classmethod
+    def validate(cls):
+        """
+        Invoked while examining library_desc.py to validate the file a little
+        """
+        if type(cls.name)!=str: return "name must be a string (but is %s)"%(str(type(cls.name)))
+        if type(cls.libraries)!=dict: return "module '%s' libraries must be a dict (but is %s)"%(cls.name, str(type(cls.libraries)))
+        return None
+    #f __init__
     def __init__(self, **kwargs):
         BuildableGroup.__init__(self, **kwargs)
         for m in self.srcs:
@@ -413,6 +441,7 @@ class Executables(BuildableGroup):
             m.validate()
             pass
         pass
+    #f write_makefile_entry
     def write_makefile_entry(self, write, library_name):
         """
         Write a makefile line for an executable_template invocation
@@ -445,6 +474,7 @@ class Executables(BuildableGroup):
         r += "))"
         write(r)
         pass
+    #f makefile_write_entries
     def makefile_write_entries(self, write, library_name):
         for m in self.srcs:
             m.write_makefile(write, library_name, executable=self.name)
@@ -453,25 +483,95 @@ class Executables(BuildableGroup):
         pass
     pass
 
+#c VerilatedModels - subclassed in library_desc.py files
+class VerilatedModels(BuildableGroup):
+    name = None
+    #f validate - classmethod
+    @classmethod
+    def validate(cls):
+        """
+        Invoked while examining library_desc.py to validate the file a little
+        """
+        if type(cls.name)!=str: return "name must be a string (but is %s)"%(str(type(cls.name)))
+        return None
+    #f __init__
+    def __init__(self, **kwargs):
+        BuildableGroup.__init__(self, **kwargs)
+        pass
+    #f write_makefile_entry
+    def write_makefile_entry(self, write, library_name):
+        """
+        Write a makefile line for an make_verilator_lib invocation
+        """
+        r = "$(eval $(call make_verilator_lib,"
+        # make_verilator_lib,
+        # ${BUILD_ROOT},
+        # ${BUILD_VERILATOR_DIR},
+        # bbc_micro_de1_cl,
+        # ${BUILD_ROOT}/verilog/,
+        # ${BUILD_ROOT}/verilog,
+        # ${VERILOG_DIR}/*v ${VERILOG_DIR}/verilate/srams.v
+        other_verilog_files = [""]
+        other_verilog_dirs = [""]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
+        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
+        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
+        other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
+        make_verilator_lib_template = [# library_name,
+            "${BUILD_DIR}", # Output directory (BUILD_DIR is library-specific)
+            "${BUILD_DIR}/verilate", # where to build verilator stuff
+            self.name, # module (top for verilator)
+            "${BUILD_DIR}", # Source verilog directory
+            " ".join(other_verilog_dirs),
+            " ".join(other_verilog_files),
+        ]
+        r += ",".join(make_verilator_lib_template)
+        r += "))"
+        write("VERILATOR = PATH=${VERILATOR_ROOT}/bin:${PATH} ${VERILATOR_ROOT}/bin/verilator")
+        write("VERILATOR_C_FLAGS = -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14")
+        write("VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++")
+        write(r)
+        pass
+    #f makefile_write_entries
+    def makefile_write_entries(self, write, library_name):
+        """
+        Write any makefile entries required to build the verilated object
+        """
+        #for m in self.srcs:
+        #    m.write_makefile(write, library_name, executable=self.name)
+        #    pass
+        self.write_makefile_entry(write, library_name)
+        pass
+    pass
+
 #c Library class - subclassed in library_desc.py files
 class Library:
+    #f __init__
     def __init__(self, library_path):
         self.path = library_path
         self.modules = Modules.new_subclasses()
         self.executables = Executables.new_subclasses()
+        self.verilated_models = VerilatedModels.new_subclasses()
+        self.buildables = []
+        self.buildables += self.modules
+        self.buildables += self.executables
+        self.buildables += self.verilated_models
         pass
+    #f get_name
     def get_name(self):
         return self.name
+    #f iter_modules
     def iter_modules(self):
         for m in self.modules:
             yield m
             pass
         pass
-    def iter_executables(self):
-        for m in self.executables:
-            yield m
-            pass
+    #f iter_buildables
+    def iter_buildables(self):
+        for m in self.buildables: yield m
         pass
+    #f get_makefile
     def get_makefile(self):
         return Makefile(self.module.library_name, self.module.modules(), src_root=self.library_directory, build_subdir=self.library_name)
     pass
@@ -541,8 +641,7 @@ class ImportedLibrary:
         self.path      = library_path
         self.name      = library_name
         self.library   = library
-        self.module_instances = []
-        self.executable_instances = []
+        self.buildable_instances = []
         self.find_dependencies()
         pass
     #f validate_library_module
@@ -557,13 +656,9 @@ class ImportedLibrary:
             if m.path != library_path:
                 raise DuplicateLibrary(library_name, library_path, m.path)
             raise LibraryLoaded
-        for m in library.iter_modules():
-            if type(m.name)!=str: raise BadLibraryDescription(library_name, "library_desc.py module name must be a string (but is %s)"%(str(type(m.name))))
-            if type(m.libraries)!=dict: raise BadLibraryDescription(library_name, "library_desc.py module '%s' libraries must be a dict (but is %s)"%(m.name, str(type(m.libraries))))
-            pass
-        for e in library.iter_executables():
-            if type(e.name)!=str: raise BadLibraryDescription(library_name, "library_desc.py executable must be a string (but is %s)"%(str(type(e.name))))
-            if type(e.libraries)!=dict: raise BadLibraryDescription(library_name, "library_desc.py executable '%s' libraries must be a dict (but is %s)"%(e.name, str(type(e.libraries))))
+        for b in library.iter_buildables():
+            error = b.validate()
+            if error is not None: raise BadLibraryDescription(library_name, error)
             pass
         return (library, library_name, library_path)
     #f get_name
@@ -584,6 +679,10 @@ class ImportedLibrary:
         return path
     #f get_exported_paths
     def get_exported_paths(self, relative_to=None):
+        """
+        Get a list (without duplicates) of exported directories
+        for all the modules in the library
+        """
         e = set()
         for m in self.library.iter_modules():
             for l in m.export_dirs:
@@ -602,6 +701,11 @@ class ImportedLibrary:
         return exports
     #f find_dependencies
     def find_dependencies(self):
+        """
+        Find list of library dependencies without duplicates
+
+        This might do optional or build-time options in the future
+        """
         self.required_library_names = []
         self.optional_library_names = []
         for m in self.library.iter_modules():
@@ -616,16 +720,11 @@ class ImportedLibrary:
         pass
     #f create_instances
     def create_instances(self):
-        if self.module_instances != []: return
-        self.module_instances = []
-        for m in self.library.iter_modules():
-            instance = m(get_path=self.get_path)
-            self.module_instances.append(instance)
-            pass
-        self.executable_instances = []
-        for e in self.library.iter_executables():
-            instance = e(get_path=self.get_path)
-            self.executable_instances.append(instance)
+        if self.buildable_instances != []: return
+        self.buildable_instances = []
+        for b in self.library.iter_buildables():
+            instance = b(get_path=self.get_path)
+            self.buildable_instances.append(instance)
             pass
         pass
     #f makefile_write_header
@@ -651,11 +750,8 @@ class ImportedLibrary:
         with open(Path(build_path,"Makefile"),"w") as f:
             def write(s): print(s,file=f)
             self.makefile_write_header(write, build_path, library_description_path, relative_to)
-            for m in self.module_instances:
-                m.makefile_write_entries(write, library_name)
-                pass
-            for e in self.executable_instances:
-                e.makefile_write_entries(write, library_name)
+            for bi in self.buildable_instances:
+                bi.makefile_write_entries(write, library_name)
                 pass
             self.makefile_write_footer(write, library_name)
             pass
@@ -672,7 +768,9 @@ class ImportedLibrarySet:
         """
         self.imported_libraries = {}
         self.required_libraries = []
+        self.optional_libraries = []
         self.libraries_to_use = {}
+        self.library_paths_required = library_paths_required
         for path in library_paths_required:
             self.add_library_from_path(path, required=True)
             pass
@@ -683,6 +781,7 @@ class ImportedLibrarySet:
             if not Path(library_path,"library_desc.py").is_file: raise LibraryNotFound(library_path)
             lib = ImportedLibrary(library_path, self.imported_libraries)
             if required: self.required_libraries.append(lib)
+            else: self.optional_libraries.append(lib)
             pass
         except LibraryLoaded:
             pass
@@ -784,6 +883,14 @@ class ImportedLibrarySet:
         write("all: sim")
         write("SUBMAKE=${MAKE} CDL_ROOT=${CDL_ROOT}")
         write("")
+        r = "$(eval $(call cdl_makefile_template,"
+        makefile_template = [" ".join(str(l) for l in self.library_paths_required),
+                             str(self.build_root),
+                             " ".join([str(l.get_path()) for l in self.optional_libraries]),
+        ]
+        r += ",".join(makefile_template)
+        r += "))"
+        write(r)
         pass
     #f makefile_write_library_entry
     def makefile_write_library_entry(self, library_name, library, write):
