@@ -173,21 +173,20 @@ class c_md_target_c: public c_md_target {
     void output_net_types(void);
     void output_instance_types(t_md_module_instance *module_instance);
     void output_all_signals_type(void); // t_*_all_signals
-    void output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name );
-    void output_simulation_methods_lvar(t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression );
-    void output_simulation_methods_expression(t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent );
-    void output_simulation_methods_statement_if_else(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_display_message_to_buffer(t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name );
+    void output_simulation_methods_lvar(t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression );
+    void output_simulation_methods_expression(t_md_expression *expr, int main_indent, int sub_indent );
+    void output_simulation_methods_statement_if_else(t_md_statement *statement);
     void output_simulation_methods_statement_parallel_switch(t_md_statement *statement);
-    void output_simulation_methods_port_net_assignment(t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance );
-    void output_simulation_methods_assignment(t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr );
+    void output_simulation_methods_assignment(t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr );
     void output_simulation_methods_statement_print_assert_cover(t_md_statement *statement);
     void output_simulation_methods_statement_log(t_md_statement *statement);
-    void output_simulation_methods_statement_clocked(t_md_statement *statement);
-    void output_simulation_methods_statement_combinatorial(t_md_statement *statement);
+    void output_simulation_methods_statement(t_md_statement *statement);
     void output_simulation_methods_statement_list(t_md_statement *statement, int subindent );
     void output_simulation_methods_code_block_statements(t_md_code_block *code_block, int indent );
     void output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance );
     void output_simulation_code_to_make_combinatorial_signals_valid(void);
+    void output_simulation_methods_port_net_assignment(int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance );
     t_md_code_block *code_block; // for output of statements, code_block that we are in (NULL for net assignment)
     t_md_signal *clock; // for output of statements, clock that output is for (NULL for combinatorial)
     int edge; // for output of statements, clock edge that output is for (ignored if clock==NULL)
@@ -1330,7 +1329,7 @@ void c_md_target_c::output_constructors_destructors(void)
   If in_expression is 0, then we are assigning so require 'next_state', and we don't insert the bit subscripting
   If in_expression is 1, then we can also add the bit subscripting
  */
-void c_md_target_c::output_simulation_methods_lvar(t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression )
+void c_md_target_c::output_simulation_methods_lvar(t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression )
 {
     int indirect=0;
 
@@ -1380,7 +1379,7 @@ void c_md_target_c::output_simulation_methods_lvar(t_md_code_block *code_block, 
             output( -1, "%d", lvar->index.data.integer );
             break;
         case md_lvar_data_type_expression:
-            output_simulation_methods_expression(code_block, lvar->index.data.expression, main_indent, sub_indent+1 );
+            output_simulation_methods_expression(lvar->index.data.expression, main_indent, sub_indent+1 );
             break;
         default:
             break;
@@ -1395,7 +1394,7 @@ void c_md_target_c::output_simulation_methods_lvar(t_md_code_block *code_block, 
             output( -1, ">>%d)", lvar->subscript_start.data.integer );
         } else if (lvar->subscript_start.type == md_lvar_data_type_expression) {
             output( -1, ">>(" );
-            output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, main_indent, sub_indent+1 );
+            output_simulation_methods_expression(lvar->subscript_start.data.expression, main_indent, sub_indent+1 );
             output( -1, "))" );
         }
         if (lvar->subscript_length.type != md_lvar_data_type_none) {
@@ -1411,7 +1410,7 @@ void c_md_target_c::output_simulation_methods_lvar(t_md_code_block *code_block, 
 
 /*f c_md_target_c::output_simulation_methods_expression
  */
-void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent )
+void c_md_target_c::output_simulation_methods_expression(t_md_expression *expr, int main_indent, int sub_indent )
 {
     /*b If the expression is NULL then something went wrong...
      */
@@ -1427,7 +1426,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
      */
     if (expr->width>64) {
         model->error->add_error( NULL, error_level_fatal, error_number_be_expression_width, error_id_be_backend_message,
-                                 error_arg_type_malloc_string, code_block ? (code_block->name) : ("<outside a code block, possibly in a reset>"),
+                                 error_arg_type_malloc_string, code_block ? (code_block->name) : ("<outside a code block, possibly in a reset or net assignment>"),
                                  error_arg_type_none );
         output( -1, "0 /* EXPRESSION GREATER THAN 64 BITS WIDE */" );
     }
@@ -1436,13 +1435,13 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
         output( -1, "0x%llxULL", expr->data.value.value.value[0] );
         break;
     case md_expr_type_lvar:
-        output_simulation_methods_lvar(code_block, expr->data.lvar, main_indent, sub_indent, 1 );
+        output_simulation_methods_lvar(expr->data.lvar, main_indent, sub_indent, 1 );
         break;
     case md_expr_type_bundle:
         output( -1, "(((" );
-        output_simulation_methods_expression(code_block, expr->data.bundle.a, main_indent, sub_indent+1 );
+        output_simulation_methods_expression(expr->data.bundle.a, main_indent, sub_indent+1 );
         output( -1, ")<<%d) | (", expr->data.bundle.b->width );
-        output_simulation_methods_expression(code_block, expr->data.bundle.b, main_indent, sub_indent+1 );
+        output_simulation_methods_expression(expr->data.bundle.b, main_indent, sub_indent+1 );
         output( -1, "))" );
         break;
     case md_expr_type_cast:
@@ -1455,7 +1454,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
         else
         {
             output( -1, "(" );
-            output_simulation_methods_expression(code_block, expr->data.cast.expression, main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.cast.expression, main_indent, sub_indent+1 );
             output( -1, ")&%s/*%d*/", (expr->width<0)?"!!!<0!!!":((expr->width>64)?"!!!!>64":bit_mask[expr->width]),expr->width );
         }
         break;
@@ -1476,7 +1475,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
             default:
                 output( -1, "(!(" );
             }
-            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[0], main_indent, sub_indent+1 );
             output( -1, "))&%s", bit_mask[expr->width] );
             break;
         case md_expr_fn_add:
@@ -1485,7 +1484,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
         case md_expr_fn_lsl:
         case md_expr_fn_lsr:
             output( -1, "((" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[0], main_indent, sub_indent+1 );
             if (expr->data.fn.fn==md_expr_fn_sub)
                 output( -1, ")-(" );
             else if (expr->data.fn.fn==md_expr_fn_mult)
@@ -1496,7 +1495,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
                 output( -1, ")>>(" );
             else
                 output( -1, ")+(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[1], main_indent, sub_indent+1 );
             output( -1, "))&%s", bit_mask[expr->width] );
             break;
         case md_expr_fn_and:
@@ -1512,7 +1511,7 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
         case md_expr_fn_le:
         case md_expr_fn_lt:
             output( -1, "(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[0], main_indent, sub_indent+1 );
             if (expr->data.fn.fn==md_expr_fn_and)
                 output( -1, ")&(" );
             else if (expr->data.fn.fn==md_expr_fn_or)
@@ -1537,16 +1536,16 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
                 output( -1, ")<(" );
             else
                 output( -1, ")!=(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[1], main_indent, sub_indent+1 );
             output( -1, ")" );
             break;
         case md_expr_fn_query:
             output( -1, "(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[0], main_indent, sub_indent+1 );
             output( -1, ")?(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[1], main_indent, sub_indent+1 );
             output( -1, "):(" );
-            output_simulation_methods_expression(code_block, expr->data.fn.args[2], main_indent, sub_indent+1 );
+            output_simulation_methods_expression(expr->data.fn.args[2], main_indent, sub_indent+1 );
             output( -1, ")" );
             break;
         default:
@@ -1562,12 +1561,12 @@ void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_b
 
 /*f c_md_target_c::output_simulation_methods_statement_if_else
  */
-void c_md_target_c::output_simulation_methods_statement_if_else(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_if_else(t_md_statement *statement)
 {
      if (statement->data.if_else.if_true)
      {
           output( indent+1, "if (");
-          output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
+          output_simulation_methods_expression(statement->data.if_else.expr, indent+1, 4 );
           output( -1, ")\n");
           output( indent+1, "{\n");
           output_simulation_methods_statement_list(statement->data.if_else.if_true, indent+1);
@@ -1583,7 +1582,7 @@ void c_md_target_c::output_simulation_methods_statement_if_else(t_md_code_block 
      else if (statement->data.if_else.if_false)
      {
           output( indent+1, "if (!(");
-          output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
+          output_simulation_methods_expression(statement->data.if_else.expr, indent+1, 4 );
           output( -1, "))\n");
           output( indent+1, "{\n");
           output_simulation_methods_statement_list(statement->data.if_else.if_false, indent+1);
@@ -1601,7 +1600,7 @@ void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_sta
         int defaulted = 0;
 
         output( indent+1, "switch (");
-        output_simulation_methods_expression(code_block, statement->data.switch_stmt.expr, indent+1, 4 );
+        output_simulation_methods_expression(statement->data.switch_stmt.expr, indent+1, 4 );
         output( -1, ")\n");
         output( indent+1, "{\n");
         for (switem = statement->data.switch_stmt.items; switem; switem=switem->next_in_list)
@@ -1671,7 +1670,7 @@ void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_sta
 
 /*f c_md_target_c::output_simulation_methods_port_net_assignment
  */
-void c_md_target_c::output_simulation_methods_port_net_assignment(t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance )
+void c_md_target_c::output_simulation_methods_port_net_assignment(int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance )
 {
     switch (lvar->instance->type)
     {
@@ -1684,20 +1683,20 @@ void c_md_target_c::output_simulation_methods_port_net_assignment(t_md_code_bloc
             {
             case md_lvar_data_type_none:
                 output( indent+1, "" );
-                output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                 output( -1, " = all_signals.instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
                 break;
             case md_lvar_data_type_integer:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
                     output( indent+1, "ASSIGN_TO_BIT( &( " );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
                 }
                 else
                 {
                     output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
                 output( -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
@@ -1707,17 +1706,17 @@ void c_md_target_c::output_simulation_methods_port_net_assignment(t_md_code_bloc
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
                     output( indent+1, "ASSIGN_TO_BIT( &(");
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output_simulation_methods_expression(lvar->subscript_start.data.expression, indent+1, 0 );
                     output( -1, ", " );
                 }
                 else
                 {
                     output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output_simulation_methods_expression(lvar->subscript_start.data.expression, indent+1, 0 );
                     output( -1, ", %d,", lvar->subscript_length.data.integer );
                 }
                 output( -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
@@ -1742,7 +1741,7 @@ void c_md_target_c::output_simulation_methods_port_net_assignment(t_md_code_bloc
 
 /*f c_md_target_c::output_simulation_methods_assignment
  */
-void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr )
+void c_md_target_c::output_simulation_methods_assignment(t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr )
 {
     switch (lvar->instance->type)
     {
@@ -1754,12 +1753,12 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
             {
             case md_lvar_data_type_none:
                 output( indent+1, "" );
-                output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                 if (wired_or) // Only legal way back up for combinatorials
                     output( -1, " |= " );
                 else
                     output( -1, " = " );
-                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output_simulation_methods_expression(expr, indent+1, 0 );
                 output( -1, ";\n" );
                 break;
             case md_lvar_data_type_integer:
@@ -1769,7 +1768,7 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
                         output( indent+1, "WIRE_OR_TO_BIT( &( " );
                     else
                         output( indent+1, "ASSIGN_TO_BIT( &( " );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
                 }
                 else
@@ -1778,10 +1777,10 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
                         output( indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
                     else
                         output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
-                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output_simulation_methods_expression(expr, indent+1, 0 );
                 output( -1, ");\n" );
                 break;
             case md_lvar_data_type_expression:
@@ -1791,9 +1790,9 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
                         output( indent+1, "WIRE_OR_TO_BIT( &( " );
                     else
                         output( indent+1, "ASSIGN_TO_BIT( &(");
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output_simulation_methods_expression(lvar->subscript_start.data.expression, indent+1, 0 );
                     output( -1, ", " );
                 }
                 else
@@ -1802,12 +1801,12 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
                         output( indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
                     else
                         output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output_simulation_methods_lvar(lvar, indent, indent+1, 0 );
                     output( -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output_simulation_methods_expression(lvar->subscript_start.data.expression, indent+1, 0 );
                     output( -1, ", %d,", lvar->subscript_length.data.integer );
                 }
-                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output_simulation_methods_expression(expr, indent+1, 0 );
                 output( -1, ");\n" );
                 break;
             }
@@ -1829,7 +1828,7 @@ void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_b
 
 /*f c_md_target_c::output_simulation_methods_display_message_to_buffer
  */
-void c_md_target_c::output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name )
+void c_md_target_c::output_simulation_methods_display_message_to_buffer(t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name )
 {
     if (message)
     {
@@ -1848,7 +1847,7 @@ void c_md_target_c::output_simulation_methods_display_message_to_buffer(t_md_cod
         for (expr=message->arguments; expr; expr=expr->next_in_chain)
         {
             output( indent+2, "," );
-            output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+            output_simulation_methods_expression(expr, indent+2, 0 );
             output( -1, "\n" );
         }
         output( indent+2, " );\n");
@@ -1875,17 +1874,17 @@ void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_
         do
         {
             output( indent+1, "COVER_CASE_START(%d,%d) ", statement->data.print_assert_cover.cover_case_entry, i );
-            output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+            output_simulation_methods_expression(statement->data.print_assert_cover.expression, indent+2, 0 );
             if (expr)
             {
                 output( -1, "==(" );
-                output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+                output_simulation_methods_expression(expr, indent+2, 0 );
                 output( -1, ")\n" );
                 expr = expr->next_in_chain;
             }
             output( indent+2, "COVER_CASE_MESSAGE(%d,%d)\n", statement->data.print_assert_cover.cover_case_entry, i );
             output( indent+2, "char buffer[512], buffer2[512];\n");
-            output_simulation_methods_display_message_to_buffer(code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
+            output_simulation_methods_display_message_to_buffer(statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
             output( indent+2, "snprintf( buffer2, sizeof(buffer2), \"Cover case entry %d subentry %d hit: %%s\", buffer);\n", statement->data.print_assert_cover.cover_case_entry, i );
             output( indent+2, "COVER_STRING(buffer2)\n");
             output( indent+2, "COVER_CASE_END\n" );
@@ -1906,9 +1905,9 @@ void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_
             while (expr)
             {
                 output( -1, "(" );
-                output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+                output_simulation_methods_expression(statement->data.print_assert_cover.expression, indent+2, 0 );
                 output( -1, ")==(" );
-                output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+                output_simulation_methods_expression(expr, indent+2, 0 );
                 output( -1, ")\n" );
                 expr = expr->next_in_chain;
                 if (expr)
@@ -1919,7 +1918,7 @@ void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_
         }
         else
         {
-            output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+            output_simulation_methods_expression(statement->data.print_assert_cover.expression, indent+2, 0 );
         }
         output( indent+1, "ASSERT_COND_END\n" );
     }
@@ -1930,7 +1929,7 @@ void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_
     if (clock && statement->data.print_assert_cover.message)
     {
         output( indent+2, "char buffer[512];\n");
-        output_simulation_methods_display_message_to_buffer(code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
+        output_simulation_methods_display_message_to_buffer(statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
         if (statement->data.print_assert_cover.expression) // Assertions have an expression, prints do not
         {
             output( indent+2, "ASSERT_STRING(buffer)\n");
@@ -1956,70 +1955,23 @@ void c_md_target_c::output_simulation_methods_statement_log(t_md_statement *stat
     for (auto arg=statement->data.log.arguments; arg; arg=arg->next_in_chain, i++) {
         if (arg->expression) {
             output( indent+1, "log_signal_data[%d] = ", statement->data.log.arg_id_within_module+i );
-            output_simulation_methods_expression(code_block, arg->expression, indent+2, 0 );
+            output_simulation_methods_expression(arg->expression, indent+2, 0 );
             output( -1, ";\n" );
         }
     }
     output( indent+1, "engine->log_event_occurred( engine_handle, log_event_array, %d );\n", statement->data.log.id_within_module ); 
 }
 
-/*f c_md_target_c::output_simulation_methods_statement_clocked
+/*f c_md_target_c::output_simulation_methods_statement - clocked or combinatorial, depending on this->clock
  */
-void c_md_target_c::output_simulation_methods_statement_clocked(t_md_statement *statement)
+void c_md_target_c::output_simulation_methods_statement(t_md_statement *statement)
 {
     if (!statement) return;
 
-    /*b If the statement does not effect this clock/edge, then return with outputting nothing
+    /*b If the statement does not effect this clock/edge or instance (latter for combinatorial) return
      */
-    if (!model->reference_set_includes( &statement->effects, clock, edge )) {
-        return;
-    }
-
-    /*b Increment coverage
-     */
-    output( indent+1, "COVER_STATEMENT(%d);\n", statement->enumeration );
-
-    /*b Display the statement
-     */
-    switch (statement->type)
-    {
-    case md_statement_type_state_assign:
-    {
-        output_simulation_methods_assignment(code_block, indent, statement->data.state_assign.lvar, 1, 0, statement->data.state_assign.expr );
-        break;
-    }
-    case md_statement_type_comb_assign:
-        break;
-    case md_statement_type_if_else:
-        output_simulation_methods_statement_if_else(code_block, statement, indent, clock, edge, NULL );
-        break;
-    case md_statement_type_parallel_switch:
-        output_simulation_methods_statement_parallel_switch(statement);
-        break;
-    case md_statement_type_print_assert:
-    case md_statement_type_cover:
-        output_simulation_methods_statement_print_assert_cover(statement);
-        break;
-    case md_statement_type_log:
-        output_simulation_methods_statement_log(statement);
-        break;
-    default:
-        output( 1, "Unknown statement type %d\n", statement->type );
-        break;
-    }
-}
-
-/*f c_md_target_c::output_simulation_methods_statement_combinatorial
- */
-void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_statement *statement)
-{
-    if (!statement) return;
-
-     /*b If the statement does not effect this signal instance, then return with outputting nothing
-      */
-    if (!model->reference_set_includes( &statement->effects, instance )) {
-        return;
-    }
+    if (clock && !model->reference_set_includes( &statement->effects, clock, edge )) return;
+    if (instance && !model->reference_set_includes( &statement->effects, instance )) return;
 
      /*b Increment coverage
       */
@@ -2030,12 +1982,17 @@ void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_state
      switch (statement->type)
      {
      case md_statement_type_state_assign:
-          break;
+         if (clock) {
+             output_simulation_methods_assignment(statement->data.state_assign.lvar, 1, 0, statement->data.state_assign.expr );
+         }
+         break;
      case md_statement_type_comb_assign:
-         output_simulation_methods_assignment(code_block, indent, statement->data.comb_assign.lvar, 0, statement->data.comb_assign.wired_or, statement->data.comb_assign.expr );
+         if (instance) {
+             output_simulation_methods_assignment(statement->data.comb_assign.lvar, 0, statement->data.comb_assign.wired_or, statement->data.comb_assign.expr );
+         }
         break;
      case md_statement_type_if_else:
-          output_simulation_methods_statement_if_else(code_block, statement, indent, NULL, -1, instance );
+          output_simulation_methods_statement_if_else(statement);
           break;
      case md_statement_type_parallel_switch:
           output_simulation_methods_statement_parallel_switch(statement);
@@ -2060,52 +2017,42 @@ void c_md_target_c::output_simulation_methods_statement_list(t_md_statement *sta
     auto keep_indent = indent;
     this->indent = subindent;
     for (; statement; statement=statement->next_in_code) {
-        if (clock){
-            output_simulation_methods_statement_clocked(statement);
-        } else {
-            output_simulation_methods_statement_combinatorial(statement);
-        }
+        output_simulation_methods_statement(statement);
     }
     this->indent = keep_indent;
-}
-
-/*f c_md_target_c::output_simulation_methods_code_block_statements
- */
-void c_md_target_c::output_simulation_methods_code_block_statements(t_md_code_block *code_block, int indent)
-{
-    auto keep_code_block = this->code_block;
-    this->code_block = code_block;
-    output_simulation_methods_statement_list(code_block->first_statement, indent);
-    code_block = keep_code_block;
 }
 
 /*f c_md_target_c::output_simulation_methods_code_block - invoked at the top level of code output for clock or comb
  */
 void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
-     /*b If the code block does not effect this signal/clock/edge, then return with outputting nothing
-      */
+    /*b If the code block does not effect signal/clock/edge or instance if comb, then no output
+     */
     if (clock && !model->reference_set_includes( &code_block->effects, clock, edge )) return;
     if (instance && !model->reference_set_includes( &code_block->effects, instance )) return;
 
-     /*b Insert comment for the block
-      */
-     if (instance)
-         output( 1, "/*b %s (%d): %s\n", instance->name, instance->output_args[0], code_block->name );
-     else
-          output( 1, "/*b %s\n", code_block->name );
-     output( 1, "*/\n" );
+    /*b Insert comment for the block
+     */
+    if (instance)
+        output( 1, "/*b %s (%d): %s\n", instance->name, instance->output_args[0], code_block->name );
+    else
+        output( 1, "/*b %s\n", code_block->name );
+    output( 1, "*/\n" );
 
-     /*b Display each statement that effects state on the specified clock
-      */
-     this->clock = clock;
-     this->edge = edge;
-     this->instance = instance;
-     output_simulation_methods_code_block_statements(code_block, 0);
+    /*b Display each statement that effects state on the specified clock
+     */
+    this->clock = clock;
+    this->edge = edge;
+    this->instance = instance;
+    this->code_block = code_block;
+    output_simulation_methods_statement_list(code_block->first_statement, indent);
+    this->code_block = NULL;
+    this->clock = NULL;
+    this->instance = NULL;
 
-     /*b Close out with a blank line
-      */
-     output( 0, "\n" );
+    /*b Close out with a blank line
+     */
+    output( 0, "\n" );
 }
 
 /*f output_simulation_code_to_make_combinatorial_signals_valid
@@ -2192,7 +2139,7 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
                         output( 1, "*/\n" );
                         first_output = 0;
                     }
-                    output_simulation_methods_port_net_assignment(NULL, 0, module_instance, output_port->lvar, output_port->module_port_instance );
+                    output_simulation_methods_port_net_assignment(0, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
                 //output( handle, 1, "//   Marking output %s . %s as valid as it is purely clocked %d\n", module_instance->name, output_port->lvar->instance->name, output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
                 output_markers_mask( output_port->lvar->instance, om_must_be_valid|om_valid, 0 );
@@ -2303,7 +2250,7 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
             {
                 // if (input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
                 output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-                output_simulation_methods_expression( NULL, input_port->expression, 2, 0 );
+                output_simulation_methods_expression(input_port->expression, 2, 0 );
                 output( -1, ";\n" );
             }
             output( 1, "engine->submodule_call_comb( all_signals.instance_%s.handle );\n", module_instance->name );
@@ -2312,7 +2259,7 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
                 if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     // Should we only do this assignment if the output is derived combinatorially?
-                    output_simulation_methods_port_net_assignment( NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+                    output_simulation_methods_port_net_assignment(1, module_instance, output_port->lvar, output_port->module_port_instance );
                     check_nets_driven_in_parts = 1;
                 }
                 else
@@ -2442,6 +2389,11 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
  */
 void c_md_target_c::output_simulation_methods(void)
 {
+    code_block = NULL;
+    clock = NULL;
+    edge = 0;
+    instance = NULL;
+    
     /*b Output the main reset function
      */
     output( 0, "/*a Class reset/preclock/clock methods for %s */\n", module->output_name );
@@ -2468,7 +2420,7 @@ void c_md_target_c::output_simulation_methods(void)
         if (module_instance->module_definition) {
             for (auto output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list) {
                 if (output_port->lvar->instance->vector_driven_in_parts) {
-                    output_simulation_methods_port_net_assignment(NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+                    output_simulation_methods_port_net_assignment(1, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
             }
         }
@@ -2506,11 +2458,11 @@ void c_md_target_c::output_simulation_methods(void)
                                                     }
                                                     if (ptr->reset_value.subscript_start>=0) {
                                                         output( -1, "), %d, %d, ", instance->type_def.data.width, ptr->reset_value.subscript_start );
-                                                        output_simulation_methods_expression(NULL, ptr->reset_value.expression, 2, 0 );
+                                                        output_simulation_methods_expression(ptr->reset_value.expression, 2, 0 );
                                                         output( -1, ");\n" );
                                                     } else {
                                                         output( -1, " = " );
-                                                        output_simulation_methods_expression(NULL, ptr->reset_value.expression, 2, 0 );
+                                                        output_simulation_methods_expression(ptr->reset_value.expression, 2, 0 );
                                                         output( -1, ";\n" );
                                                     }
                                                 }
@@ -2588,7 +2540,7 @@ void c_md_target_c::output_simulation_methods(void)
          */
         for (auto input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list) {
             output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-            output_simulation_methods_expression(NULL, input_port->expression, 2, 0 );
+            output_simulation_methods_expression(input_port->expression, 2, 0 );
             output( -1, ";\n" );
         }
     }
@@ -2649,7 +2601,7 @@ void c_md_target_c::output_simulation_methods(void)
          */
         for (auto input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list) {
             output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-            output_simulation_methods_expression(NULL, input_port->expression, 2, 0 );
+            output_simulation_methods_expression(input_port->expression, 2, 0 );
             output( -1, ";\n" );
         }
     }
