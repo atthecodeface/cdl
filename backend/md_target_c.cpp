@@ -2026,7 +2026,7 @@ void c_md_target_c::output_simulation_methods_statement_list(t_md_statement *sta
  */
 void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
-    /*b If the code block does not effect signal/clock/edge or instance if comb, then no output
+    /*b If the code block does not effect this signal/clock/edge or instance if comb, then return with outputting nothing
      */
     if (clock && !model->reference_set_includes( &code_block->effects, clock, edge )) return;
     if (instance && !model->reference_set_includes( &code_block->effects, instance )) return;
@@ -2045,7 +2045,7 @@ void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_b
     this->edge = edge;
     this->instance = instance;
     this->code_block = code_block;
-    output_simulation_methods_statement_list(code_block->first_statement, indent);
+    output_simulation_methods_statement_list(code_block->first_statement, 0);
     this->code_block = NULL;
     this->clock = NULL;
     this->instance = NULL;
