@@ -173,6 +173,20 @@ class c_md_target_c: public c_md_target {
     void output_net_types(void);
     void output_instance_types(t_md_module_instance *module_instance);
     void output_all_signals_type(void); // t_*_all_signals
+    void output_simulation_methods_lvar(t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression );
+    void output_simulation_methods_expression(t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent );
+    void output_simulation_methods_statement_if_else(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_statement_parallel_switch(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_port_net_assignment(t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance );
+    void output_simulation_methods_assignment(t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr );
+    void output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name );
+    void output_simulation_methods_statement_print_assert_cover(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_statement_log(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_statement_clocked(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge );
+    void output_simulation_methods_statement_combinatorial(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_type_instance *instance );
+    void output_simulation_methods_statement(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance );
+    void output_simulation_code_to_make_combinatorial_signals_valid(void);
 public:
     c_md_target_c(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_options *options) :
         c_md_target(model, output_fn, output_handle, options)
@@ -187,6 +201,8 @@ public:
     void output_defines(void);
     void output_static_variables(void);
     void output_constructors_destructors(void);
+    void output_simulation_methods(void);
+
 };
 
 /*a Static variables
@@ -237,11 +253,6 @@ enum
     om_must_be_valid = 2, // Set this is the signal must be made valid
     om_make_valid_mask = 3,
 };
-
-/*a Forward function declarations
- */
-static void output_simulation_methods_statement( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
-static void output_simulation_methods_expression( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent );
 
 /*a Output functions
  */
@@ -1309,146 +1320,137 @@ void c_md_target_c::output_constructors_destructors(void)
 
 /*a Output simulation methods functions (to convert CDL model to C)
  */
-/*f output_simulation_methods_lvar
+/*f c_md_target_c::output_simulation_methods_lvar
   If in_expression is 0, then we are assigning so require 'next_state', and we don't insert the bit subscripting
   If in_expression is 1, then we can also add the bit subscripting
  */
-static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression )
+void c_md_target_c::output_simulation_methods_lvar(t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression )
 {
     int indirect=0;
 
-    if (in_expression && (lvar->subscript_start.type != md_lvar_data_type_none))
-    {
-        output( handle, -1, "((" );
+    if (in_expression && (lvar->subscript_start.type != md_lvar_data_type_none)) {
+        output( -1, "((" );
     }
-    if (lvar->instance_type == md_lvar_instance_type_state)
-    {
+    if (lvar->instance_type == md_lvar_instance_type_state) {
         t_md_state *state;
         state = lvar->instance_data.state;
         if (in_expression) {
-            output( handle, -1, "all_signals.%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
+            output( -1, "all_signals.%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
         } else {
-            output( handle, -1, "all_signals.next_%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
+            output( -1, "all_signals.next_%s_%s_state.%s", edge_name[state->edge], state->clock_ref->name, lvar->instance->output_name );
         }
-    }
-    else
-    {
-        t_md_signal *signal;
-        signal = lvar->instance_data.signal;
-        switch (signal->type)
-        {
+    } else {
+        auto signal = lvar->instance_data.signal;
+        switch (signal->type) {
         case md_signal_type_input:
-            output( handle, -1, "all_signals.input_state.%s", lvar->instance->output_name );
+            output( -1, "all_signals.input_state.%s", lvar->instance->output_name );
             break;
         case md_signal_type_output:
             if (signal->data.output.combinatorial_ref) {
-                output( handle, -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
+                output( -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
             } else {
-                output( handle, -1, "<unresolved output %s>", signal->name );
+                output( -1, "<unresolved output %s>", signal->name );
             }
             break;
         case md_signal_type_combinatorial:
-            output( handle, -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
+            output( -1, "all_signals.combinatorials.%s", lvar->instance->output_name );
             break;
         case md_signal_type_net:
-            output( handle, -1, "all_signals.nets.%s", lvar->instance->output_name );
+            output( -1, "all_signals.nets.%s", lvar->instance->output_name );
             if (!lvar->instance->vector_driven_in_parts) {
                 indirect = 1;
             }
             break;
         default:
-            output( handle, -1, "<clock signal in expression %s>", signal->name );
+            output( -1, "<clock signal in expression %s>", signal->name );
             break;
         }
     }
     if (lvar->index.type != md_lvar_data_type_none) {
-        output( handle, -1, "[" );
+        output( -1, "[" );
         switch (lvar->index.type)
         {
         case md_lvar_data_type_integer:
-            output( handle, -1, "%d", lvar->index.data.integer );
+            output( -1, "%d", lvar->index.data.integer );
             break;
         case md_lvar_data_type_expression:
-            output_simulation_methods_expression( model, output, handle, code_block, lvar->index.data.expression, main_indent, sub_indent+1 );
+            output_simulation_methods_expression(code_block, lvar->index.data.expression, main_indent, sub_indent+1 );
             break;
         default:
             break;
         }
-        output( handle, -1, "]" );
+        output( -1, "]" );
     }
     if (indirect) {
-        output( handle, -1, "[0]" );
+        output( -1, "[0]" );
     }
     if ((in_expression) && (lvar->subscript_start.type != md_lvar_data_type_none)) {
         if (lvar->subscript_start.type == md_lvar_data_type_integer) {
-            output( handle, -1, ">>%d)", lvar->subscript_start.data.integer );
+            output( -1, ">>%d)", lvar->subscript_start.data.integer );
         } else if (lvar->subscript_start.type == md_lvar_data_type_expression) {
-            output( handle, -1, ">>(" );
-            output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, main_indent, sub_indent+1 );
-            output( handle, -1, "))" );
+            output( -1, ">>(" );
+            output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, main_indent, sub_indent+1 );
+            output( -1, "))" );
         }
         if (lvar->subscript_length.type != md_lvar_data_type_none) {
-            output( handle, -1, "&%s/*%d*/)", bit_mask[lvar->subscript_length.data.integer],lvar->subscript_length.data.integer );
+            output( -1, "&%s/*%d*/)", bit_mask[lvar->subscript_length.data.integer],lvar->subscript_length.data.integer );
             if (lvar->subscript_length.data.integer==0) {
                 fprintf(stderr, "Bug\n");
             }
         } else {
-            output( handle, -1, "&1)" );
+            output( -1, "&1)" );
         }
     }
 }
 
-/*f output_simulation_methods_expression
+/*f c_md_target_c::output_simulation_methods_expression
  */
-static void output_simulation_methods_expression( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent )
+void c_md_target_c::output_simulation_methods_expression(t_md_code_block *code_block, t_md_expression *expr, int main_indent, int sub_indent )
 {
     /*b If the expression is NULL then something went wrong...
      */
-    if (!expr)
-    {
+    if (!expr) {
         model->error->add_error( NULL, error_level_fatal, error_number_be_expression_width, error_id_be_backend_message,
                                  error_arg_type_malloc_string, "NULL expression encountered - bug in CDL",
                                  error_arg_type_none );
-        output( handle, -1, "0 /*<NULL expression>*/" );
+        output( -1, "0 /*<NULL expression>*/" );
         return;
     }
 
     /*b Output code for the expression
      */
-    if (expr->width>64)
-    {
+    if (expr->width>64) {
         model->error->add_error( NULL, error_level_fatal, error_number_be_expression_width, error_id_be_backend_message,
                                  error_arg_type_malloc_string, code_block ? (code_block->name) : ("<outside a code block, possibly in a reset>"),
                                  error_arg_type_none );
-        output( handle, -1, "0 /* EXPRESSION GREATER THAN 64 BITS WIDE */" );
+        output( -1, "0 /* EXPRESSION GREATER THAN 64 BITS WIDE */" );
     }
-    switch (expr->type)
-    {
+    switch (expr->type) {
     case md_expr_type_value:
-        output( handle, -1, "0x%llxULL", expr->data.value.value.value[0] );
+        output( -1, "0x%llxULL", expr->data.value.value.value[0] );
         break;
     case md_expr_type_lvar:
-        output_simulation_methods_lvar( model, output, handle, code_block, expr->data.lvar, main_indent, sub_indent, 1 );
+        output_simulation_methods_lvar(code_block, expr->data.lvar, main_indent, sub_indent, 1 );
         break;
     case md_expr_type_bundle:
-        output( handle, -1, "(((" );
-        output_simulation_methods_expression( model, output, handle, code_block, expr->data.bundle.a, main_indent, sub_indent+1 );
-        output( handle, -1, ")<<%d) | (", expr->data.bundle.b->width );
-        output_simulation_methods_expression( model, output, handle, code_block, expr->data.bundle.b, main_indent, sub_indent+1 );
-        output( handle, -1, "))" );
+        output( -1, "(((" );
+        output_simulation_methods_expression(code_block, expr->data.bundle.a, main_indent, sub_indent+1 );
+        output( -1, ")<<%d) | (", expr->data.bundle.b->width );
+        output_simulation_methods_expression(code_block, expr->data.bundle.b, main_indent, sub_indent+1 );
+        output( -1, "))" );
         break;
     case md_expr_type_cast:
         if ( (expr->data.cast.expression) &&
              (expr->data.cast.expression->width < expr->width) &&
              (expr->data.cast.signed_cast) )
         {
-            output( handle, -1, "(SIGNED LENGTHENING CASTS NOT IMPLEMENTED YET: %d to %d)", expr->data.cast.expression->width, expr->width );
+            output( -1, "(SIGNED LENGTHENING CASTS NOT IMPLEMENTED YET: %d to %d)", expr->data.cast.expression->width, expr->width );
         }
         else
         {
-            output( handle, -1, "(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.cast.expression, main_indent, sub_indent+1 );
-            output( handle, -1, ")&%s/*%d*/", (expr->width<0)?"!!!<0!!!":((expr->width>64)?"!!!!>64":bit_mask[expr->width]),expr->width );
+            output( -1, "(" );
+            output_simulation_methods_expression(code_block, expr->data.cast.expression, main_indent, sub_indent+1 );
+            output( -1, ")&%s/*%d*/", (expr->width<0)?"!!!<0!!!":((expr->width>64)?"!!!!>64":bit_mask[expr->width]),expr->width );
         }
         break;
     case md_expr_type_fn:
@@ -1460,36 +1462,36 @@ static void output_simulation_methods_expression( c_model_descriptor *model, t_m
             switch (expr->data.fn.fn)
             {
             case md_expr_fn_neg:
-                output( handle, -1, "(-(" );
+                output( -1, "(-(" );
                 break;
             case md_expr_fn_not:
-                output( handle, -1, "(~(" );
+                output( -1, "(~(" );
                 break;
             default:
-                output( handle, -1, "(!(" );
+                output( -1, "(!(" );
             }
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
-            output( handle, -1, "))&%s", bit_mask[expr->width] );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output( -1, "))&%s", bit_mask[expr->width] );
             break;
         case md_expr_fn_add:
         case md_expr_fn_sub:
         case md_expr_fn_mult:
         case md_expr_fn_lsl:
         case md_expr_fn_lsr:
-            output( handle, -1, "((" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output( -1, "((" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
             if (expr->data.fn.fn==md_expr_fn_sub)
-                output( handle, -1, ")-(" );
+                output( -1, ")-(" );
             else if (expr->data.fn.fn==md_expr_fn_mult)
-                output( handle, -1, ")*(" );
+                output( -1, ")*(" );
             else if (expr->data.fn.fn==md_expr_fn_lsl)
-                output( handle, -1, ")<<(" );
+                output( -1, ")<<(" );
             else if (expr->data.fn.fn==md_expr_fn_lsr)
-                output( handle, -1, ")>>(" );
+                output( -1, ")>>(" );
             else
-                output( handle, -1, ")+(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
-            output( handle, -1, "))&%s", bit_mask[expr->width] );
+                output( -1, ")+(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output( -1, "))&%s", bit_mask[expr->width] );
             break;
         case md_expr_fn_and:
         case md_expr_fn_or:
@@ -1503,99 +1505,99 @@ static void output_simulation_methods_expression( c_model_descriptor *model, t_m
         case md_expr_fn_gt:
         case md_expr_fn_le:
         case md_expr_fn_lt:
-            output( handle, -1, "(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output( -1, "(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
             if (expr->data.fn.fn==md_expr_fn_and)
-                output( handle, -1, ")&(" );
+                output( -1, ")&(" );
             else if (expr->data.fn.fn==md_expr_fn_or)
-                output( handle, -1, ")|(" );
+                output( -1, ")|(" );
             else if (expr->data.fn.fn==md_expr_fn_xor)
-                output( handle, -1, ")^(" );
+                output( -1, ")^(" );
             else if (expr->data.fn.fn==md_expr_fn_bic)
-                output( handle, -1, ")&~(" );
+                output( -1, ")&~(" );
             else if (expr->data.fn.fn==md_expr_fn_logical_and)
-                output( handle, -1, ")&&(" );
+                output( -1, ")&&(" );
             else if (expr->data.fn.fn==md_expr_fn_logical_or)
-                output( handle, -1, ")||(" );
+                output( -1, ")||(" );
             else if (expr->data.fn.fn==md_expr_fn_eq)
-                output( handle, -1, ")==(" );
+                output( -1, ")==(" );
             else if (expr->data.fn.fn==md_expr_fn_ge)
-                output( handle, -1, ")>=(" );
+                output( -1, ")>=(" );
             else if (expr->data.fn.fn==md_expr_fn_le)
-                output( handle, -1, ")<=(" );
+                output( -1, ")<=(" );
             else if (expr->data.fn.fn==md_expr_fn_gt)
-                output( handle, -1, ")>(" );
+                output( -1, ")>(" );
             else if (expr->data.fn.fn==md_expr_fn_lt)
-                output( handle, -1, ")<(" );
+                output( -1, ")<(" );
             else
-                output( handle, -1, ")!=(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
-            output( handle, -1, ")" );
+                output( -1, ")!=(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output( -1, ")" );
             break;
         case md_expr_fn_query:
-            output( handle, -1, "(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
-            output( handle, -1, ")?(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
-            output( handle, -1, "):(" );
-            output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[2], main_indent, sub_indent+1 );
-            output( handle, -1, ")" );
+            output( -1, "(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
+            output( -1, ")?(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
+            output( -1, "):(" );
+            output_simulation_methods_expression(code_block, expr->data.fn.args[2], main_indent, sub_indent+1 );
+            output( -1, ")" );
             break;
         default:
-            output( handle, -1, "<unknown expression function type %d>", expr->data.fn.fn );
+            output( -1, "<unknown expression function type %d>", expr->data.fn.fn );
             break;
         }
         break;
     default:
-        output( handle, -1, "<unknown expression type %d>", expr->type );
+        output( -1, "<unknown expression type %d>", expr->type );
         break;
     }
 }
 
-/*f output_simulation_methods_statement_if_else
+/*f c_md_target_c::output_simulation_methods_statement_if_else
  */
-static void output_simulation_methods_statement_if_else( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_if_else(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
      if (statement->data.if_else.if_true)
      {
-          output( handle, indent+1, "if (");
-          output_simulation_methods_expression( model, output, handle, code_block, statement->data.if_else.expr, indent+1, 4 );
-          output( handle, -1, ")\n");
-          output( handle, indent+1, "{\n");
-          output_simulation_methods_statement( model, output, handle, code_block, statement->data.if_else.if_true, indent+1, clock, edge, instance );
-          output( handle, indent+1, "}\n");
+          output( indent+1, "if (");
+          output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
+          output( -1, ")\n");
+          output( indent+1, "{\n");
+          output_simulation_methods_statement(code_block, statement->data.if_else.if_true, indent+1, clock, edge, instance );
+          output( indent+1, "}\n");
           if  (statement->data.if_else.if_false)
           {
-               output( handle, indent+1, "else\n");
-               output( handle, indent+1, "{\n");
-               output_simulation_methods_statement( model, output, handle, code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
-               output( handle, indent+1, "}\n");
+               output( indent+1, "else\n");
+               output( indent+1, "{\n");
+               output_simulation_methods_statement(code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
+               output( indent+1, "}\n");
           }
      }
      else if (statement->data.if_else.if_false)
      {
-          output( handle, indent+1, "if (!(");
-          output_simulation_methods_expression( model, output, handle, code_block, statement->data.if_else.expr, indent+1, 4 );
-          output( handle, -1, "))\n");
-          output( handle, indent+1, "{\n");
-          output_simulation_methods_statement( model, output, handle, code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
-          output( handle, indent+1, "}\n");
+          output( indent+1, "if (!(");
+          output_simulation_methods_expression(code_block, statement->data.if_else.expr, indent+1, 4 );
+          output( -1, "))\n");
+          output( indent+1, "{\n");
+          output_simulation_methods_statement(code_block, statement->data.if_else.if_false, indent+1, clock, edge, instance );
+          output( indent+1, "}\n");
      }
 }
 
-/*f output_simulation_methods_statement_parallel_switch
+/*f c_md_target_c::output_simulation_methods_statement_parallel_switch
  */
-static void output_simulation_methods_statement_parallel_switch( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_parallel_switch(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
     if (statement->data.switch_stmt.all_static && statement->data.switch_stmt.all_unmasked)
     {
         t_md_switch_item *switem;
         int defaulted = 0;
 
-        output( handle, indent+1, "switch (");
-        output_simulation_methods_expression( model, output, handle, code_block, statement->data.switch_stmt.expr, indent+1, 4 );
-        output( handle, -1, ")\n");
-        output( handle, indent+1, "{\n");
+        output( indent+1, "switch (");
+        output_simulation_methods_expression(code_block, statement->data.switch_stmt.expr, indent+1, 4 );
+        output( -1, ")\n");
+        output( indent+1, "{\n");
         for (switem = statement->data.switch_stmt.items; switem; switem=switem->next_in_list)
         {
             int stmts_reqd;
@@ -1617,20 +1619,20 @@ static void output_simulation_methods_statement_parallel_switch( c_model_descrip
             {
                 if (stmts_reqd || statement->data.switch_stmt.full || 1)
                 {
-                    output( handle, indent+1, "case 0x%x: // req %d\n", switem->data.value.value.value[0], stmts_reqd );
+                    output( indent+1, "case 0x%x: // req %d\n", switem->data.value.value.value[0], stmts_reqd );
                     if (switem->statement)
-                        output_simulation_methods_statement( model, output, handle, code_block, switem->statement, indent+1, clock, edge, instance );
-                    output( handle, indent+2, "break;\n");
+                        output_simulation_methods_statement(code_block, switem->statement, indent+1, clock, edge, instance );
+                    output( indent+2, "break;\n");
                 }
             }
             else if (switem->type == md_switch_item_type_default)
             {
                 if (stmts_reqd || statement->data.switch_stmt.full)
                 {
-                    output( handle, indent+1, "default: // req %d\n", stmts_reqd);
+                    output( indent+1, "default: // req %d\n", stmts_reqd);
                     if (switem->statement)
-                        output_simulation_methods_statement( model, output, handle, code_block, switem->statement, indent+1, clock, edge, instance );
-                    output( handle, indent+2, "break;\n");
+                        output_simulation_methods_statement(code_block, switem->statement, indent+1, clock, edge, instance );
+                    output( indent+2, "break;\n");
                     defaulted = 1;
                 }
             }
@@ -1649,21 +1651,21 @@ static void output_simulation_methods_statement_parallel_switch( c_model_descrip
                                                     buffer,
                                                     sizeof(buffer),
                                                     md_client_string_type_human_readable );
-            output( handle, indent+1, "default:\n");
-            output( handle, indent+2, "ASSERT_STRING(\"%s:Full switch statement did not cover all values\");\n", buffer );
-            output( handle, indent+2, "break;\n");
+            output( indent+1, "default:\n");
+            output( indent+2, "ASSERT_STRING(\"%s:Full switch statement did not cover all values\");\n", buffer );
+            output( indent+2, "break;\n");
         }
-        output( handle, indent+1, "}\n");
+        output( indent+1, "}\n");
     }
     else
     {
-        output( handle, indent, "!!!PARALLEL SWITCH ONLY WORKS NOW FOR STATIC UNMASKED EXPRESSIONS\n");
+        output( indent, "!!!PARALLEL SWITCH ONLY WORKS NOW FOR STATIC UNMASKED EXPRESSIONS\n");
     }
 }
 
-/*f output_simulation_methods_port_net_assignment
+/*f c_md_target_c::output_simulation_methods_port_net_assignment
  */
-static void output_simulation_methods_port_net_assignment( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance )
+void c_md_target_c::output_simulation_methods_port_net_assignment(t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance )
 {
     switch (lvar->instance->type)
     {
@@ -1675,66 +1677,66 @@ static void output_simulation_methods_port_net_assignment( c_model_descriptor *m
             switch (lvar->subscript_start.type)
             {
             case md_lvar_data_type_none:
-                output( handle, indent+1, "" );
-                output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                output( handle, -1, " = all_signals.instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
+                output( indent+1, "" );
+                output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                output( -1, " = all_signals.instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
                 break;
             case md_lvar_data_type_integer:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &( " );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
+                    output( indent+1, "ASSIGN_TO_BIT( &( " );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
                 }
                 else
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
+                    output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
-                output( handle, -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
-                output( handle, -1, ");\n" );
+                output( -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
+                output( -1, ");\n" );
                 break;
             case md_lvar_data_type_expression:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &(");
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
-                    output( handle, -1, ", " );
+                    output( indent+1, "ASSIGN_TO_BIT( &(");
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, ", lvar->instance->type_def.data.width );
+                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output( -1, ", " );
                 }
                 else
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
-                    output( handle, -1, ", %d,", lvar->subscript_length.data.integer );
+                    output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, ", lvar->instance->type_def.data.width );
+                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output( -1, ", %d,", lvar->subscript_length.data.integer );
                 }
-                output( handle, -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
-                output( handle, -1, ");\n" );
+                output( -1, "all_signals.instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
+                output( -1, ");\n" );
                 break;
             }
         }
         else
         {
-            output( handle, indent, "TYPES AND VALUES WIDER THAN 64 NOT IMPLEMENTED YET\n" );
+            output( indent, "TYPES AND VALUES WIDER THAN 64 NOT IMPLEMENTED YET\n" );
         }
         break;
     case md_type_instance_type_structure:
         if (lvar->subscript_start.type != md_lvar_data_type_none)
         {
-            output( handle, indent, "SUBSCRIPT INTO ASSIGNMENT DOES NOT WORK\n" );
+            output( indent, "SUBSCRIPT INTO ASSIGNMENT DOES NOT WORK\n" );
         }
-        output( handle, indent, "STRUCTURE ASSIGNMENT %p NOT IMPLEMENTED YET\n", lvar );
+        output( indent, "STRUCTURE ASSIGNMENT %p NOT IMPLEMENTED YET\n", lvar );
         break;
     }
 }
 
-/*f output_simulation_methods_assignment
+/*f c_md_target_c::output_simulation_methods_assignment
  */
-static void output_simulation_methods_assignment( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr )
+void c_md_target_c::output_simulation_methods_assignment(t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr )
 {
     switch (lvar->instance->type)
     {
@@ -1745,83 +1747,83 @@ static void output_simulation_methods_assignment( c_model_descriptor *model, t_m
             switch (lvar->subscript_start.type)
             {
             case md_lvar_data_type_none:
-                output( handle, indent+1, "" );
-                output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
+                output( indent+1, "" );
+                output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
                 if (wired_or) // Only legal way back up for combinatorials
-                    output( handle, -1, " |= " );
+                    output( -1, " |= " );
                 else
-                    output( handle, -1, " = " );
-                output_simulation_methods_expression( model, output, handle, code_block, expr, indent+1, 0 );
-                output( handle, -1, ";\n" );
+                    output( -1, " = " );
+                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output( -1, ";\n" );
                 break;
             case md_lvar_data_type_integer:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
                     if (wired_or)
-                        output( handle, indent+1, "WIRE_OR_TO_BIT( &( " );
+                        output( indent+1, "WIRE_OR_TO_BIT( &( " );
                     else
-                        output( handle, indent+1, "ASSIGN_TO_BIT( &( " );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
+                        output( indent+1, "ASSIGN_TO_BIT( &( " );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
                 }
                 else
                 {
                     if (wired_or)
-                        output( handle, indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
+                        output( indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
                     else
-                        output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
+                        output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
-                output_simulation_methods_expression( model, output, handle, code_block, expr, indent+1, 0 );
-                output( handle, -1, ");\n" );
+                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output( -1, ");\n" );
                 break;
             case md_lvar_data_type_expression:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
                     if (wired_or)
-                        output( handle, indent+1, "WIRE_OR_TO_BIT( &( " );
+                        output( indent+1, "WIRE_OR_TO_BIT( &( " );
                     else
-                        output( handle, indent+1, "ASSIGN_TO_BIT( &(");
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
-                    output( handle, -1, ", " );
+                        output( indent+1, "ASSIGN_TO_BIT( &(");
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, ", lvar->instance->type_def.data.width );
+                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output( -1, ", " );
                 }
                 else
                 {
                     if (wired_or)
-                        output( handle, indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
+                        output( indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
                     else
-                        output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
-                    output( handle, -1, ", %d,", lvar->subscript_length.data.integer );
+                        output( indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    output_simulation_methods_lvar(code_block, lvar, indent, indent+1, 0 );
+                    output( -1, "), %d, ", lvar->instance->type_def.data.width );
+                    output_simulation_methods_expression(code_block, lvar->subscript_start.data.expression, indent+1, 0 );
+                    output( -1, ", %d,", lvar->subscript_length.data.integer );
                 }
-                output_simulation_methods_expression( model, output, handle, code_block, expr, indent+1, 0 );
-                output( handle, -1, ");\n" );
+                output_simulation_methods_expression(code_block, expr, indent+1, 0 );
+                output( -1, ");\n" );
                 break;
             }
         }
         else
         {
-            output( handle, indent, "TYPES AND VALUES WIDER THAN 64 NOT IMPLEMENTED YET\n" );
+            output( indent, "TYPES AND VALUES WIDER THAN 64 NOT IMPLEMENTED YET\n" );
         }
         break;
     case md_type_instance_type_structure:
         if (lvar->subscript_start.type != md_lvar_data_type_none)
         {
-            output( handle, indent, "SUBSCRIPT INTO ASSIGNMENT DOES NOT WORK\n" );
+            output( indent, "SUBSCRIPT INTO ASSIGNMENT DOES NOT WORK\n" );
         }
-        output( handle, indent, "STRUCTURE ASSIGNMENT %p NOT IMPLEMENTED YET\n", lvar );
+        output( indent, "STRUCTURE ASSIGNMENT %p NOT IMPLEMENTED YET\n", lvar );
         break;
     }
 }
 
-/*f output_simulation_methods_display_message_to_buffer
+/*f c_md_target_c::output_simulation_methods_display_message_to_buffer
  */
-static void output_simulation_methods_display_message_to_buffer( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name )
+void c_md_target_c::output_simulation_methods_display_message_to_buffer(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_message *message, const char *buffer_name )
 {
     if (message)
     {
@@ -1836,20 +1838,20 @@ static void output_simulation_methods_display_message_to_buffer( c_model_descrip
                                                  sizeof(buffer),
                                                  md_client_string_type_human_readable );
         for (i=0, expr=message->arguments; expr; i++, expr=expr->next_in_chain);
-        output( handle, indent+1, "se_cmodel_assist_vsnprintf( %s, sizeof(%s), \"%s:%s\", %d \n", buffer_name, buffer_name, buffer, message->text, i );
+        output( indent+1, "se_cmodel_assist_vsnprintf( %s, sizeof(%s), \"%s:%s\", %d \n", buffer_name, buffer_name, buffer, message->text, i );
         for (expr=message->arguments; expr; expr=expr->next_in_chain)
         {
-            output( handle, indent+2, "," );
-            output_simulation_methods_expression( model, output, handle, code_block, expr, indent+2, 0 );
-            output( handle, -1, "\n" );
+            output( indent+2, "," );
+            output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+            output( -1, "\n" );
         }
-        output( handle, indent+2, " );\n");
+        output( indent+2, " );\n");
     }
 }
 
-/*f output_simulation_methods_statement_print_assert_cover
+/*f c_md_target_c::output_simulation_methods_statement_print_assert_cover
  */
-static void output_simulation_methods_statement_print_assert_cover( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_print_assert_cover(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
     const char *string_type = (statement->type==md_statement_type_cover)?"COVER":"ASSERT";
     if ((!clock) && (!statement->data.print_assert_cover.statement))
@@ -1866,21 +1868,21 @@ static void output_simulation_methods_statement_print_assert_cover( c_model_desc
         i = 0;
         do
         {
-            output( handle, indent+1, "COVER_CASE_START(%d,%d) ", statement->data.print_assert_cover.cover_case_entry, i );
-            output_simulation_methods_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+            output( indent+1, "COVER_CASE_START(%d,%d) ", statement->data.print_assert_cover.cover_case_entry, i );
+            output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
             if (expr)
             {
-                output( handle, -1, "==(" );
-                output_simulation_methods_expression( model, output, handle, code_block, expr, indent+2, 0 );
-                output( handle, -1, ")\n" );
+                output( -1, "==(" );
+                output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+                output( -1, ")\n" );
                 expr = expr->next_in_chain;
             }
-            output( handle, indent+2, "COVER_CASE_MESSAGE(%d,%d)\n", statement->data.print_assert_cover.cover_case_entry, i );
-            output( handle, indent+2, "char buffer[512], buffer2[512];\n");
-            output_simulation_methods_display_message_to_buffer( model, output, handle, code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
-            output( handle, indent+2, "snprintf( buffer2, sizeof(buffer2), \"Cover case entry %d subentry %d hit: %%s\", buffer);\n", statement->data.print_assert_cover.cover_case_entry, i );
-            output( handle, indent+2, "COVER_STRING(buffer2)\n");
-            output( handle, indent+2, "COVER_CASE_END\n" );
+            output( indent+2, "COVER_CASE_MESSAGE(%d,%d)\n", statement->data.print_assert_cover.cover_case_entry, i );
+            output( indent+2, "char buffer[512], buffer2[512];\n");
+            output_simulation_methods_display_message_to_buffer(code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
+            output( indent+2, "snprintf( buffer2, sizeof(buffer2), \"Cover case entry %d subentry %d hit: %%s\", buffer);\n", statement->data.print_assert_cover.cover_case_entry, i );
+            output( indent+2, "COVER_STRING(buffer2)\n");
+            output( indent+2, "COVER_CASE_END\n" );
             i++;
         } while (expr);
         return;
@@ -1890,102 +1892,87 @@ static void output_simulation_methods_statement_print_assert_cover( c_model_desc
     */
     if (statement->data.print_assert_cover.expression)
     {
-        output( handle, indent+1, "ASSERT_START " );
+        output( indent+1, "ASSERT_START " );
         if (statement->data.print_assert_cover.value_list)
         {
             t_md_expression *expr;
             expr = statement->data.print_assert_cover.value_list;
             while (expr)
             {
-                output( handle, -1, "(" );
-                output_simulation_methods_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
-                output( handle, -1, ")==(" );
-                output_simulation_methods_expression( model, output, handle, code_block, expr, indent+2, 0 );
-                output( handle, -1, ")\n" );
+                output( -1, "(" );
+                output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+                output( -1, ")==(" );
+                output_simulation_methods_expression(code_block, expr, indent+2, 0 );
+                output( -1, ")\n" );
                 expr = expr->next_in_chain;
                 if (expr)
                 {
-                    output( handle, indent+2, "ASSERT_COND_NEXT " );
+                    output( indent+2, "ASSERT_COND_NEXT " );
                 }
             }
         }
         else
         {
-            output_simulation_methods_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
+            output_simulation_methods_expression(code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
         }
-        output( handle, indent+1, "ASSERT_COND_END\n" );
+        output( indent+1, "ASSERT_COND_END\n" );
     }
     else
     {
-        output( handle, indent+1, "%s_START_UNCOND ", string_type );
+        output( indent+1, "%s_START_UNCOND ", string_type );
     }
     if (clock && statement->data.print_assert_cover.message)
     {
-        output( handle, indent+2, "char buffer[512];\n");
-        output_simulation_methods_display_message_to_buffer( model, output, handle, code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
+        output( indent+2, "char buffer[512];\n");
+        output_simulation_methods_display_message_to_buffer(code_block, statement, indent+2, statement->data.print_assert_cover.message, "buffer" );
         if (statement->data.print_assert_cover.expression) // Assertions have an expression, prints do not
         {
-            output( handle, indent+2, "ASSERT_STRING(buffer)\n");
+            output( indent+2, "ASSERT_STRING(buffer)\n");
         }
         else
         {
-            output( handle, indent+2, "PRINT_STRING(buffer)\n");
+            output( indent+2, "PRINT_STRING(buffer)\n");
         }
     }
     if (statement->data.print_assert_cover.statement)
     {
-        output_simulation_methods_statement( model, output, handle, code_block, statement->data.print_assert_cover.statement, indent+1, clock, edge, instance );
+        output_simulation_methods_statement(code_block, statement->data.print_assert_cover.statement, indent+1, clock, edge, instance );
     }
-    output( handle, indent+1, "%s_END\n", string_type );
+    output( indent+1, "%s_END\n", string_type );
 }
 
-/*f output_simulation_methods_statement_log
+/*f c_md_target_c::output_simulation_methods_statement_log
  */
-static void output_simulation_methods_statement_log( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_log(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
-    t_md_labelled_expression *arg;
-    int i;
-
-    /*b At present, nothing to do unless clocked
-     */
-    if (!clock)
-    {
-        return;
-    }
-    /*b Set data for the occurrence from expressions, then hit the event
-    */
-    for (arg=statement->data.log.arguments, i=0; arg; arg=arg->next_in_chain, i++)
-    {
-        if (arg->expression)
-        {
-            output( handle, indent+1, "log_signal_data[%d] = ", statement->data.log.arg_id_within_module+i );
-            output_simulation_methods_expression( model, output, handle, code_block, arg->expression, indent+2, 0 );
-            output( handle, -1, ";\n" );
+    if (!clock) return;
+    int i=0;
+    for (auto arg=statement->data.log.arguments; arg; arg=arg->next_in_chain, i++) {
+        if (arg->expression) {
+            output( indent+1, "log_signal_data[%d] = ", statement->data.log.arg_id_within_module+i );
+            output_simulation_methods_expression(code_block, arg->expression, indent+2, 0 );
+            output( -1, ";\n" );
         }
     }
-    /*b Invoke event occurrence
-    */
-    output( handle, indent+1, "engine->log_event_occurred( engine_handle, log_event_array, %d );\n", statement->data.log.id_within_module ); 
+    output( indent+1, "engine->log_event_occurred( engine_handle, log_event_array, %d );\n", statement->data.log.id_within_module ); 
 }
 
-/*f output_simulation_methods_statement_clocked
+/*f c_md_target_c::output_simulation_methods_statement_clocked
  */
-static void output_simulation_methods_statement_clocked( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge )
+void c_md_target_c::output_simulation_methods_statement_clocked(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge )
 {
-    if (!statement)
-        return;
+    if (!statement) return;
 
     /*b If the statement does not effect this clock/edge, then return with outputting nothing
      */
-    if (!model->reference_set_includes( &statement->effects, clock, edge ))
-    {
-        output_simulation_methods_statement_clocked( model, output, handle, code_block, statement->next_in_code, indent, clock, edge );
+    if (!model->reference_set_includes( &statement->effects, clock, edge )) {
+        output_simulation_methods_statement_clocked(code_block, statement->next_in_code, indent, clock, edge );
         return;
     }
 
     /*b Increment coverage
      */
-    output( handle, indent+1, "COVER_STATEMENT(%d);\n", statement->enumeration );
+    output( indent+1, "COVER_STATEMENT(%d);\n", statement->enumeration );
 
     /*b Display the statement
      */
@@ -1993,49 +1980,47 @@ static void output_simulation_methods_statement_clocked( c_model_descriptor *mod
     {
     case md_statement_type_state_assign:
     {
-        output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.state_assign.lvar, 1, 0, statement->data.state_assign.expr );
+        output_simulation_methods_assignment(code_block, indent, statement->data.state_assign.lvar, 1, 0, statement->data.state_assign.expr );
         break;
     }
     case md_statement_type_comb_assign:
         break;
     case md_statement_type_if_else:
-        output_simulation_methods_statement_if_else( model, output, handle, code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_if_else(code_block, statement, indent, clock, edge, NULL );
         break;
     case md_statement_type_parallel_switch:
-        output_simulation_methods_statement_parallel_switch( model, output, handle, code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_parallel_switch(code_block, statement, indent, clock, edge, NULL );
         break;
     case md_statement_type_print_assert:
     case md_statement_type_cover:
-        output_simulation_methods_statement_print_assert_cover( model, output, handle, code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_print_assert_cover(code_block, statement, indent, clock, edge, NULL );
         break;
     case md_statement_type_log:
-        output_simulation_methods_statement_log( model, output, handle, code_block, statement, indent, clock, edge, NULL );
+        output_simulation_methods_statement_log(code_block, statement, indent, clock, edge, NULL );
         break;
     default:
-        output( handle, 1, "Unknown statement type %d\n", statement->type );
+        output( 1, "Unknown statement type %d\n", statement->type );
         break;
     }
-    output_simulation_methods_statement_clocked( model, output, handle, code_block, statement->next_in_code, indent, clock, edge );
+    output_simulation_methods_statement_clocked(code_block, statement->next_in_code, indent, clock, edge );
 }
 
-/*f output_simulation_methods_statement_combinatorial
+/*f c_md_target_c::output_simulation_methods_statement_combinatorial
  */
-static void output_simulation_methods_statement_combinatorial( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement_combinatorial(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_type_instance *instance )
 {
-     if (!statement)
-          return;
+    if (!statement) return;
 
      /*b If the statement does not effect this signal instance, then return with outputting nothing
       */
-     if (!model->reference_set_includes( &statement->effects, instance ))
-     {
-          output_simulation_methods_statement_combinatorial( model, output, handle, code_block, statement->next_in_code, indent, instance );
-          return;
-     }
+    if (!model->reference_set_includes( &statement->effects, instance )) {
+        output_simulation_methods_statement_combinatorial(code_block, statement->next_in_code, indent, instance );
+        return;
+    }
 
      /*b Increment coverage
       */
-     output( handle, indent+1, "COVER_STATEMENT(%d);\n", statement->enumeration );
+     output( indent+1, "COVER_STATEMENT(%d);\n", statement->enumeration );
 
      /*b Display the statement
       */
@@ -2044,45 +2029,42 @@ static void output_simulation_methods_statement_combinatorial( c_model_descripto
      case md_statement_type_state_assign:
           break;
      case md_statement_type_comb_assign:
-         output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.comb_assign.lvar, 0, statement->data.comb_assign.wired_or, statement->data.comb_assign.expr );
+         output_simulation_methods_assignment(code_block, indent, statement->data.comb_assign.lvar, 0, statement->data.comb_assign.wired_or, statement->data.comb_assign.expr );
         break;
      case md_statement_type_if_else:
-          output_simulation_methods_statement_if_else( model, output, handle, code_block, statement, indent, NULL, -1, instance );
+          output_simulation_methods_statement_if_else(code_block, statement, indent, NULL, -1, instance );
           break;
      case md_statement_type_parallel_switch:
-          output_simulation_methods_statement_parallel_switch( model, output, handle, code_block, statement, indent, NULL, -1, instance );
+          output_simulation_methods_statement_parallel_switch(code_block, statement, indent, NULL, -1, instance );
           break;
     case md_statement_type_print_assert:
     case md_statement_type_cover:
-        output_simulation_methods_statement_print_assert_cover( model, output, handle, code_block, statement, indent, NULL, -1, instance );
+        output_simulation_methods_statement_print_assert_cover(code_block, statement, indent, NULL, -1, instance );
         break;
      case md_statement_type_log:
-        output_simulation_methods_statement_log( model, output, handle, code_block, statement, indent, NULL, -1, instance );
+        output_simulation_methods_statement_log(code_block, statement, indent, NULL, -1, instance );
         break;
      default:
-          output( handle, 1, "Unknown statement type %d\n", statement->type );
+          output( 1, "Unknown statement type %d\n", statement->type );
           break;
      }
-     output_simulation_methods_statement_combinatorial( model, output, handle, code_block, statement->next_in_code, indent, instance );
+     output_simulation_methods_statement_combinatorial(code_block, statement->next_in_code, indent, instance );
 }
 
-/*f output_simulation_methods_statement
+/*f c_md_target_c::output_simulation_methods_statement
  */
-static void output_simulation_methods_statement( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_statement(t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
-    if (clock)
-    {
-        output_simulation_methods_statement_clocked( model, output, handle, code_block, statement, indent, clock, edge );
-    }
-            else
-    {
-        output_simulation_methods_statement_combinatorial( model, output, handle, code_block, statement, indent, instance );
+    if (clock){
+        output_simulation_methods_statement_clocked(code_block, statement, indent, clock, edge );
+    } else {
+        output_simulation_methods_statement_combinatorial(code_block, statement, indent, instance );
     }
 }
 
-/*f output_simulation_methods_code_block
+/*f c_md_target_c::output_simulation_methods_code_block
  */
-static void output_simulation_methods_code_block( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance )
+void c_md_target_c::output_simulation_methods_code_block(t_md_code_block *code_block, t_md_signal *clock, int edge, t_md_type_instance *instance )
 {
      /*b If the code block does not effect this signal/clock/edge, then return with outputting nothing
       */
@@ -2094,18 +2076,18 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
      /*b Insert comment for the block
       */
      if (instance)
-         output( handle, 1, "/*b %s (%d): %s\n", instance->name, instance->output_args[0], code_block->name );
+         output( 1, "/*b %s (%d): %s\n", instance->name, instance->output_args[0], code_block->name );
      else
-          output( handle, 1, "/*b %s\n", code_block->name );
-     output( handle, 1, "*/\n" );
+          output( 1, "/*b %s\n", code_block->name );
+     output( 1, "*/\n" );
 
      /*b Display each statement that effects state on the specified clock
       */
-     output_simulation_methods_statement( model, output, handle, code_block, code_block->first_statement, 0, clock, edge, instance );
+     output_simulation_methods_statement(code_block, code_block->first_statement, 0, clock, edge, instance );
 
      /*b Close out with a blank line
       */
-     output( handle, 0, "\n" );
+     output( 0, "\n" );
 }
 
 /*f output_simulation_code_to_make_combinatorial_signals_valid
@@ -2113,7 +2095,7 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
 
   If combinatorials depend on nets from submodules that are clocked (and those nets are just clocked) then we have a problem
  */
-static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
+void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(void)
 {
     int more_to_output, did_output;
     t_md_signal *signal;
@@ -2138,19 +2120,19 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 //output( handle, 1, "//   Module output %s has valid mask %d\n", output_port->lvar->instance->name,output_markers_value( output_port->lvar->instance, om_make_valid_mask ) );
                 if (output_markers_value( output_port->lvar->instance, om_make_valid_mask )==(om_invalid | om_must_be_valid))
                 {
-                    output( handle, 1, "//   Module output %s needs to be made valid\n", output_port->lvar->instance->name );
+                    output( 1, "//   Module output %s needs to be made valid\n", output_port->lvar->instance->name );
                     need_to_output=1;
                 }
             }
         }
         if (need_to_output)
         {
-            output( handle, 1, "//   Module %s being marked as required combinatorially for some signals that depend on it\n", module_instance->name );
+            output( 1, "//   Module %s being marked as required combinatorially for some signals that depend on it\n", module_instance->name );
             output_markers_mask( module_instance, om_must_be_valid, -1 );
         }
         else
         {
-            output( handle, 1, "//   Module %s not being marked as required combinatorially as no signals depend on it\n", module_instance->name );
+            output( 1, "//   Module %s not being marked as required combinatorially as no signals depend on it\n", module_instance->name );
             output_markers_mask( module_instance, 0, -1 );
         }
     }
@@ -2188,11 +2170,11 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 {
                     if (first_output)
                     {
-                        output( handle, 1, "/*b Assignments to nets driven in more than one part\n" );
-                        output( handle, 1, "*/\n" );
+                        output( 1, "/*b Assignments to nets driven in more than one part\n" );
+                        output( 1, "*/\n" );
                         first_output = 0;
                     }
-                    output_simulation_methods_port_net_assignment( model, output, handle, NULL, 0, module_instance, output_port->lvar, output_port->module_port_instance );
+                    output_simulation_methods_port_net_assignment(NULL, 0, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
                 //output( handle, 1, "//   Marking output %s . %s as valid as it is purely clocked %d\n", module_instance->name, output_port->lvar->instance->name, output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
                 output_markers_mask( output_port->lvar->instance, om_must_be_valid|om_valid, 0 );
@@ -2203,7 +2185,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
          */
     }
     if (!first_output)
-        output( handle, 0, "\n" );
+        output( 0, "\n" );
 
     /*b   Run through combinatorials and nets to see if we can output the code or module instances for one (are all its dependencies done?) - and repeat until we have nothing left
      */
@@ -2245,14 +2227,10 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 did_output=1;
                 output_markers_mask( instance, om_valid, 0 );
 
-                if (!instance->code_block)
-                {
-                    output( handle, 1, "//No definition of signal %s (%p)\n", instance->name, instance);
-                    //break;
-                }
-                else
-                {
-                    output_simulation_methods_code_block( model, output, handle, instance->code_block, NULL, -1, instance );
+                if (!instance->code_block) {
+                    output( 1, "//No definition of signal %s (%p)\n", instance->name, instance);
+                } else {
+                    output_simulation_methods_code_block(instance->code_block, NULL, -1, instance );
                 }
 
                 /*b Next instance
@@ -2274,9 +2252,8 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             {
                 need_to_output=0;
             }
-            if (!need_to_output)
-            {
-                output( handle, 1, "//   Not outputting module %s as it is external or not combinatorial\n", module_instance->name );
+            if (!need_to_output) {
+                output( 1, "//   Not outputting module %s as it is external or not combinatorial\n", module_instance->name );
                 continue;
             }
 
@@ -2285,9 +2262,8 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             need_to_output=0;
             if (output_markers_value(module_instance, om_make_valid_mask)==(om_invalid|om_must_be_valid))
                 need_to_output = 1;
-            if (!need_to_output)
-            {
-                output( handle, 1, "//   Not outputting module %s as not marked as required\n", module_instance->name );
+            if (!need_to_output) {
+                output( 1, "//   Not outputting module %s as not marked as required\n", module_instance->name );
                 continue;
             }
             more_to_output=1;
@@ -2297,7 +2273,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
             if (output_markers_check_iter_any_match( model, &iter, (void *)NULL, om_valid_mask, om_invalid))
             {
-                output( handle, 1, "//   Not outputting module %s as dependencies are not all valid\n", module_instance->name );
+                output( 1, "//   Not outputting module %s as dependencies are not all valid\n", module_instance->name );
                 continue;
             }
         
@@ -2308,17 +2284,17 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
                 // if (input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
-                output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-                output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
-                output( handle, -1, ";\n" );
+                output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+                output_simulation_methods_expression( NULL, input_port->expression, 2, 0 );
+                output( -1, ";\n" );
             }
-            output( handle, 1, "engine->submodule_call_comb( all_signals.instance_%s.handle );\n", module_instance->name );
+            output( 1, "engine->submodule_call_comb( all_signals.instance_%s.handle );\n", module_instance->name );
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
                 if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     // Should we only do this assignment if the output is derived combinatorially?
-                    output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+                    output_simulation_methods_port_net_assignment( NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
                     check_nets_driven_in_parts = 1;
                 }
                 else
@@ -2385,12 +2361,12 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 if (1)
                 {
                     t_md_type_instance *dependency;
-                    output( handle, 1, "//Combinatorial %s has code whose dependents seem cyclic\n", instance->name );
+                    output( 1, "//Combinatorial %s has code whose dependents seem cyclic\n", instance->name );
                     snprintf(buffer,sizeof(buffer),"DESIGN ERROR: circular dependency found for %s (depends on...):", instance->name );
                     model->reference_set_iterate_start( &instance->dependencies, &iter );
                     while ((dependency=output_markers_find_iter_match( model, &iter, (void *)signal, om_valid_mask, om_invalid))!=NULL)
                     {
-                        output( handle, 1, "//    dependent '%s' not ready (%d)\n", dependency->reference.data.signal->name, output_markers_value(dependency,-1) );
+                        output( 1, "//    dependent '%s' not ready (%d)\n", dependency->reference.data.signal->name, output_markers_value(dependency,-1) );
                         snprintf(buffer+strlen(buffer),sizeof(buffer)-strlen(buffer),"%s ", dependency->reference.data.signal->name );
                     }
                     buffer[sizeof(buffer)-1]=0;
@@ -2423,11 +2399,10 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
              */
             {
                 t_md_type_instance *dependency;
-                output( handle, 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
+                output( 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
                 model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
-                while ((dependency=output_markers_find_iter_match( model, &iter, NULL, 0, 0))!=NULL)
-                {
-                    output( handle, 1, "//   Dependency %s has output state %d\n", dependency->name, output_markers_value( dependency, -1 ) );
+                while ((dependency=output_markers_find_iter_match( model, &iter, NULL, 0, 0))!=NULL) {
+                    output( 1, "//   Dependency %s has output state %d\n", dependency->name, output_markers_value( dependency, -1 ) );
                 }
 
                 snprintf(buffer,sizeof(buffer),"DESIGN ERROR: circular dependency found for module %s:", module_instance->name );
@@ -2445,130 +2420,80 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
 
 /*a Output C model methods
  */
-/*f output_simulation_methods
+/*f c_md_target_c::output_simulation_methods
  */
-static void output_simulation_methods( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
+void c_md_target_c::output_simulation_methods(void)
 {
-    int edge, level;
-    t_md_signal *clk;
-    t_md_signal *signal;
-    t_md_state *reg;
-    t_md_code_block *code_block;
-    t_md_type_instance *instance;
-    t_md_module_instance *module_instance;
-    t_md_module_instance_clock_port *clock_port;
-    t_md_module_instance_input_port *input_port;
-    int i;
-
     /*b Output the main reset function
      */
-    output( handle, 0, "/*a Class reset/preclock/clock methods for %s\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "/*f c_%s::reset\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::reset( int pass )\n", module->output_name );
-    output( handle, 0, "{\n");
-
-    output( handle, 1, "if (pass==0)\n" );
-    output( handle, 1, "{\n" );
-    if (module->inputs)
-    {
-        output( handle, 2, "se_cmodel_assist_check_unconnected_inputs( engine, engine_handle, (void *)&all_signals, input_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
+    output( 0, "/*a Class reset/preclock/clock methods for %s */\n", module->output_name );
+    output( 0, "/*f c_%s::reset */\n", module->output_name );
+    output( 0, "t_sl_error_level c_%s::reset( int pass ) {\n", module->output_name );
+    output( 1, "if (pass==0) {\n" );
+    if (module->inputs) {
+        output( 2, "se_cmodel_assist_check_unconnected_inputs( engine, engine_handle, (void *)&all_signals, input_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
-    if (module->nets)
-    {
-        output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&all_signals, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
+    if (module->nets) {
+        output( 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&all_signals, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
-    output( handle, 1, "}\n" );
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
-                output( handle, 1, "reset_%s_%s( );\n", level_name[level], signal->name );
+    output( 1, "}\n" );
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto level=0; level<2; level++) {
+            if (signal->data.input.levels_used_for_reset[level]) {
+                output( 1, "reset_%s_%s( );\n", level_name[level], signal->name );
             }
         }
     }
-    output( handle, 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        output( handle, 1, "engine->submodule_call_reset( all_signals.instance_%s.handle, pass );\n", module_instance->name );
-        if (module_instance->module_definition)
-        {
-            t_md_module_instance_output_port *output_port;
-            for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
-            {
-                if (output_port->lvar->instance->vector_driven_in_parts)
-                {
-                    output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+    output( 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        output( 1, "engine->submodule_call_reset( all_signals.instance_%s.handle, pass );\n", module_instance->name );
+        if (module_instance->module_definition) {
+            for (auto output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list) {
+                if (output_port->lvar->instance->vector_driven_in_parts) {
+                    output_simulation_methods_port_net_assignment(NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
             }
         }
     }
 
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output the individual reset functions
      */
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
-                output( handle, 0, "/*f c_%s::reset_%s_%s\n", module->output_name, level_name[level], signal->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::reset_%s_%s( void )\n", module->output_name, level_name[level], signal->name );
-                output( handle, 0, "{\n");
-
-                for (clk=module->clocks; clk; clk=clk->next_in_list)
-                {
-                    for (edge=0; edge<2; edge++)
-                    {
-                        if (clk->data.clock.edges_used[edge])
-                        {
-                            for (reg=module->registers; reg; reg=reg->next_in_list)
-                            {
-                                if ( (reg->clock_ref==clk) && (reg->edge==edge) && (reg->reset_ref==signal) && (reg->reset_level==level))
-                                {
-                                    for (i=0; i<reg->instance_iter->number_children; i++)
-                                    {
-                                        int j, array_size;
-                                        t_md_type_instance_data *ptr;
-                                        instance = reg->instance_iter->children[i];
-                                        array_size = instance->size;
-                                        for (j=0; j<(array_size>0?array_size:1); j++)
-                                        {
-                                            for (ptr = &instance->data[j]; ptr; ptr=ptr->reset_value.next_in_list)
-                                            {
-                                                if (ptr->reset_value.expression)
-                                                {
-                                                    if (ptr->reset_value.subscript_start>=0)
-                                                    {
-                                                        output( handle, 1, "ASSIGN_TO_BIT( &( " );
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto level=0; level<2; level++) {
+            if (signal->data.input.levels_used_for_reset[level]) {
+                output( 0, "/*f c_%s::reset_%s_%s */\n", module->output_name, level_name[level], signal->name );
+                output( 0, "t_sl_error_level c_%s::reset_%s_%s(void) {\n", module->output_name, level_name[level], signal->name );
+                for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+                    for (auto edge=0; edge<2; edge++) {
+                        if (clk->data.clock.edges_used[edge]) {
+                            for (auto reg=module->registers; reg; reg=reg->next_in_list) {
+                                if ( (reg->clock_ref==clk) && (reg->edge==edge) && (reg->reset_ref==signal) && (reg->reset_level==level)) {
+                                    for (auto i=0; i<reg->instance_iter->number_children; i++) {
+                                        auto instance = reg->instance_iter->children[i];
+                                        int array_size = instance->size;
+                                        for (auto j=0; j<(array_size>0?array_size:1); j++) {
+                                            for (auto ptr = &instance->data[j]; ptr; ptr=ptr->reset_value.next_in_list) {
+                                                if (ptr->reset_value.expression) {
+                                                    if (ptr->reset_value.subscript_start>=0) {
+                                                        output( 1, "ASSIGN_TO_BIT( &( " );
                                                     }
-                                                    if (array_size>1)
-                                                    {
-                                                        output( handle, 1, "all_signals.%s_%s_state.%s[%d]", edge_name[reg->edge], reg->clock_ref->name, instance->output_name, j );
+                                                    if (array_size>1) {
+                                                        output( 1, "all_signals.%s_%s_state.%s[%d]", edge_name[reg->edge], reg->clock_ref->name, instance->output_name, j );
+                                                    } else {
+                                                        output( 1, "all_signals.%s_%s_state.%s", edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
                                                     }
-                                                    else
-                                                    {
-                                                        output( handle, 1, "all_signals.%s_%s_state.%s", edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
-                                                    }
-                                                    if (ptr->reset_value.subscript_start>=0)
-                                                    {
-                                                        output( handle, -1, "), %d, %d, ", instance->type_def.data.width, ptr->reset_value.subscript_start );
-                                                        output_simulation_methods_expression( model, output, handle, NULL, ptr->reset_value.expression, 2, 0 );
-                                                        output( handle, -1, ");\n" );
-                                                    }
-                                                    else
-                                                    {
-                                                        output( handle, -1, " = " );
-                                                        output_simulation_methods_expression( model, output, handle, NULL, ptr->reset_value.expression, 2, 0 );
-                                                        output( handle, -1, ";\n" );
+                                                    if (ptr->reset_value.subscript_start>=0) {
+                                                        output( -1, "), %d, %d, ", instance->type_def.data.width, ptr->reset_value.subscript_start );
+                                                        output_simulation_methods_expression(NULL, ptr->reset_value.expression, 2, 0 );
+                                                        output( -1, ");\n" );
+                                                    } else {
+                                                        output( -1, " = " );
+                                                        output_simulation_methods_expression(NULL, ptr->reset_value.expression, 2, 0 );
+                                                        output( -1, ";\n" );
                                                     }
                                                 }
                                             }
@@ -2579,36 +2504,32 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         }
                     }
                 }
-                output( handle, 1, "propagating_in_reset=1;propagate_all();propagating_in_reset=0;// bit of a hack to get reset to propagate;\n");
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
+                output( 1, "propagating_in_reset=1;propagate_all();propagating_in_reset=0;// bit of a hack to get reset to propagate;\n");
+                output( 1, "return error_level_okay;\n");
+                output( 0, "}\n");
+                output( 0, "\n");
             }
         }
     }
 
     /*b Output the function to capture inputs
      */
-    output( handle, 0, "/*f c_%s::capture_inputs\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::capture_inputs( void )\n", module->output_name );
-    output( handle, 0, "{\n");
-    output( handle, 1, "DEBUG_PROBE;\n");
+    output( 0, "/*f c_%s::capture_inputs */\n", module->output_name );
+    output( 0, "t_sl_error_level c_%s::capture_inputs(void) {\n", module->output_name );
+    output( 1, "DEBUG_PROBE;\n");
 
-    if (module->inputs)
-    {
-        output( handle, 1, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
-        output( handle, 1, "{\n");
-        output( handle, 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, &all_signals, input_desc_%s[i].driver_ofs );\n", module->output_name);
-        output( handle, 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, &all_signals, input_desc_%s[i].input_state_ofs );\n", module->output_name);
-        output( handle, 2, "if (input_desc_%s[i].width<64)\n", module->output_name);
-        output( handle, 3, "input_state_ptr[0] = (*(input_ptr[0])) & ((1LL<<input_desc_%s[i].width)-1);\n", module->output_name);
-        output( handle, 2, "else\n");
-        output( handle, 3, "input_state_ptr[0] = *(input_ptr[0]);\n");
-        output( handle, 1, "}\n");
+    if (module->inputs) {
+        output( 1, "for (int i=0; input_desc_%s[i].port_name; i++) {\n", module->output_name);
+        output( 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, &all_signals, input_desc_%s[i].driver_ofs );\n", module->output_name);
+        output( 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, &all_signals, input_desc_%s[i].input_state_ofs );\n", module->output_name);
+        output( 2, "if (input_desc_%s[i].width<64)\n", module->output_name);
+        output( 3, "input_state_ptr[0] = (*(input_ptr[0])) & ((1ULL<<input_desc_%s[i].width)-1);\n", module->output_name);
+        output( 2, "else\n");
+        output( 3, "input_state_ptr[0] = *(input_ptr[0]);\n");
+        output( 1, "}\n");
     }
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
 
     /*b Output the function to propagate inputs/state to internal combs, through submodules, and through again all submodules
       This function assumes all inputs and state have changed, and propagates appropriately
@@ -2616,25 +2537,19 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
       We assume here after clock, and we ignore that clock has got its outputs correct (for now)
       Note that if reset is now asserted (and it was not before) then we should do this work anyway for any state that is reset
      */
-    output( handle, 0, "/*f c_%s::propagate_all\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::propagate_all( void )\n", module->output_name );
-    output( handle, 0, "{\n");
-    output( handle, 1, "DEBUG_PROBE;\n");
+    output( 0, "/*f c_%s::propagate_all */\n", module->output_name );
+    output( 0, "t_sl_error_level c_%s::propagate_all(void) {\n", module->output_name );
+    output( 1, "DEBUG_PROBE;\n");
 
     /*b   Handle asynchronous reset
      */
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto level=0; level<2; level++) {
+            if (signal->data.input.levels_used_for_reset[level]) {
                 // Note that if propagating_in_reset is set then inputs are NOT valid
-                output( handle, 1, "if (!propagating_in_reset && (all_signals.inputs.%s[0]==%d))\n", signal->name, level );
-                output( handle, 1, "{\n");
-                output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
-                output( handle, 1, "}\n");
+                output( 1, "if (!propagating_in_reset && (all_signals.inputs.%s[0]==%d)) {\n", signal->name, level );
+                output( 2, "reset_%s_%s();\n", level_name[level], signal->name );
+                output( 1, "}\n");
             }
         }
     }
@@ -2644,44 +2559,33 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output_markers_mask_all( model, module, om_must_be_valid, -1 );
     output_markers_mask_input_dependents( model, module, om_must_be_valid, 0 );
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, om_must_be_valid, 0 );// All clock edges
-    output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
+    output_simulation_code_to_make_combinatorial_signals_valid();
 
     /*b   Set inputs to all clocked modules even if the code has output them already
      */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        /*b If module_instance is not purely clocked then it has already been done
-         */
-        if ( (!module_instance->module_definition) )
-        {
-            continue;
-        }
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        if (!module_instance->module_definition) continue;
 
         /*b Set inputs
          */
-        for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-        {
-            output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-            output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
-            output( handle, -1, ";\n" );
+        for (auto input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list) {
+            output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+            output_simulation_methods_expression(NULL, input_port->expression, 2, 0 );
+            output( -1, ";\n" );
         }
-
-        /*b Next module instance
-         */
     }
 
     /*b   Propagate to all submodules also - could be done in the worklist
      */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        output( handle, 1, "engine->submodule_call_propagate( all_signals.instance_%s.handle );\n", module_instance->name );
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        output( 1, "engine->submodule_call_propagate( all_signals.instance_%s.handle );\n", module_instance->name );
     }
 
     /*b   Finish
      */
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output the method to propagate inputs/state to internal combs and to submodule inputs
       This function assumes all inputs and state have changed, and propagates appropriately
@@ -2694,25 +2598,19 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
       One can try all clock dependents, and all input dependents
       However, this seems to fail to capture the clock enables for gated clocks
      */
-    output( handle, 0, "/*f c_%s::propagate_inputs_to_combs_and_submodule_inputs\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::propagate_inputs_to_combs_and_submodule_inputs( void )\n", module->output_name );
-    output( handle, 0, "{\n");
-    output( handle, 1, "DEBUG_PROBE;\n");
-    output( handle, 0, "// COULD IMPROVE THIS CODE TO REDUCE WHAT IT OUTPUTS\n");
+    output( 0, "/*f c_%s::propagate_inputs_to_combs_and_submodule_inputs */\n", module->output_name );
+    output( 0, "t_sl_error_level c_%s::propagate_inputs_to_combs_and_submodule_inputs(void) {\n", module->output_name );
+    output( 1, "DEBUG_PROBE;\n");
+    output( 0, "// COULD IMPROVE THIS CODE TO REDUCE WHAT IT OUTPUTS\n");
 
     /*b   Handle asynchronous reset
      */
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
-                output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
-                output( handle, 1, "{\n");
-                output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
-                output( handle, 1, "}\n");
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto level=0; level<2; level++) {
+            if (signal->data.input.levels_used_for_reset[level]) {
+                output( 1, "if (all_signals.inputs.%s[0]==%d) {\n", signal->name, level );
+                output( 2, "reset_%s_%s();\n", level_name[level], signal->name );
+                output( 1, "}\n");
             }
         }
     }
@@ -2723,59 +2621,42 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output_markers_mask_modules( model, module, 0, -1 );
     output_markers_mask_input_dependents( model, module, om_must_be_valid, -1 );
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, om_must_be_valid, -1 );// All clock edges
-    output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
+    output_simulation_code_to_make_combinatorial_signals_valid();
 
     /*b   Set inputs to all clocked modules even if the code has output them already
      */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        /*b If module_instance is not purely clocked then it has already been done
-         */
-        if ( (!module_instance->module_definition) )
-        {
-            continue;
-        }
-
+    for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list) {
+        if (!module_instance->module_definition) continue;
         /*b Set inputs
          */
-        for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-        {
-            output( handle, 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-            output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
-            output( handle, -1, ";\n" );
+        for (auto input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list) {
+            output( 1, "all_signals.instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+            output_simulation_methods_expression(NULL, input_port->expression, 2, 0 );
+            output( -1, ";\n" );
         }
-
-        /*b Next module instance
-         */
     }
 
     /*b   Finish
      */
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output the method for combinatorial input-to-output paths
       This function assumes all inputs has changed
      */
-    output( handle, 0, "/*f c_%s::comb\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::comb( void )\n", module->output_name );
-    output( handle, 0, "{\n");
-    output( handle, 1, "DEBUG_PROBE;\n");
+    output( 0, "/*f c_%s::comb */\n", module->output_name );
+    output( 0, "t_sl_error_level c_%s::comb(void) {\n", module->output_name );
+    output( 1, "DEBUG_PROBE;\n");
 
     /*b   Handle asynchronous reset
      */
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
-                output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
-                output( handle, 1, "{\n");
-                output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
-                output( handle, 1, "}\n");
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto level=0; level<2; level++) {
+            if (signal->data.input.levels_used_for_reset[level]) {
+                output( 1, "if (all_signals.inputs.%s[0]==%d) {\n", signal->name, level );
+                output( 2, "reset_%s_%s();\n", level_name[level], signal->name );
+                output( 1, "}\n");
             }
         }
     }
@@ -2785,22 +2666,22 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_comb_output_dependencies( model, module, om_must_be_valid, 0 ); // All combs must be made valid
     //output_markers_mask_comb_modules_with_matching_outputs( model, module, om_valid_mask, om_invalid, om_make_valid_mask, 0 ); // Mark all comb modules that drive invalid nets as needing to be output
-    output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
+    output_simulation_code_to_make_combinatorial_signals_valid();
 
     /*b   Finish
      */
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output the method to propagate state from every used clock edge to outputs (submodules must have already done so)
       This function assumes all internal state for the clock edge and submodule state for the clock edge may have changed
      */
-    output( handle, 0, "/*f c_%s::propagate_state_to_outputs\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::propagate_state_to_outputs( void )\n", module->output_name );
-    output( handle, 0, "{\n");
-    output( handle, 1, "DEBUG_PROBE;\n");
+    output( 0, "/*f c_%s::propagate_state_to_outputs\n", module->output_name );
+    output( 0, "*/\n");
+    output( 0, "t_sl_error_level c_%s::propagate_state_to_outputs( void )\n", module->output_name );
+    output( 0, "{\n");
+    output( 1, "DEBUG_PROBE;\n");
 
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
       Since inputs are not valid, we want ALL signals that effect outputs, that depend on states, that DO NOT depend directly on inputs
@@ -2817,60 +2698,60 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output_markers_mask_input_dependents( model, module, 0x40, 0 );
     //output_markers_mask_all_matching( model, module, 0x70, 0x30,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x30' must be valid; others 0 - This was CDL1.4.1a6
     output_markers_mask_all_matching( model, module, 0x60, 0x20,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x20' or '0x30' must be valid; others 0 - this makes static tie-offs also need to be valid
-    output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
+    output_simulation_code_to_make_combinatorial_signals_valid();
 
     /*b   Finish
      */
-    output( handle, 1, "return error_level_okay;\n");
-    output( handle, 0, "}\n");
-    output( handle, 0, "\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
 
     /*b Output the method to clock a particular clock edge; this just copies next state to state
      */
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list)
     {
-        for (edge=0; edge<2; edge++)
+        for (auto edge=0; edge<2; edge++)
         {
             if (clk->data.clock.edges_used[edge])
             {
                 /*b   Output method header and copy of next state to state
                  */
-                output( handle, 0, "/*f c_%s::clock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-                output( handle, 1, "DEBUG_PROBE;\n");
-                output( handle, 1, "memcpy( &all_signals.%s_%s_state, &all_signals.next_%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
+                output( 0, "/*f c_%s::clock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
+                output( 0, "*/\n");
+                output( 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
+                output( 0, "{\n");
+                output( 1, "DEBUG_PROBE;\n");
+                output( 1, "memcpy( &all_signals.%s_%s_state, &all_signals.next_%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
 
                 /*b   Handle asynchronous reset
                  */
-                for (signal=module->inputs; signal; signal=signal->next_in_list)
+                for (auto signal=module->inputs; signal; signal=signal->next_in_list)
                 {
-                    for (level=0; level<2; level++)
+                    for (auto level=0; level<2; level++)
                     {
                         if (signal->data.input.levels_used_for_reset[level])
                         {
-                            output( handle, 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
-                            output( handle, 1, "{\n");
-                            output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
-                            output( handle, 1, "}\n");
+                            output( 1, "if (all_signals.inputs.%s[0]==%d)\n", signal->name, level );
+                            output( 1, "{\n");
+                            output( 2, "reset_%s_%s();\n", level_name[level], signal->name );
+                            output( 1, "}\n");
                         }
                     }
                 }
 
                 /*b   If worklisting the submodule clocks will already occur; do it here otherwise
                  */
-                for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+                for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
                 {
                     if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
                     {
-                        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+                        for (auto clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
                         {
                             if (clock_port->local_clock_signal==clk)
                             {
                                 if (module->number_submodule_clock_calls==0)
                                 {
-                                    output( handle, 1, "engine->submodule_call_clock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
+                                    output( 1, "engine->submodule_call_clock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
                             }
                         }
@@ -2880,15 +2761,14 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 /*b   Call gated clocks 'clock' functions (dependent on run-time enables)
                  */
                 {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                    for (auto clk2=module->clocks; clk2; clk2=clk2->next_in_list)
                     {
                         if (clk2->data.clock.clock_ref == clk)
                         {
                             if (clk2->data.clock.edges_used[edge])
                             {
-                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
-                                output( handle, 2, "clock_%s_%s();\n", edge_name[edge], clk2->name );
+                                output( 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
+                                output( 2, "clock_%s_%s();\n", edge_name[edge], clk2->name );
                             }
                         }
                     }
@@ -2896,9 +2776,9 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
                 /*b   Finish
                  */
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
+                output( 1, "return error_level_okay;\n");
+                output( 0, "}\n");
+                output( 0, "\n");
             }
         }
     }
@@ -2910,47 +2790,46 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
       Determine any derived clock gates; call this model's preclock method for those
       Mark submodules based on this clock as to-be-executed by the worklist
      */
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list)
     {
-        for (edge=0; edge<2; edge++)
+        for (auto edge=0; edge<2; edge++)
         {
             if (clk->data.clock.edges_used[edge])
             {
                 /*b   Output preclock_CLK_EDGE method header
                  */
-                output( handle, 0, "/*f c_%s::preclock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::preclock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-                output( handle, 1, "DEBUG_PROBE;\n");
-                output( handle, 1, "memcpy( &all_signals.next_%s_%s_state, &all_signals.%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
+                output( 0, "/*f c_%s::preclock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
+                output( 0, "*/\n");
+                output( 0, "t_sl_error_level c_%s::preclock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
+                output( 0, "{\n");
+                output( 1, "DEBUG_PROBE;\n");
+                output( 1, "memcpy( &all_signals.next_%s_%s_state, &all_signals.%s_%s_state, sizeof(all_signals.%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
 
                 /*b   Output code for this clock for this module - effects next state only
                  */
-                for (code_block = module->code_blocks; code_block; code_block=code_block->next_in_list)
-                {
-                    output_simulation_methods_code_block( model, output, handle, code_block, clk, edge, NULL );
+                for (auto code_block = module->code_blocks; code_block; code_block=code_block->next_in_list) {
+                    output_simulation_methods_code_block(code_block, clk, edge, NULL );
                 }
 
                 /*b   Enable all submodules that run off this clock edge if worklisting, or call it otherwise
                  */
-                for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+                for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
                 {
                     if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
                     {
-                        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+                        for (auto clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
                         {
                             if (clock_port->local_clock_signal==clk)
                             {
                                 if (module->number_submodule_clock_calls==0)
                                 {
-                                    output( handle, 1, "engine->submodule_call_preclock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
+                                    output( 1, "engine->submodule_call_preclock( all_signals.instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
                                 else
                                 {
                                     int worklist_item;
                                     worklist_item = output_markers_value( clock_port, -1 );
-                                    output( handle, 1, "submodule_clock_guard[%d] |= 0x%08x;\n", worklist_item/32, 1<<(worklist_item%32) );
+                                    output( 1, "submodule_clock_guard[%d] |= 0x%08x;\n", worklist_item/32, 1<<(worklist_item%32) );
                                 }
                             }
                         }
@@ -2960,17 +2839,16 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 /*b   Determine clock gate enables for every gated version of this clock
                  */
                 {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                    for (auto clk2=module->clocks; clk2; clk2=clk2->next_in_list)
                     {
                         if (clk2->data.clock.clock_ref == clk)
                         {
                             if (clk2->data.clock.edges_used[edge])
                             {
-                                output( handle, 1, "clock_enable__%s_%s = ", edge_name[edge], clk2->name );
+                                output( 1, "clock_enable__%s_%s = ", edge_name[edge], clk2->name );
                                 if (clk2->data.clock.gate_state)
                                 {
-                                    output( handle, -1, "(all_signals.%s_%s_state.%s==%d);\n",
+                                    output( -1, "(all_signals.%s_%s_state.%s==%d);\n",
                                             edge_name[clk2->data.clock.gate_state->edge], clk2->data.clock.gate_state->clock_ref->name, clk2->data.clock.gate_state->name,
                                             clk2->data.clock.gate_level );
                                 }
@@ -2980,20 +2858,20 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                     switch (signal->type)
                                     {
                                     case md_signal_type_input:
-                                        output( handle, -1, "(all_signals.input_state.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                        output( -1, "(all_signals.input_state.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_output:
                                         if (signal->data.output.combinatorial_ref)
-                                            output( handle, -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_combinatorial:
-                                        output( handle, -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                        output( -1, "(all_signals.combinatorials.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     case md_signal_type_net:
                                         if (signal->instance->vector_driven_in_parts)
-                                            output( handle, -1, "(all_signals.nets.%s[0]==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( -1, "(all_signals.nets.%s[0]==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         else
-                                            output( handle, -1, "(all_signals.nets.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
+                                            output( -1, "(all_signals.nets.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
                                     default: // clock and possibly others
                                         break;
@@ -3007,15 +2885,14 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 /*b   Call gated clocks 'preclock' functions (dependent on run-time enables)
                  */
                 {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                    for (auto clk2=module->clocks; clk2; clk2=clk2->next_in_list)
                     {
                         if (clk2->data.clock.clock_ref == clk)
                         {
                             if (clk2->data.clock.edges_used[edge])
                             {
-                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
-                                output( handle, 2, "preclock_%s_%s();\n", edge_name[edge], clk2->name );
+                                output( 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
+                                output( 2, "preclock_%s_%s();\n", edge_name[edge], clk2->name );
                             }
                         }
                     }
@@ -3023,9 +2900,9 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
                 /*b   Finish
                  */
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
+                output( 1, "return error_level_okay;\n");
+                output( 0, "}\n");
+                output( 0, "\n");
 
             }
         }
@@ -3038,37 +2915,37 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         /*b Model prepreclock method - invoked with no arguments by top level prepreclock function
           The prepreclock marks inputs as uncaptured and clears the clock edges that need to be invoked
          */
-        output( handle, 0, "/*f c_%s::prepreclock\n", module->output_name );
-        output( handle, 0, "*/\n");
-        output( handle, 0, "t_sl_error_level c_%s::prepreclock( void )\n", module->output_name );
-        output( handle, 0, "{\n");
-        output( handle, 1, "DEBUG_PROBE;\n");
-        output( handle, 1, "WHERE_I_AM;\n");
-        output( handle, 1, "inputs_captured=0;\n");
-        output( handle, 1, "clocks_to_call=0;\n");
-        output( handle, 1, "return error_level_okay;\n");
-        output( handle, 0, "}\n\n");
+        output( 0, "/*f c_%s::prepreclock\n", module->output_name );
+        output( 0, "*/\n");
+        output( 0, "t_sl_error_level c_%s::prepreclock( void )\n", module->output_name );
+        output( 0, "{\n");
+        output( 1, "DEBUG_PROBE;\n");
+        output( 1, "WHERE_I_AM;\n");
+        output( 1, "inputs_captured=0;\n");
+        output( 1, "clocks_to_call=0;\n");
+        output( 1, "return error_level_okay;\n");
+        output( 0, "}\n\n");
 
         /*b Model preclock method - invoked by toplevel clock preclock functions with model clock preclock/clock function pairs
           The preclock captures inputs (once) and records a clock edge to be invoked
          */
-        output( handle, 0, "/*f c_%s::preclock\n", module->output_name );
-        output( handle, 0, "*/\n");
-        output( handle, 0, "t_sl_error_level c_%s::preclock( t_c_%s_clock_callback_fn preclock, t_c_%s_clock_callback_fn clock )\n", module->output_name, module->output_name, module->output_name );
-        output( handle, 0, "{\n");
-        output( handle, 1, "DEBUG_PROBE;\n");
-        output( handle, 1, "WHERE_I_AM;\n");
-        output( handle, 1, "if (!inputs_captured) { capture_inputs(); inputs_captured++; }\n" );
-        output( handle, 1, "if (clocks_to_call>%d)\n", 200 );
-        output( handle, 1, "{\n" );
-        output( handle, 2, "fprintf(stderr,\"BUG - %%s:%%d too many preclock calls after prepreclock\\n\", __FILE__, __LINE__);\n");
-        output( handle, 1, "} else {\n" );
-        output( handle, 2, "clocks_fired[clocks_to_call].preclock=preclock;\n");
-        output( handle, 2, "clocks_fired[clocks_to_call].clock=clock;\n");
-        output( handle, 2, "clocks_to_call++;\n");
-        output( handle, 1, "}\n" );
-        output( handle, 1, "return error_level_okay;\n" );
-        output( handle, 0, "}\n");
+        output( 0, "/*f c_%s::preclock\n", module->output_name );
+        output( 0, "*/\n");
+        output( 0, "t_sl_error_level c_%s::preclock( t_c_%s_clock_callback_fn preclock, t_c_%s_clock_callback_fn clock )\n", module->output_name, module->output_name, module->output_name );
+        output( 0, "{\n");
+        output( 1, "DEBUG_PROBE;\n");
+        output( 1, "WHERE_I_AM;\n");
+        output( 1, "if (!inputs_captured) { capture_inputs(); inputs_captured++; }\n" );
+        output( 1, "if (clocks_to_call>%d)\n", 200 );
+        output( 1, "{\n" );
+        output( 2, "fprintf(stderr,\"BUG - %%s:%%d too many preclock calls after prepreclock\\n\", __FILE__, __LINE__);\n");
+        output( 1, "} else {\n" );
+        output( 2, "clocks_fired[clocks_to_call].preclock=preclock;\n");
+        output( 2, "clocks_fired[clocks_to_call].clock=clock;\n");
+        output( 2, "clocks_to_call++;\n");
+        output( 1, "}\n" );
+        output( 1, "return error_level_okay;\n" );
+        output( 0, "}\n");
 
         /*b Model clock method - invoked by toplevel clock functions - executes effectively once per prepreclock
           The clock function assumes all input has changed and been captured
@@ -3080,57 +2957,57 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
           4b. clock submodules (for each clock) (will propagate state to output)
           5. propagate all state (and submodule outputs) to outputs for this module
          */
-        output( handle, 0, "/*f c_%s::clock\n", module->output_name );
-        output( handle, 0, "*/\n");
-        output( handle, 0, "t_sl_error_level c_%s::clock( void )\n", module->output_name );
-        output( handle, 0, "{\n");
-        output( handle, 1, "DEBUG_PROBE;\n");
-        output( handle, 1, "WHERE_I_AM;\n");
-        output( handle, 1, "if (clocks_to_call>0)\n" );
-        output( handle, 1, "{\n" );
+        output( 0, "/*f c_%s::clock\n", module->output_name );
+        output( 0, "*/\n");
+        output( 0, "t_sl_error_level c_%s::clock( void )\n", module->output_name );
+        output( 0, "{\n");
+        output( 1, "DEBUG_PROBE;\n");
+        output( 1, "WHERE_I_AM;\n");
+        output( 1, "if (clocks_to_call>0)\n" );
+        output( 1, "{\n" );
         // Stage 1
-        output( handle, 2, "propagate_inputs_to_combs_and_submodule_inputs();\n" );             // At this point all submodules should have valid inputs
+        output( 2, "propagate_inputs_to_combs_and_submodule_inputs();\n" );             // At this point all submodules should have valid inputs
         // Stage 2
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_prepreclock, NULL );\n" ); // prepreclock all submodules
-            for (i=0; i<(module->number_submodule_clock_calls+31)/32; i++)
-                output( handle, 2, "submodule_clock_guard[%d] = 0;\n", i ); // Clear all submodule clock guard entries
+            output( 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_prepreclock, NULL );\n" ); // prepreclock all submodules
+            for (auto i=0; i<(module->number_submodule_clock_calls+31)/32; i++)
+                output( 2, "submodule_clock_guard[%d] = 0;\n", i ); // Clear all submodule clock guard entries
         }
         else
         {
-            for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+            for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
             {
                 if ( module_instance->module_definition &&
                      module_instance->module_definition->clocks)
                 {
-                    output( handle, 1, "engine->submodule_call_prepreclock( all_signals.instance_%s.handle );\n", module_instance->name );
+                    output( 1, "engine->submodule_call_prepreclock( all_signals.instance_%s.handle );\n", module_instance->name );
                 }
             }
         }
-        output( handle, 2, "int i;\n" );
+        output( 2, "int i;\n" );
         // Stage 3a. Call all required local preclock functions - calculates next_state
-        output( handle, 2, "for (i=0; i<clocks_to_call; i++)\n" );
-        output( handle, 3, "(this->*clocks_fired[i].preclock)();\n" );
+        output( 2, "for (auto i=0; i<clocks_to_call; i++)\n" );
+        output( 3, "(this->*clocks_fired[i].preclock)();\n" );
         // Stage 3b. Call all required submodule preclock functions
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_preclock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
+            output( 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_preclock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
         }
         // Stage 4a. Call all required local preclock functions - calculates next_state
-        output( handle, 2, "for (i=0; i<clocks_to_call; i++)\n" );
-        output( handle, 3, "(this->*clocks_fired[i].clock)();\n" );
+        output( 2, "for (auto i=0; i<clocks_to_call; i++)\n" );
+        output( 3, "(this->*clocks_fired[i].clock)();\n" );
         // Stage 4b. Call all required submodule clock functions - their outputs will be valid afterwards
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_clock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
+            output( 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_clock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
         }
         // Stage 5. Propagate from all state (inc submodule outputs dependent on state) to outputs
-        output( handle, 2, "propagate_state_to_outputs();\n" );
-        output( handle, 2, "clocks_to_call=0;\n");
-        output( handle, 1, "}\n" );
-        output( handle, 1, "return error_level_okay;\n");
-        output( handle, 0, "}\n");
+        output( 2, "propagate_state_to_outputs();\n" );
+        output( 2, "clocks_to_call=0;\n");
+        output( 1, "}\n" );
+        output( 1, "return error_level_okay;\n");
+        output( 0, "}\n");
 
         /*b All model clocked methods done
          */
@@ -3144,17 +3021,12 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
  */
 void c_md_target_c::output_initalization_functions(void)
 {
-    t_md_module *module;
-    output( 0, "/*a Initialization functions\n");
-    output( 0, "*/\n");
-    for (module=model->module_list; module; module=module->next_in_list)
-    {
+    output( 0, "/*a Initialization functions */\n");
+    for (auto module=model->module_list; module; module=module->next_in_list) {
         if (module->external)
             continue;
-        output( 0, "/*f %s_instance_fn\n", module->output_name);
-        output( 0, "*/\n");
-        output( 0, "static t_sl_error_level %s_instance_fn( c_engine *engine, void *engine_handle )\n", module->output_name);
-        output( 0, "{\n");
+        output( 0, "/*f %s_instance_fn */\n", module->output_name);
+        output( 0, "static t_sl_error_level %s_instance_fn( c_engine *engine, void *engine_handle ) {\n", module->output_name);
         output( 1, "auto mod = new c_%s( engine, engine_handle );\n", module->output_name);
         output( 1, "if (!mod)\n");
         output( 2, "return error_level_fatal;\n");
@@ -3162,22 +3034,18 @@ void c_md_target_c::output_initalization_functions(void)
         output( 0, "}\n");
         output( 0, "\n");
     }
-    output( 0, "/*f %s__init\n", model->get_name() );
-    output( 0, "*/\n");
+    output( 0, "/*f %s__init */\n", model->get_name() );
     output( 0, "extern void %s__init( void )\n", model->get_name() );
     output( 0, "{\n");
-    for (module=model->module_list; module; module=module->next_in_list)
-    {
+    for (auto module=model->module_list; module; module=module->next_in_list) {
         if (module->external)
             continue;
         output( 1, "se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->registered_name, module->output_name, module->implementation_name );
     }
     output( 0, "}\n");
     output( 0, "\n");
-    output( 0, "/*a Scripting support code\n");
-    output( 0, "*/\n");
-    output( 0, "/*f init%s\n", model->get_name() );
-    output( 0, "*/\n");
+    output( 0, "/*a Scripting support code */\n");
+    output( 0, "/*f init%s */\n", model->get_name() );
     output( 0, "extern \"C\" void init%s( void )\n", model->get_name() );
     output( 0, "{\n");
     output( 1, "%s__init( );\n", model->get_name() );
@@ -3238,7 +3106,7 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
         mdt.output_static_variables();
         mdt.output_wrapper_functions();
         mdt.output_constructors_destructors();
-        output_simulation_methods( model, module, output_fn, output_handle );
+        mdt.output_simulation_methods();
     }
 
     /*b Output the initialization functions
