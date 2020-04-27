@@ -24,44 +24,7 @@
 #include "c_model_descriptor.h"
 #include <stdarg.h>
 
-/*t t_md_verilog_options
- */
-typedef struct
-{
-    int vmod_mode;
-    const char *clock_gate_module_instance_type;
-    const char *clock_gate_module_instance_extra_ports;
-    const char *assert_delay_string;
-    const char *verilog_comb_reg_suffix;
-    const char *additional_port_include;
-    const char *additional_body_include;
-    const char *assertions_ifdef;
-    int include_displays;
-    int include_assertions;
-    int sv_assertions;
-    int include_coverage;
-    int use_always_at_star;
-    int clocks_must_have_enables;
-} t_md_verilog_options;
-
-/*t t_md_cpp_options
- */
-typedef struct
-{
-    int include_assertions;
-    int include_coverage;
-    int include_stmt_coverage;
-    int multithread;
-} t_md_cpp_options;
-
-/*t t_md_options
- */
-typedef struct {
-    t_md_cpp_options cpp;
-    t_md_verilog_options verilog;
-} t_md_options;
-typedef std::list<std::string> t_string_list;
-
+/*c c_md_target */
 class c_md_target {
 protected:
     class c_model_descriptor *model;
@@ -72,7 +35,7 @@ private:
     char *string_buffer=NULL;
     int string_buffer_size=256;
 public:
-    c_md_target(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_options *options);
+    c_md_target(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle);
     ~c_md_target();
     char *string_printf(const char *format, va_list ap);
     std::string make_string(const char *format, ...);

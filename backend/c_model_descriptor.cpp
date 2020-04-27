@@ -6057,6 +6057,10 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      {
          include_coverage = 1;
      }
+    options.cpp.include_assertions = include_assertions;
+    options.cpp.include_coverage = include_coverage;
+    options.cpp.include_stmt_coverage = include_stmt_coverage;
+    options.cpp.multithread  = multithread;
 
      filename = sl_option_get_string( env_options, "be_coverage_map" );
      if (filename)
@@ -6071,7 +6075,8 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      if (filename) {
          f = fopen(filename, "w");
          if (f) {
-             target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage, multithread );
+             auto mdt = c_md_target_c(this, output_indented, (void *)f);
+             mdt.output_cpp_model();
              fclose(f);
          } else {
              error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
@@ -6100,11 +6105,11 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_cdlhfile" );
      if (filename)
      {
-         t_md_cdl_header_options options;
          f = fopen(filename, "w");
          if (f)
          {
-             target_cdl_header_output( this, output_indented, (void *)f, &options );
+             auto mdt = c_md_target_cdlh(this, output_indented, (void *)f);
+             mdt.output_cdlh_model();
              fclose(f);
          }
          else

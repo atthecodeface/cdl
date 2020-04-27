@@ -17,12 +17,12 @@
 #include <functional>
 #include <stdarg.h>
 #include "c_md_target.h"
-c_md_target::c_md_target(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_options *options)
+c_md_target::c_md_target(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle)
 {
     this->model = model;
     this->output_fn = output_fn;
     this->output_handle = output_handle;
-    this->options = options;
+    this->options = &(model->options);
 }
 c_md_target::~c_md_target()
 {

@@ -15,26 +15,6 @@
 
 /*a Types
  */
-/*t t_md_verilog_options
- */
-typedef struct
-{
-    int vmod_mode;
-    const char *clock_gate_module_instance_type;
-    const char *clock_gate_module_instance_extra_ports;
-    const char *assert_delay_string;
-    const char *verilog_comb_reg_suffix;
-    const char *additional_port_include;
-    const char *additional_body_include;
-    const char *assertions_ifdef;
-    int include_displays;
-    int include_assertions;
-    int sv_assertions;
-    int include_coverage;
-    int use_always_at_star;
-    int clocks_must_have_enables;
-} t_md_verilog_options;
-
 /*a External functions
  */
 extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, t_md_verilog_options *options );
