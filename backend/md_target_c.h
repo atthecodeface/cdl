@@ -29,6 +29,7 @@ class c_md_target_c: public c_md_target {
     void output_type(t_md_type_instance *instance, int indent, int indirect );
     void output_clocked_storage_types(void);
     void output_input_types(void);
+    void output_output_types(void); // for cdl-wrapped verilator only
     void output_combinatorial_types(void);
     void output_net_types(void);
     void output_instance_types(t_md_module_instance *module_instance);
@@ -55,20 +56,27 @@ class c_md_target_c: public c_md_target {
 
     t_md_module *module;
     std::list<std::string> all_signals_list;
-    void output_types(void);
-    void output_wrapper_functions(void);
-    void output_initalization_functions(void);
+    std::list<std::string> module_registrations;
+    const char *module_verilated_name;
     void output_header(void);
+    void cwv_output_header(void);
     void output_defines(void);
+    void output_types(void);
+    void cwv_output_types(void);
     void output_static_variables(void);
+    void cwv_output_static_variables(void);
     void output_constructors_destructors(void);
     void output_simulation_methods(void);
+    void output_static_functions(void);
+    void cwv_output_static_functions(void);
+    void output_initalization_functions(void);
 public:
     c_md_target_c(class c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle):
         c_md_target(model, output_fn, output_handle)
         {
         }
     void output_cpp_model(void);
+    void output_cwv_model(void);
 };
 
 /*a Wrapper

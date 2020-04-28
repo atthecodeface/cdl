@@ -215,9 +215,43 @@ all: $1
 
 $1: ${MODEL_LIBS} $3
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
+	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} $${VLIB__bbc_micro_with_rams__LIB} ${BUILD_ROOT}/bbc/verilate/verilated.o -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
 
 endef
+#f make_cwv
+# @param $1 library name
+# @param $2 cdl source directory
+# @param $3 output directory
+# @param $4 cdl filename within cdl source directory
+# @param $5 model name (not including cwv - must have done a make_verilator_lib on this)
+# @param $6 c filename for cwv to go in output dir [model name .cpp]
+# @param $7 object filename to go in output dir [model name .o]
+# @param $8 CDL options
+# @param $9 verilator build directory
+define make_cwv
+
+$3/$6 : $2/$4
+	@echo "CDL $4 -cwv $6" 
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model cwv__$5 --cwv $$@ $8 --include-dir /home/gavin/Git/bbc_grip/atcf_hardware_bbc/cdl $2/$4
+
+.PHONY:all_cwv
+all_cwv:$3/$7
+# The library we depend on is <model>, not cwv__<model>
+$3/$7 : $3/$6 $${VLIB__$5__H} $${VLIB__$5__LIB}
+	@echo "CC $6 -o $7" 
+	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -I $9 -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -c -o $$@ $3/$6
+
+$9/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp  $${VLIB__$5__H}
+	g++ -c -g ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $9/verilated.o  -I ${VERILATOR_SHARE}/include -I. ${VERILATOR_LIBS}
+
+LIB__$1__C_OBJS  += $9/verilated.o
+
+# LIB__$1__C_OBJS  +=  
+MODEL_LIBS += $${VLIB__$5__LIB}
+LIB__$1__C_OBJS  += $3/$7
+LIB__$1__MODELS += cwv__$5
+endef
+
 #f make_verilator_lib
 define make_verilator_lib
 # @param $1 output directory (for .h file and V<module>.a archive)

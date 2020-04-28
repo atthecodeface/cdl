@@ -203,7 +203,7 @@ define make_static_library
 # @param $2 objects
 # @param $3 static libraries to include in addition - must be ${CDL_BUILD_LIB_DIR}/lib<x>.a
 
-$1:$2
+$1:$2 $(foreach l,$3,${CDL_BUILD_LIB_DIR}/lib$l.a)
 	@echo "make static library $$@"
 	${Q}mkdir -p $1__library_dir
 	${Q}(cd $1__library_dir $(foreach l,$3,&& ar x ${CDL_BUILD_LIB_DIR}/lib$l.a))

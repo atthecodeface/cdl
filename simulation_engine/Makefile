@@ -48,6 +48,7 @@ ENGINE_SRCS = \
 INCLUDES = se_cmodel_assist.h \
 			c_se_engine.h \
 			se_errors.h \
+			se_wrapped_verilator.h \
 			se_external_module.h
 
 SRC_DIR = .

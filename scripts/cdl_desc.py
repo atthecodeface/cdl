@@ -253,7 +253,8 @@ class CdlModule(Module):
             r += ["--type-remap %s=%s"%(n,str(v))]
             pass
         for (n,v) in self.instance_types.items():
-            r += ["--remap-instance-type %s.%s=%s"%(self.model_name,n,str(v))]
+            # r += ["--remap-instance-type %s.%s=%s"%(self.model_name,n,str(v))]
+            r += ["--remap-instance-type %s.%s=%s"%(self.cdl_module_name,n,str(v))]
             pass
         return " ".join(r)
     def write_makefile(self, write, library_name):
@@ -531,6 +532,31 @@ class VerilatedModels(BuildableGroup):
         write("VERILATOR = PATH=${VERILATOR_ROOT}/bin:${PATH} ${VERILATOR_ROOT}/bin/verilator")
         write("VERILATOR_C_FLAGS = -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14")
         write("VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++")
+        write(r)
+
+        r = "$(eval $(call make_cwv,"
+        other_verilog_files = [""]
+        other_verilog_dirs = [""]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
+        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
+        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
+        other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
+        make_verilator_lib_template = [
+            library_name,
+            self.get_path_str(self.src_dir),
+            "${BUILD_DIR}",
+            self.cdl_filename+".cdl",
+            self.model_name, # So the templates have premunged, which is what the verilate templates used
+            "cwv__"+self.cpp_filename+".cpp",
+            "cwv__"+self.obj_filename+".o",
+            "${CDL_EXTRA_FLAGS} ", # +self.cdl_flags_string()+" "+cdl_include_dir_option,
+            # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
+            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string()+" "+cdl_include_dir_option, 
+            "${BUILD_DIR}/verilate",           
+        ]
+        r += ",".join(make_verilator_lib_template)
+        r += "))"
         write(r)
         pass
     #f makefile_write_entries
