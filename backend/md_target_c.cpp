@@ -214,40 +214,20 @@ enum
     om_make_valid_mask = 3,
 };
 
-/*a Output functions
- */
+/*a Useful functions */
 /*f string_type
  */
 static char *string_type( int width )
 {
-     if (width<=MD_BITS_PER_UINT64)
-     {
-          strcpy( type_buffer, "" );
-     }
-     else
-     {
-          sprintf( type_buffer, "[%d]", (width+MD_BITS_PER_UINT64-1)/MD_BITS_PER_UINT64 );
-     }
-     return type_buffer;
+    if (width<=MD_BITS_PER_UINT64) {
+        strcpy( type_buffer, "" );
+    } else {
+        sprintf( type_buffer, "[%d]", (width+MD_BITS_PER_UINT64-1)/MD_BITS_PER_UINT64 );
+    }
+    return type_buffer;
 }
 
-/*f c_md_target_c::output_header
- */
-void c_md_target_c::output_header(void)
-{
-     output( 0, "/*a Note: created by cyclicity CDL " __CDL__VERSION_STRING " - do not hand edit without adding a comment line here \n");
-     output( 0, " */\n");
-     output( 0, "\n");
-     output( 0, "/*a Includes\n");
-     output( 0, " */\n");
-     output( 0, "#include \"be_model_includes.h\"\n");
-     output( 0, "#include <stdio.h>\n");
-     output( 0, "#include <stdlib.h>\n");
-     output( 0, "#include <string.h>\n");
-     output( 0, "#include <cstddef>\n");
-     output( 0, "\n");
-}
-
+/*a Common output functions */
 /*f c_md_target_c::output_defines
  */
 void c_md_target_c::output_defines(void)
@@ -262,6 +242,9 @@ void c_md_target_c::output_defines(void)
     output( 0, "#define ASSIGN_TO_BIT_RANGE(vector,size,bit,length,value) se_cmodel_assist_assign_to_bit_range(vector,size,bit,length,value)\n" ) ;
     output( 0, "#define WIRE_OR_TO_BIT(vector,size,bit,value) se_cmodel_assist_or_to_bit(vector,size,bit,value)\n" ) ;
     output( 0, "#define WIRE_OR_TO_BIT_RANGE(vector,size,bit,length,value) se_cmodel_assist_or_to_bit_range(vector,size,bit,length,value)\n" ) ;
+    output( 0, "#define CWV_MOD_CE(m,sn,vn)  {m->vn = 1;}\n");
+    output( 0, "#define CWV_MOD_INP(m,sn,vn) {m->vn = all_signals->input_state.sn;}\n");
+    output( 0, "#define CWV_MOD_OUTP(m,sn,vn) {all_signals->outputs.sn = m->vn;}\n");
     output( 0, "#define DISPLAY_STRING(error_number,string) { \\\n" );
     output( 1, "engine->add_message( NULL, error_level_info, error_number, error_id_sl_exec_file_allocate_and_read_exec_file, \\\n");
     output( 2, "error_arg_type_integer, engine->cycle(),\\\n" );
@@ -405,6 +388,22 @@ void c_md_target_c::output_input_types(void)
     all_signals_list.push_back(make_string("t_%s_input_state input_state", module->output_name));
 }
 
+/*f c_md_target_c::output_output_types - t_*_outputs (values)
+ */
+void c_md_target_c::output_output_types(void)
+{
+    output( 0, "/*t t_%s_outputs */\n", module->output_name);
+    output( 0, "typedef struct t_%s_outputs {\n", module->output_name);
+    for (auto signal=module->outputs; signal; signal=signal->next_in_list) {
+        for (auto i=0; i<signal->instance_iter->number_children; i++) {
+            output( 1, "t_sl_uint64 %s;\n", signal->instance_iter->children[i]->output_name );
+        }
+    }
+    output( 0, "} t_%s_outputs;\n", module->output_name );
+    output( 0, "\n");
+    all_signals_list.push_back(make_string("t_%s_outputs outputs", module->output_name));
+}
+
 /*f c_md_target_c::output_combinatorial_types - t_*_combinatorials - type storage for combinatorials
  */
 void c_md_target_c::output_combinatorial_types(void)
@@ -494,6 +493,23 @@ void c_md_target_c::output_all_signals_type(void)
         output( 1, "%s;\n", x.c_str() );
     }
     output( 0, "} t_%s_all_signals;\n", module->output_name );
+}
+
+/*a CPP model output functions */
+/*f c_md_target_c::output_header */
+void c_md_target_c::output_header(void)
+{
+     output( 0, "/*a Note: created by cyclicity CDL " __CDL__VERSION_STRING " - do not hand edit without adding a comment line here \n");
+     output( 0, " */\n");
+     output( 0, "\n");
+     output( 0, "/*a Includes\n");
+     output( 0, " */\n");
+     output( 0, "#include \"be_model_includes.h\"\n");
+     output( 0, "#include <stdio.h>\n");
+     output( 0, "#include <stdlib.h>\n");
+     output( 0, "#include <string.h>\n");
+     output( 0, "#include <cstddef>\n");
+     output( 0, "\n");
 }
 
 /*f c_md_target_c::output_types
@@ -1094,12 +1110,6 @@ void c_md_target_c::output_static_variables(void)
      */
 }
 
-/*f c_md_target_c::output_wrapper_functions
- */
-void c_md_target_c::output_wrapper_functions(void)
-{
-}
-
 /*f c_md_target_c::output_constructors_destructors
  */
 void c_md_target_c::output_constructors_destructors(void)
@@ -1278,6 +1288,324 @@ void c_md_target_c::output_constructors_destructors(void)
     /*b All done */
 }
 
+/*f c_md_target_c::output_static_functions for a module
+ */
+void c_md_target_c::output_static_functions(void)
+{
+    output( 0, "/*f %s_instance_fn */\n", module->output_name);
+    output( 0, "static t_sl_error_level %s_instance_fn( c_engine *engine, void *engine_handle ) {\n", module->output_name);
+    output( 1, "auto mod = new c_%s( engine, engine_handle );\n", module->output_name);
+    output( 1, "if (!mod)\n");
+    output( 2, "return error_level_fatal;\n");
+    output( 1, "return error_level_okay;\n");
+    output( 0, "}\n");
+    output( 0, "\n");
+}
+ 
+/*a CWV model output functions */
+/*f c_md_target_c::cwv_output_header */
+void c_md_target_c::cwv_output_header(void)
+{
+    output( 0, "/*a Note: created by cyclicity CDL " __CDL__VERSION_STRING " to wrap verilator - do not hand edit without adding a comment line here */\n");
+    output( 0, "/*a Includes */\n");
+    output( 0, "#include \"be_model_includes.h\"\n");
+    output( 0, "#include \"se_wrapped_verilator.h\"\n");
+    output( 0, "#include <stdio.h>\n");
+    output( 0, "#include <stdlib.h>\n");
+    output( 0, "#include <string.h>\n");
+    output( 0, "#include <cstddef>\n");
+    output( 0, "\n");
+}
+
+/*f c_md_target_c::cwv_output_types for a module
+ */
+void c_md_target_c::cwv_output_types(void)
+{
+    /*b Output types header
+     */
+    output( 0, "/*a Types for %s */\n", module->output_name);
+
+    /*b Clear all signals and create types for them */
+    all_signals_list.clear();
+    output_input_types();
+    output_output_types();
+    output_all_signals_type();
+
+    /*b All done
+     */ 
+}
+
+/*f c_md_target_c::cwv_output_static_variables for a module
+ */
+void c_md_target_c::cwv_output_static_variables(void)
+{
+    /*b Output header with 
+     */
+    output( 0, "/*a Static variables for %s */\n", module->output_name);
+
+    /*b Output input descriptor
+     */
+    if (module->inputs) {
+        output( 0, "/*v input_desc_%s */\n", module->output_name );
+        output( 0, "static t_se_cma_input_desc input_desc_%s[] = {\n", module->output_name );
+        int signal_number = 0;
+        for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+            for (auto i=0; i<signal->instance_iter->number_children; i++) {
+                auto instance = signal->instance_iter->children[i];
+                instance->output_args[0] = signal_number;
+                signal_number++;
+                if (instance->type != md_type_instance_type_bit_vector) { fprintf(stderr,"BUG - port is an array, and cannot output that\n"); }
+                output( 1, "{\"%s\",all_signals_offsetof(%s,inputs.%s),all_signals_offsetof(%s,input_state.%s),%d,%d},\n",
+                        instance->output_name,
+                        module->output_name, instance->output_name,
+                        module->output_name, instance->output_name,
+                        instance->type_def.data.width,
+                        signal->data.input.used_combinatorially );
+            }
+        }
+        output( 1, "{NULL,0,0,0,0},\n" );
+        output( 0, "};\n\n", module->output_name );
+    }
+
+    /*b Output output descriptor
+     */
+    if (module->outputs) {
+        output( 0, "/*v output_desc_%s */\n", module->output_name );
+        output( 0, "static t_se_cma_output_desc output_desc_%s[] = {\n", module->output_name );
+        int signal_number = 0;
+        for (auto signal=module->outputs; signal; signal=signal->next_in_list) {
+            for (auto i=0; i<signal->instance_iter->number_children; i++) {
+                auto instance = signal->instance_iter->children[i];
+                output( 1, "{\"%s\", all_signals_offsetof(%s, outputs.%s), %d, %d },\n",
+                        instance->output_name,
+                        module->output_name,
+                        instance->output_name,
+                        instance->type_def.data.width,
+                        0);
+            }
+        }
+        output( 1, "{NULL,-1,0,0},\n" );
+        output( 0, "};\n\n" );
+    }
+
+    /*b Output individual clock descriptors
+     */
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) { // Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                for (auto edge=0; edge<2; edge++) {
+                    int used_on_clock_edge=0;
+                    int signal_number=0;
+                    output( 0, "/*v clock_desc_%s_%s_%s_inputs */\n", module->output_name, edge_name[edge], clk->name );
+                    output( 0, "static int clock_desc_%s_%s_%s_inputs[] = {\n", module->output_name, edge_name[edge], clk->name );
+
+                    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+                        used_on_clock_edge = 0;
+                        for (auto i=0; i<signal->instance_iter->number_children; i++) {
+                            auto instance = signal->instance_iter->children[i];
+                            for (auto clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL) {
+                                if ((clk2==clk) || (clk2->data.clock.root_clock_ref==clk)) {
+                                    if (model->reference_set_includes( &instance->dependents, clk2, edge )) {
+                                        used_on_clock_edge = 1;
+                                        clk2=NULL;
+                                    }
+                                }
+                            }
+                            if (used_on_clock_edge) break;
+                        }
+                        if (used_on_clock_edge) {
+                            output( 1, "%d,\n", signal_number);
+                        }
+                        signal_number=signal_number+1;
+                    }
+                    output( 1, "-1\n");
+                    output( 0, "};\n");
+                    output( 0, "\n");
+
+                    output( 0, "/*v clock_desc_%s_%s_%s_outputs */\n", module->output_name, edge_name[edge], clk->name );
+                    output( 0, "static int clock_desc_%s_%s_%s_outputs[] = { \n", module->output_name, edge_name[edge], clk->name );
+                    signal_number = 0;
+                    for (auto signal=module->outputs; signal; signal=signal->next_in_list) {
+                        if (signal->data.output.register_ref) {
+                            auto reg = signal->data.output.register_ref;
+                            if ((reg->clock_ref->data.clock.root_clock_ref == clk) && (reg->edge==edge)) {
+                                for (auto i=0; i<reg->instance_iter->number_children; i++) {
+                                    auto instance = reg->instance_iter->children[i];
+                                    output( 1, "%d,//r\n", instance->output_args[0]);
+                                }
+                            }
+                        }
+                        if (signal->data.output.combinatorial_ref) {
+                            for (auto i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++) {
+                                auto instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
+                                t_md_reference_iter iter;
+                                t_md_reference *reference;
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
+                                int derived_from_clock_edge=0;
+                                while ((reference = model->reference_set_iterate(&iter))!=NULL) {
+                                    auto clk2 = reference->data.signal; {
+                                    if ((clk2->data.clock.root_clock_ref==clk) && (edge==reference->edge))
+                                        derived_from_clock_edge=1;
+                                    }
+                                }
+                                if (derived_from_clock_edge) {
+                                    output( 1, "%d,\n", instance->output_args[0]);
+                                }
+                            }
+                        }
+                        if (signal->data.output.net_ref) {
+                            for (auto i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++) {
+                                int derived_from_clock_edge;
+                                auto instance = signal->data.output.net_ref->instance_iter->children[i];
+                                t_md_reference_iter iter;
+                                t_md_reference *reference;
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
+                                derived_from_clock_edge=0;
+                                while ((reference = model->reference_set_iterate(&iter))!=NULL) {
+                                    auto clk2 = reference->data.signal;
+                                    if ((clk2->data.clock.root_clock_ref==clk) && (edge==reference->edge)) {
+                                        derived_from_clock_edge = 1;
+                                    }
+                                }
+                                if (derived_from_clock_edge) {
+                                    output( 1, "%d,\n", instance->output_args[0]);
+                                }
+                            }
+                        }
+                    }
+                    output( 1, "-1\n");
+                    output( 0, "};\n");
+                    output( 0, "\n");
+                }
+                output( 0, "/*v clock_desc_%s_%s */\n", module->output_name, clk->name );
+                output( 0, "static t_se_cma_clock_desc clock_desc_%s_%s = {\n", module->output_name, clk->name );
+                output( 1, "\"%s\",\n",clk->name);
+                output( 1, "clock_desc_%s_posedge_%s_inputs,\n", module->output_name, clk->name);
+                output( 1, "clock_desc_%s_negedge_%s_inputs,\n", module->output_name, clk->name);
+                output( 1, "clock_desc_%s_posedge_%s_outputs,\n", module->output_name, clk->name);
+                output( 1, "clock_desc_%s_negedge_%s_outputs,\n", module->output_name, clk->name);
+                output( 0, "};\n");
+            }
+        }
+    }
+
+    /*b Output combined clock descriptor list
+     */
+    output( 0, "/*v clock_desc_%s */\n", module->output_name );
+    output( 0, "static t_se_cma_clock_desc *clock_desc_%s[] = {\n", module->output_name );
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                output( 1, "&clock_desc_%s_%s,\n", module->output_name, clk->name );
+            }
+        }
+    }
+    output( 1, "NULL\n");
+    output( 0, "};\n\n");
+
+    /*b Output module descriptor
+     */
+    output( 0, "/*v module_desc_%s */\n", module->output_name );
+    output( 0, "static t_se_cma_module_desc module_desc_%s = {\n", module->output_name );
+    if (module->inputs) {
+        output( 1, "input_desc_%s,\n" , module->output_name );
+    } else {
+        output( 1, "NULL,\n" );
+    }
+    if (module->outputs) {
+        output( 1, "output_desc_%s,\n", module->output_name );
+    } else {
+        output( 1, "NULL,\n" );
+    }
+    output( 1, "clock_desc_%s,\n" , module->output_name );
+    output( 0, "};\n");
+
+    /*b Output descriptor for c_se_wrapped_verilator */
+    output( 0, "/*v cv_desc_%s */\n", module->output_name );
+    output( 0, "static t_cdl_verilator_desc cv_desc_%s = {\n", module->output_name ); 
+    output( 1, "sizeof(t_%s_all_signals),\n", module->output_name ); 
+    output( 1, "static_eval_%s,\n", module->output_name ); 
+    output( 1, "static_delete_%s,\n", module->output_name ); 
+    output( 1, "&module_desc_%s\n", module->output_name ); 
+    output( 0, "};\n");
+
+
+    output( 0, "/*f %s_instance_fn */\n", module->output_name );
+    output( 0, "static t_sl_error_level %s_instance_fn(c_engine *engine, void *engine_handle) {", module->output_name );
+    output( 1, "auto name = engine->get_instance_full_name(engine_handle);\n");
+    output( 1, "auto m = new V%s();\n", module_verilated_name );
+    output( 1, "auto mod = new c_se_wrapped_verilator(engine, engine_handle, &cv_desc_%s, (VerilatedModule *)m);\n", module->output_name );
+    output( 1, "if (!mod) return error_level_fatal;\n" );
+    output( 1, "return error_level_okay;\n" );
+    output( 0, "}\n" );
+
+    /*b All done
+     */
+}
+
+/*f c_md_target_c::cwv_output_static_functions for a module
+ */
+static char *verilated_signal_name(const char *s)
+{
+    static char mangled_name[256];
+    unsigned int o=0;
+    for (unsigned int i=0; (o+7<sizeof(mangled_name)) && s[i]; i++) {
+        if ((s[i]=='_') && (s[i+1]=='_')) {
+            mangled_name[o++] = '_';
+            mangled_name[o++] = '_';
+            mangled_name[o++] = '_';
+            mangled_name[o++] = '0';
+            mangled_name[o++] = '5';
+            mangled_name[o++] = 'F';
+            i++;
+        } else {
+            mangled_name[o] = s[i];
+            o++;
+        }
+    }
+    mangled_name[o] = 0;
+    return mangled_name;
+}
+void c_md_target_c::cwv_output_static_functions(void)
+{
+    output( 0, "/*a Static functions for %s */", module->output_name );
+    output( 0, "/*f static_delete_%s */\n", module->output_name);
+    output( 0, "static void static_delete_%s(c_se_wrapped_verilator *cvd) {\n", module->output_name);
+    output( 1, "auto mod = (V%s *)cvd->get_module();", module_verilated_name);
+    output( 1, "delete(mod);\n");
+    output( 0, "}\n");
+
+    output( 0, "/*f static_eval_%s */\n", module->output_name);
+    output( 0, "static void static_eval_%s(c_se_wrapped_verilator *cvd) {\n", module->output_name);
+    output( 1, "auto mod = (V%s *)cvd->get_module();\n", module_verilated_name);
+    output( 1, "t_%s_all_signals *all_signals = (t_%s_all_signals *)cvd->get_all_signals();\n", module->output_name, module->output_name);
+    for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
+        for (auto i=0; i<signal->instance_iter->number_children; i++) {
+            auto signal_name = signal->instance_iter->children[i]->output_name;
+            output( 1, "CWV_MOD_INP(mod,%s,%s);\n", signal_name, verilated_signal_name(signal_name) );
+        }
+    }
+    // MOD_CE(mod,de1_cl_lcd_clock__enable,de1_cl_lcd_clock___05Fenable);
+    int n=0;
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list, n++) {
+        if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                output( 1, "mod->%s = cvd->get_clock_value(%d);\n", clk->name, n );
+            }
+        }
+    }
+    output( 1, "mod->eval();\n" );
+    for (auto signal=module->outputs; signal; signal=signal->next_in_list) {
+        for (auto i=0; i<signal->instance_iter->number_children; i++) {
+            auto signal_name = signal->instance_iter->children[i]->output_name;
+            output( 1, "CWV_MOD_OUTP(mod,%s,%s);\n", signal_name, verilated_signal_name(signal_name) );
+        }
+    }
+    output( 0, "}\n" );
+}
+ 
 /*a Output simulation methods functions (to convert CDL model to C)
  */
 /*f c_md_target_c::output_simulation_methods_lvar
@@ -2947,25 +3275,11 @@ void c_md_target_c::output_simulation_methods(void)
 void c_md_target_c::output_initalization_functions(void)
 {
     output( 0, "/*a Initialization functions */\n");
-    for (auto module=model->module_list; module; module=module->next_in_list) {
-        if (module->external)
-            continue;
-        output( 0, "/*f %s_instance_fn */\n", module->output_name);
-        output( 0, "static t_sl_error_level %s_instance_fn( c_engine *engine, void *engine_handle ) {\n", module->output_name);
-        output( 1, "auto mod = new c_%s( engine, engine_handle );\n", module->output_name);
-        output( 1, "if (!mod)\n");
-        output( 2, "return error_level_fatal;\n");
-        output( 1, "return error_level_okay;\n");
-        output( 0, "}\n");
-        output( 0, "\n");
-    }
     output( 0, "/*f %s__init */\n", model->get_name() );
     output( 0, "extern void %s__init( void )\n", model->get_name() );
     output( 0, "{\n");
-    for (auto module=model->module_list; module; module=module->next_in_list) {
-        if (module->external)
-            continue;
-        output( 1, "se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->registered_name, module->output_name, module->implementation_name );
+    for (auto &m:module_registrations) {
+        output(1, "%s", m.c_str());
     }
     output( 0, "}\n");
     output( 0, "\n");
@@ -2978,12 +3292,13 @@ void c_md_target_c::output_initalization_functions(void)
     output( 0, "}\n");
 }
 
-/*a Public methods - output_cpp_model
+/*a Public methods - output_cpp_model, output_cwv_model
  */
 /*f c_md_target_c::output_cpp_model
  */
 void c_md_target_c::output_cpp_model(void)
 {
+    module_registrations.clear();
     /*b Output the header, defines, and global types/fns
      */
     output_header();
@@ -3015,9 +3330,43 @@ void c_md_target_c::output_cpp_model(void)
 
         output_types();
         output_static_variables();
-        output_wrapper_functions();
         output_constructors_destructors();
         output_simulation_methods();
+        output_static_functions();
+        auto module_registration = make_string("se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->registered_name, module->output_name, module->implementation_name);
+        module_registrations.push_back(module_registration);
+    }
+
+    /*b Output the initialization functions
+     */
+    output_initalization_functions();
+}
+
+/*f c_md_target_c::output_cwv_model
+ */
+void c_md_target_c::output_cwv_model(void)
+{
+    module_registrations.clear();
+    /*b Output the header, defines, and global types/fns
+     */
+    cwv_output_header();
+    output_defines();
+
+    /*b Output the modules
+     */
+    for (module=model->module_list; module; module=module->next_in_list) {
+        if (module->external) continue;
+        module_verilated_name = module->output_name;
+        output( 0, "#include \"V%s.h\"\n", module->output_name);
+        auto keep_output_name = module->output_name;
+        auto cwv_output_name = make_string("cwv__%s",module->output_name);
+        module->output_name = cwv_output_name.c_str();
+        cwv_output_types();
+        cwv_output_static_functions();
+        cwv_output_static_variables();
+        auto module_registration = make_string("se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->output_name, module->output_name, module->implementation_name);
+        module_registrations.push_back(module_registration);
+        module->output_name = keep_output_name;
     }
 
     /*b Output the initialization functions

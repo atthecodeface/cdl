@@ -36,6 +36,7 @@
 #define BE_OPTIONS \
      { "model", required_argument, NULL, option_be_model }, \
      { "cpp", required_argument, NULL, option_be_cpp }, \
+     { "cwv", required_argument, NULL, option_be_cwv }, \
      { "xml", required_argument, NULL, option_be_xml }, \
      { "cdlh", required_argument, NULL, option_be_cdlh }, \
      { "verilog", required_argument, NULL, option_be_verilog }, \
@@ -88,6 +89,7 @@ enum
     option_be_verilog = option_be_start,
     option_be_vhdl,
     option_be_cpp,
+    option_be_cwv,
     option_be_xml,
     option_be_cdlh,
     option_be_model,

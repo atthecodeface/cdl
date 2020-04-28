@@ -86,7 +86,7 @@ public:
     void reset( int pass );
     c_se_wrapped_verilator(class c_engine *eng, void *eng_handle, t_cdl_verilator_desc *cv_desc, class VerilatedModule *handle);
     ~c_se_wrapped_verilator();
-    inline VerilatedModule *get_module(void) const {return module;};
+    inline class VerilatedModule *get_module(void) const {return module;};
     inline t_sl_uint64 *get_all_signals(void) const {return all_signals;};
     inline int get_clock_value(int n) const {return clock_values[n];};
 };

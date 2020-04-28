@@ -64,7 +64,8 @@ static t_sl_error_text default_error_messages[] = {
 
 /*v indent_string
  */
-static const char *indent_string = "    ";
+#define MAX_INDENT (200)
+static const char *indent_string = "                                                                                                                                                                                                        "; //  MAX_INDENT spaces
 
 /*v output_separator
  */
@@ -5831,20 +5832,17 @@ void c_model_descriptor::labelled_expressions_free( t_md_labelled_expression *li
  */
 static void output_indented( void *handle, int indent, const char *format, ... )
 {
-     FILE *f;
      va_list ap;
-     int i;
-
      va_start( ap, format );
 
-     f = (FILE *)handle;
-     if (indent>=0)
-     {
-          for (i=0; i<indent; i++)
-              fputs( indent_string, f );
+     auto f = (FILE *)handle;
+     if (indent>0) {
+         int start = MAX_INDENT-(indent*4);
+         if (start<0) start=0;
+         fputs(indent_string+start, f );
      }
      vfprintf( f, format, ap );
-     fflush(f);
+     //fflush(f);
      va_end( ap );
 }
 
@@ -6077,10 +6075,8 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
     options.verilog.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
 
      filename = sl_option_get_string( env_options, "be_coverage_map" );
-     if (filename)
-     {
-         if (include_coverage || include_stmt_coverage)
-         {
+     if (filename) {
+         if (include_coverage || include_stmt_coverage) {
              output_coverage_map( filename );
          }
      }
@@ -6091,6 +6087,20 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          if (f) {
              auto mdt = c_md_target_c(this, output_indented, (void *)f);
              mdt.output_cpp_model();
+             fclose(f);
+         } else {
+             error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
+                               error_arg_type_malloc_string, filename,
+                               error_arg_type_none );
+         }
+     }
+
+     filename = sl_option_get_string( env_options, "be_cwvfile" );
+     if (filename) {
+         f = fopen(filename, "w");
+         if (f) {
+             auto mdt = c_md_target_c(this, output_indented, (void *)f);
+             mdt.output_cwv_model();
              fclose(f);
          } else {
              error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
@@ -6208,6 +6218,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_cpp:
           *env_options = sl_option_list( *env_options, "be_cppfile", optarg );
+          return 1;
+     case option_be_cwv:
+          *env_options = sl_option_list( *env_options, "be_cwvfile", optarg );
           return 1;
      case option_be_xml:
           *env_options = sl_option_list( *env_options, "be_xmlfile", optarg );
