@@ -73,5 +73,40 @@ PTHREAD_CXXFLAGS="$pthread_cxxflags"
 AC_SUBST([PTHREAD_CFLAGS])
 AC_SUBST([PTHREAD_CXXFLAGS])
 
+AC_ARG_VAR([VERILATOR_ROOT],  [Path to bin/verilator*])
+AC_ARG_VAR([VERILATOR_SHARE], [Path to include/verilated.h etc])
+AS_IF([test "x$ac_cv_env_VERILATOR_ROOT" == x],
+  [ AC_PATH_PROG([VERILATOR_BIN],[verilator],[verilator_not_found])
+    AS_IF([test "$ac_cv_path_VERILATOR_BIN" = "verilator_not_found"],
+      [AC_MSG_WARN(['verilator' not found - not including verilator support; add verilator to the path or set VERILATOR_ROOT and VERILATOR_SHARE when configuring])],
+      [ ac_cv_env_VERILATOR_ROOT="$(dirname $(dirname $ac_cv_path_VERILATOR_BIN))"
+        ac_cv_env_VERILATOR_SHARE="$ac_cv_env_VERILATOR_ROOT/share/verilator"
+      ])
+    ]
+)
+AC_MSG_CHECKING([Verilator])
+AS_IF([test "x$ac_cv_env_VERILATOR_ROOT" != x],
+      [AS_IF([test -x "$ac_cv_env_VERILATOR_ROOT/bin/verilator"],
+             [],
+             [AC_MSG_ERROR([VERILATOR_ROOT of '$ac_cv_env_VERILATOR_ROOT' does not contain bin/verilator])]
+            )]
+      [AS_IF([test -f "$ac_cv_env_VERILATOR_SHARE/include/verilated.h"],
+             [],
+             [AC_MSG_ERROR([VERILATOR_SHARE of '$ac_cv_env_VERILATOR_SHARE' does not contain include/verilated.h])]
+            )]
+     VERILATOR_ROOT=$ac_cv_env_VERILATOR_ROOT
+     VERILATOR_SHARE=$ac_cv_env_VERILATOR_SHARE
+     AC_MSG_RESULT([:$VERILATOR_SHARE ; $VERILATOR_ROOT])
+     ,
+     AC_MSG_RESULT([not being supported])
+     )
+
 AC_OUTPUT
 
+
+dnl AC_CHECK_HEADERS([png.h])
+dnl AC_CHECK_HEADERS([noway.h])
+dnl AC_SEARCH_LIBS([png_get_io_ptr],[png],,[AC_MSG_ERROR([Sorry... no libpng])])
+dnl AC_SEARCH_LIBS([jpeg_CreateDecompress], [jpeg],,[AC_MSG_ERROR([Sorry... no libjpeg])])
+dnl AC_PATH_PROG([CYCLICITY],[bin/linux/cdl],[not_found])
+dnl AS_IF([test "$ac_cv_path_CYCLICITY" = "not_found"],[AC_MSG_ERROR(['cdl' not found - try using CYCLICITY=/path/to/cdl])])

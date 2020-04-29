@@ -123,7 +123,7 @@ define cdl_makefile_template
 # This must be invoked AFTER a -include of the created Makefile
 # as this will only make the specified makefile ONCE
 #
-$(eval $(call $(if ${CDL_MAKEFILES_MADE__$2},cdl_makefile_template_inner,,),$1,$2,$3))
+$(eval $(call $(if ${CDL_MAKEFILES_MADE__$2},,cdl_makefile_template_inner),$1,$2,$3))
 endef
 
 #f cdl_makefile_template_inner
