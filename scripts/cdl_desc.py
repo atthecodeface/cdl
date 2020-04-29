@@ -487,6 +487,8 @@ class Executables(BuildableGroup):
 #c VerilatedModels - subclassed in library_desc.py files
 class VerilatedModels(BuildableGroup):
     name = None
+    cdl_include_dirs = []
+    force_includes = []
     #f validate - classmethod
     @classmethod
     def validate(cls):
@@ -534,6 +536,13 @@ class VerilatedModels(BuildableGroup):
         write("VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++")
         write(r)
 
+        cdl_include_dir_option = ""
+        for i in self.cdl_include_dirs:
+            cdl_include_dir_option += "--include-dir "+self.get_path_str(i)+" "
+            pass
+        for i in self.force_includes:
+            cdl_include_dir_option += "--force-include "+i+" "
+            pass
         r = "$(eval $(call make_cwv,"
         other_verilog_files = [""]
         other_verilog_dirs = [""]
@@ -550,7 +559,7 @@ class VerilatedModels(BuildableGroup):
             self.model_name, # So the templates have premunged, which is what the verilate templates used
             "cwv__"+self.cpp_filename+".cpp",
             "cwv__"+self.obj_filename+".o",
-            "${CDL_EXTRA_FLAGS} ", # +self.cdl_flags_string()+" "+cdl_include_dir_option,
+            "${CDL_EXTRA_FLAGS} "+cdl_include_dir_option, # +self.cdl_flags_string()
             # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
             # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string()+" "+cdl_include_dir_option, 
             "${BUILD_DIR}/verilate",           

@@ -49,7 +49,7 @@ INCLUDES = se_cmodel_assist.h \
 			se_errors.h \
 			se_external_module.h
 
-ifneq ($(strip ${VERLATOR_SHARE}),)
+ifneq ($(strip ${VERILATOR_SHARE}),)
 ENGINE_SRCS += se_wrapped_verilator.cpp
 INCLUDES    += se_wrapped_verilator.h
 endif

@@ -1,5 +1,5 @@
-AC_INIT([CDL compiler],[1.0])
-
+AC_INIT([CDL compiler],[2.0])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([Makefile_build_config])
 AC_CONFIG_FILES([scripts/Makefile_cdl_template_config])
@@ -43,11 +43,16 @@ AS_IF([test -z "$PYTHON_INCLUDE"], [
 AC_SUBST([PYTHON_INCLUDE])
 AC_SUBST([PYTHON_LIBS])
 
+AC_CANONICAL_HOST
 os_cxxflags="-fPIC"
 os_cflags="-fPIC"
+
 dynamic_library_flags="-shared"
 pthread_cflags="-pthread"
 pthread_cxxflags="-pthread"
+make_static_binary="\${CXX} \${CXXFLAGS} -o"
+make_static_library="ar rcs "
+make_dynamic_library="\${CXX} $dynamic_library_flags -o"
 case $host_os in
   darwin* )
     os_cxxflags=""
@@ -55,15 +60,19 @@ case $host_os in
     dynamic_library_flags="-bundle"
     pthread_cflags=""
     pthread_cxxflags=""
+    # possibly also LINKFLAGS but that may be old
+    make_static_binary="\${CXX} \${CXXFLAGS} -o"
+    make_static_library="libtool -static -o "
+    make_dynamic_library="\${CXX} $dynamic_library_flags -o"
 esac
 OS_CFLAGS="$os_cflags"
 OS_CXXFLAGS="$os_cxxflags"
 AC_SUBST([OS_CFLAGS])
 AC_SUBST([OS_CXXFLAGS])
 
-MAKE_STATIC_BINARY="\${CXX} \${CXXFLAGS} -o"
-MAKE_STATIC_LIBRARY="ar rcs "
-MAKE_DYNAMIC_LIBRARY="\${CXX} $dynamic_library_flags -o"
+MAKE_STATIC_BINARY=$make_static_binary
+MAKE_STATIC_LIBRARY=$make_static_library
+MAKE_DYNAMIC_LIBRARY=$make_dynamic_library
 AC_SUBST([MAKE_STATIC_BINARY])
 AC_SUBST([MAKE_STATIC_LIBRARY])
 AC_SUBST([MAKE_DYNAMIC_LIBRARY])
