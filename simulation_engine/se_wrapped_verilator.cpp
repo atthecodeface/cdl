@@ -108,10 +108,16 @@ c_sram_module::c_sram_module(class c_se_wrapped_verilator *parent, VerilatedVar 
     int first_element = vv.left(1);
     ssize_t ram_size = vv.entSize();
     if (bit_width<0) bit_width=-bit_width;
+    bit_width++;
     if (num_elements<0) num_elements=-num_elements;
     num_elements++;
     if (first_element>vv.right(1)) first_element=vv.right(1);
     t_sl_uint64 mask = ((bit_width==64)?0:(1ULL<<bit_width))-1;
+    int bytes_per_entry = 0;
+    if (vv.vltype()==VLVT_UINT8)  { bytes_per_entry=1; }
+    if (vv.vltype()==VLVT_UINT16) { bytes_per_entry=2; }
+    if (vv.vltype()==VLVT_UINT32) { bytes_per_entry=4; }
+    if (vv.vltype()==VLVT_UINT64) { bytes_per_entry=8; }
 
     this->parent = parent;
     this->data = data;
@@ -157,6 +163,7 @@ void c_sram_module::write(t_sl_uint64 address, t_sl_uint64 *write_data)
 }
 void c_sram_module::reset()
 {
+    fprintf(stderr,"Reset to filename %s %p\n",filename, data);
     sl_mif_read_mif_file( parent->engine->error, filename, "CDL wrapped verilog",
                           first_element, // address_offset,
                           num_elements, // t_sl_uint64 size, // size of memory - don't callback if address in file - address_offset is outside the range 0 to size-1
@@ -164,26 +171,52 @@ void c_sram_module::reset()
                           sram_write_callback, (void *)this );
 }
 
+/*f create_verilated_submodules_with_publics
+ *
+ * Run through all the publicly visible storage in the Verilated model
+ *
+ * The scope should all be TOP.<module type>.<scopes...>
+ *
+ * If a scope element name starts with this module name, then
+ *   for each publicy visible storage in that scope element
+ *     invoke create_submodule_for_verilated_var with
+ *     subscope element name (i.e. that submodule instance name)
+ *     publicy visible storage name
+ *     publicy visible storage reference (VerilatedVar)
+ *
+ */
 void c_se_wrapped_verilator::create_verilated_submodules_with_publics(void)
 {
     auto name = module->name();
     int name_len = strlen(name);
-    auto sn = Verilated::scopeNameMap();
-    for (auto it = sn->begin(); it != sn->end(); ++it) {
+    auto snm = Verilated::scopeNameMap();
+    for (auto it = snm->begin(); it != snm->end(); ++it) {
         auto sn = it->first;
         if (strncmp(name,sn,name_len)!=0) continue;
         if (sn[name_len]!='.') continue;
         auto sc = it->second;
         auto vsp = sc->varsp();
+        auto sub_sn = sn+name_len+1;
+        while (sub_sn[0] && sub_sn[0]!='.') sub_sn++;
+        if (sub_sn[0]=='.') sub_sn++;
+        if (!sub_sn[0]) continue;
         for (auto vv = vsp->begin(); vv != vsp->end(); ++vv) {
-            create_submodule_for_verilated_var(sn+name_len+1, vv->first, vv->second);
+            create_submodule_for_verilated_var(sub_sn, vv->first, vv->second);
         }
     }
 }    
 
+/*f create_submodule_for_verilated_var
+ *
+ * mp = submodule name within this module of the variable (e.g foo.blob)
+ * mn = variable name within that submodule (e.g. ram)
+ * vv = VerilatedVar of that (with a vltype() and dims() etc)
+ *
+ */
 void c_se_wrapped_verilator::create_submodule_for_verilated_var(const char *mp, const char *mn, VerilatedVar &vv)
 {
     int bytes_per_entry;
+    int mplen = strlen(mp);
     if ((vv.dims()!=2) || (vv.udims()!=1)) return;
     bytes_per_entry = 0;
     if (vv.vltype()==VLVT_UINT8)  { bytes_per_entry=1; }
@@ -192,18 +225,23 @@ void c_se_wrapped_verilator::create_submodule_for_verilated_var(const char *mp, 
     if (vv.vltype()==VLVT_UINT64) { bytes_per_entry=8; }
     if (bytes_per_entry==0) return;
 
-    int needs_ram;
-    auto filename="blah.mif";
-    int reset_type = 0;
-    int reset_value = 0;
-    needs_ram = 1;
-    if (needs_ram) {
-    auto sram = new c_sram_module(this, vv, reset_type, reset_value, filename);
+    if ((mplen>=5) &&
+        !strcmp(mp+mplen-4,".ram")
+        ) {
+        // se_sram_srw_NxM* instantiate a submodule se_sram_srw from srams.v called ram
+        // This submodule has a variable called ram (mn)
+        // So we have to STRIP the trailing .ram
+        // auto opt_name = std::string(mp) + std::string(".") + std::string(mn) + std::string(".filename");
+        // filename = engine->get_option_string( engine_handle, "filename", "" );
+        // reset_type = engine->get_option_int( engine_handle, "reset_type", 2 );
+        // reset_value = engine->get_option_int( engine_handle, "reset_value", 0 );
+        auto opt_name = (std::string(mp)).substr(0,mplen-4) + std::string(".filename");
+        auto filename = engine->get_option_string(engine_handle, opt_name.c_str(), "blah.mif" );
+        int reset_type = 0;
+        int reset_value = 0;
+        auto sram = new c_sram_module(this, vv, reset_type, reset_value, filename);
         sram_list.push_back(sram);
     }
-    // filename = engine->get_option_string( engine_handle, "filename", "" );
-    // reset_type = engine->get_option_int( engine_handle, "reset_type", 2 );
-    // reset_value = engine->get_option_int( engine_handle, "reset_value", 0 );
 }
 
 c_se_wrapped_verilator::c_se_wrapped_verilator(class c_engine *eng, void *eng_handle, t_cdl_verilator_desc *desc, VerilatedModule *module)
@@ -245,6 +283,8 @@ c_se_wrapped_verilator::c_se_wrapped_verilator(class c_engine *eng, void *eng_ha
     //engine->register_state_desc( engine_handle, 1, module_desc->state_desc, &module_data->all_signals, NULL );
 
     inputs_captured = 0;
+    eval_invoked = 0;
+    clocks_to_toggle = 0;
 }
 
 /*f ~c_se_wrapped_verilator
@@ -273,29 +313,42 @@ void c_se_wrapped_verilator::delete_instance( void )
 */
 void c_se_wrapped_verilator::reset( int pass )
 {
-    for (auto m=sram_list.begin(); m != sram_list.end(); ++m) {
-        (*m)->reset();
+    for (auto &m:sram_list) {
+        m->reset();
     }
     if (pass==0) {  // Dont call capture_inputs on first pass as they may be invalid; wait for second pass
         se_cmodel_assist_check_unconnected_inputs(engine, engine_handle, (void *)all_signals, desc->module_desc->input_descs, "bbc_keyboard_csr" );
     } else {
         capture_inputs();
     }
-    eval();
     inputs_captured = 0;
+    clocks_to_toggle = 0;
+    eval_invoked = 0;
+    eval(0);
 }
 
 /*f capture_inputs
 */
+#define SR( t, a ) (t)(((char *)all_signals)+a)
 void c_se_wrapped_verilator::capture_inputs( void )
 {
+    for (int i=0; ; i++) {
+        auto input = &(desc->module_desc->input_descs[i]);
+        if (!(input->port_name)) break;
+        auto input_ptr       = SR( t_sl_uint64 **, input->driver_ofs );
+        auto input_state_ptr = SR( t_sl_uint64 *,  input->input_state_ofs );
+        if (input->width<64)
+            input_state_ptr[0] = (*(input_ptr[0])) & ((1ULL<<input->width)-1);
+        else
+            input_state_ptr[0] = *(input_ptr[0]);
+    }
 }
 
 /*f eval
 */
-void c_se_wrapped_verilator::eval( void )
+void c_se_wrapped_verilator::eval(int clocks_to_toggle)
 {
-    desc->eval_fn(this);
+    desc->eval_fn(this, clocks_to_toggle);
 }
 
 /*f prepreclock
@@ -304,6 +357,7 @@ void c_se_wrapped_verilator::prepreclock( void )
 {
     inputs_captured = 0;
     eval_invoked = 0;
+    clocks_to_toggle = 0;
 }
 
 /*f preclock
@@ -312,12 +366,13 @@ void c_se_wrapped_verilator::preclock(int clock, int posedge)
 {
     if (!inputs_captured) { capture_inputs(); inputs_captured++; }
     clock_values[clock] = posedge;
+    clocks_to_toggle |= 1<<clock;
 }
 
 /*f clock
 */
 void c_se_wrapped_verilator::clock(int clock, int posedge)
 {
-    if (!eval_invoked) { eval(); eval_invoked=1; }
+    if (!eval_invoked) { eval(clocks_to_toggle); eval_invoked=1; }
 }
 

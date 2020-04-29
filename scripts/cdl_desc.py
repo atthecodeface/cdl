@@ -760,6 +760,9 @@ class ImportedLibrary:
         write("include ${CDL_ROOT}/lib/cdl/cdl_templates.mk")
         write("")
         write("BUILD_DIR=%s"%str(build_path))
+        write("")
+        write("$(eval $(call library_init_template,${LIB_NAME},${BUILD_DIR},%s,%s,%s))"%(str(self.get_path()),library_description_path,relative_to))
+        write("")
         write("LIB__${LIB_NAME}__MAKEFILE=${BUILD_DIR}/Makefile")
         write("CDL_FLAGS += --library-desc=%s --source-root=%s"%(library_description_path,relative_to))
         write("")
@@ -909,6 +912,8 @@ class ImportedLibrarySet:
         write("all: sim")
         write("SUBMAKE=${MAKE} CDL_ROOT=${CDL_ROOT}")
         write("")
+        write("$(eval $(call toplevel_init_template))")
+        write("")
         r = "$(eval $(call cdl_makefile_template,"
         makefile_template = [" ".join(str(l) for l in self.library_paths_required),
                              str(self.build_root),
@@ -933,11 +938,7 @@ class ImportedLibrarySet:
         write("$(eval $(call sim_init_object_file,${BUILD_ROOT},obj_init,%s))"%" ".join(library_names))
         write("$(eval $(call command_line_sim,${SIM},${BUILD_ROOT},${BUILD_ROOT}/obj_init.o))")
         write("")
-        write("clean: clean_build")
-        write("clean_build:")
-        write("\trm -f ${SIM}")
-        write("\trm -f ${BUILD_ROOT}/obj_init.o")
-        write("\tmkdir -p ${BUILD_ROOT}")
+        write("$(eval $(call toplevel_clean_template))")
         pass
     #f create_makefile
     def create_makefile(self):

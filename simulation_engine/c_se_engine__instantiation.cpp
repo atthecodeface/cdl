@@ -427,8 +427,8 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
       */
      name = sl_str_alloc_copy( name );
      pemi = (t_engine_module_instance *)parent_engine_handle;
-     if (pemi)
-     {
+     full_name = (char *)name;
+     if (pemi) {
          int parent_length;
          parent_length = strlen(pemi->full_name);
          full_name = (char *)malloc( parent_length+strlen(name)+2 );
@@ -436,21 +436,19 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
          full_name[parent_length] = '.';
          strcpy( full_name+parent_length+1, name );
      }
-     else
-     {
-         full_name = (char *)name;
-     }
 
      /*b Find any override options for full_name, and create a new list with those options pointing to option_list at the tail;
       */
      combined_option_list = option_list;
-     {
-         t_engine_module_forced_option *fopt;
-         for (fopt = module_forced_options; fopt; fopt=fopt->next_in_list)
-         {
-             if (!strcmp(fopt->full_name, full_name))
-             {
-                 combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
+     int full_name_len = strlen(full_name);
+     for (auto fopt = module_forced_options; fopt; fopt=fopt->next_in_list) {
+         if (!strcmp(fopt->full_name, full_name)) {
+             combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
+         } else {
+             if ( (!strncmp(fopt->full_name, full_name, full_name_len)) && (fopt->full_name[full_name_len]=='.')) {
+                 auto opt = sl_option_list_copy_item(fopt->option,&(fopt->full_name[full_name_len+1]),sl_option_keyword(fopt->option));
+                 combined_option_list = sl_option_list_prepend( combined_option_list, opt );
+                 fprintf(stderr, "New option for %s is %s\n", full_name, sl_option_keyword(opt));
              }
          }
      }

@@ -271,28 +271,33 @@ extern t_sl_option *sl_option_list( t_sl_option *list, const char *keyword, cons
 
 /*f sl_option_list_copy_item 
  */
-extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
+extern t_sl_option *sl_option_list_copy_item( t_sl_option *item, const char *new_keyword_prefix, const char *new_keyword )
 {
     int size;
     t_sl_option *new_item;
 
-    WHERE_I_AM;
     if (!item) return NULL;
 
-    WHERE_I_AM;
-    size = sizeof(t_sl_option)+strlen(item->keyword)+strlen(item->string)+1;
+    int keyword_length = strlen(new_keyword)+1 ; // include null termination
+    if (new_keyword_prefix) {keyword_length += 1 + strlen(new_keyword_prefix); }
+    size = sizeof(t_sl_option)+keyword_length+strlen(item->string); // t_sl_option has 1 char for string termination
 
-    WHERE_I_AM;
     new_item = (t_sl_option *)malloc(size);
     if (!new_item) return NULL;
     new_item->next_in_list = NULL;
     new_item->type = item->type;
-    strcpy( new_item->keyword, item->keyword );
+    if (new_keyword_prefix) {
+        int kplen = strlen(new_keyword_prefix);
+        strcpy( new_item->keyword, new_keyword_prefix );
+        new_item->keyword[kplen] = '.';
+        strcpy( new_item->keyword+kplen+1, new_keyword );
+    } else {
+        strcpy( new_item->keyword, new_keyword );
+    }
 
-    WHERE_I_AM;
-    new_item->string = new_item->keyword+strlen(new_item->keyword)+1;
+    new_item->string = new_item->keyword + keyword_length;
     strcpy( new_item->string, item->string );
-    WHERE_I_AM;
+
     switch (item->type)
     {
     case option_type_string:
@@ -307,8 +312,15 @@ extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
         new_item->object = item->object;
         break;
     }
-    WHERE_I_AM;
     return new_item;
+}
+
+/*f sl_option_list_copy_item 
+ */
+extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
+{
+    if (!item) return NULL;
+    return sl_option_list_copy_item(item, NULL, item->keyword);
 }
 
 /*f sl_option_list_prepend - prepend item to list by copying item
@@ -328,6 +340,13 @@ extern t_sl_option *sl_option_list_prepend( t_sl_option *list, t_sl_option *item
     }
     WHERE_I_AM;
     return item;
+}
+
+/*f sl_option_keyword - get the keyword if an item
+ */
+extern const char *sl_option_keyword( t_sl_option_list list )
+{
+    return list->keyword;
 }
 
 /*f sl_option_free_list

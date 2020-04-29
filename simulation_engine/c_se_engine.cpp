@@ -279,9 +279,7 @@ const char *c_engine::get_option_string( void *handle, const char *keyword, cons
  */
 t_sl_option_list c_engine::get_option_list( void *handle )
 {
-     t_engine_module_instance *emi;
-
-     emi = (t_engine_module_instance *)handle;
+     auto emi = (t_engine_module_instance *)handle;
      return emi->option_list;
 }
 
