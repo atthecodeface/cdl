@@ -242,7 +242,7 @@ BIN_OBJS__$1__$2 = $(foreach o,$5,$4/${o}.o)
 BIN_LIBS__$1__$2 = $(foreach l,$6,$3/$6/lib_${l}.a)
 
 $3/$1_$2: $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2}
-	@echo "Link binary exectable $$@"
+	@echo "Link binary executable $$@"
 	${Q}${MAKE_STATIC_BINARY} $$@ $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2} ${LD_FLAGS}
 
 LIB__$1__CLEAN_TARGETS += $3/$1_$2
@@ -359,7 +359,7 @@ define make_cwv
 
 $3/$6 : $2/$4
 	@echo "CDL $4 -cwv $6" 
-	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model cwv__$5 --cwv $$@ $8 --include-dir /home/gavin/Git/bbc_grip/atcf_hardware_bbc/cdl $2/$4
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model cwv__$5 --cwv $$@ $8 $2/$4
 
 .PHONY:all_cwv
 all_cwv:$3/$7
