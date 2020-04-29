@@ -65,11 +65,13 @@ extern int sl_option_get_string( t_sl_option_list list, const char *keyword, int
 extern const char *sl_option_get_string( void *list, const char *keyword );
 extern const char *sl_option_get_string( t_sl_option_list list, const char *keyword );
 extern void *sl_option_get_object( t_sl_option *list, const char *keyword );
+extern const char *sl_option_keyword( t_sl_option_list list );
 extern t_sl_option_list sl_option_list( t_sl_option_list list, const char *keyword, void *object );
 extern t_sl_option_list sl_option_list( t_sl_option_list list, const char *keyword, double value );
 extern t_sl_option_list sl_option_list( t_sl_option_list list, const char *keyword, int value );
 extern t_sl_option_list sl_option_list( t_sl_option_list list, const char *keyword, t_sl_uint64 value );
 extern t_sl_option_list sl_option_list( t_sl_option_list list, const char *keyword, const char *string);
+extern t_sl_option *sl_option_list_copy_item( t_sl_option *item, const char *new_keyword_prefix, const char *new_keyword );
 extern t_sl_option_list sl_option_list_copy_item( t_sl_option_list item );
 extern t_sl_option_list sl_option_list_prepend( t_sl_option_list list, t_sl_option_list item );
 extern void sl_option_free_list( t_sl_option_list list );

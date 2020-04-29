@@ -1578,7 +1578,7 @@ void c_md_target_c::cwv_output_static_functions(void)
     output( 0, "}\n");
 
     output( 0, "/*f static_eval_%s */\n", module->output_name);
-    output( 0, "static void static_eval_%s(c_se_wrapped_verilator *cvd) {\n", module->output_name);
+    output( 0, "static void static_eval_%s(c_se_wrapped_verilator *cvd, int clocks_to_toggle) {\n", module->output_name);
     output( 1, "auto mod = (V%s *)cvd->get_module();\n", module_verilated_name);
     output( 1, "t_%s_all_signals *all_signals = (t_%s_all_signals *)cvd->get_all_signals();\n", module->output_name, module->output_name);
     for (auto signal=module->inputs; signal; signal=signal->next_in_list) {
@@ -1588,11 +1588,42 @@ void c_md_target_c::cwv_output_static_functions(void)
         }
     }
     // MOD_CE(mod,de1_cl_lcd_clock__enable,de1_cl_lcd_clock___05Fenable);
+    if (1) {
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                output( 1, "mod->%s___05Fenable=1;\n", clk->name );
+            }
+        }
+    }
+    }
     int n=0;
-    for (auto clk=module->clocks; clk; clk=clk->next_in_list, n++) {
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                output( 1, "if (mod->%s != cvd->get_clock_value(%d)) {clocks_to_toggle |= 1<<%d;}\n", clk->name, n, n );
+                n++;
+            }
+        }
+    }
+    output( 1, "if (clocks_to_toggle) {\n");
+    n=0;
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
+        if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
+                output( 2, "if ((clocks_to_toggle&(1<<%d)) && (mod->%s==cvd->get_clock_value(%d))) {mod->%s = !cvd->get_clock_value(%d);}\n", n, clk->name, n, clk->name, n );
+                n++;
+            }
+        }
+    }
+    output( 2, "mod->eval();\n");
+    output( 1, "}\n");
+    n=0;
+    for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
         if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
             if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
                 output( 1, "mod->%s = cvd->get_clock_value(%d);\n", clk->name, n );
+                n++;
             }
         }
     }

@@ -31,6 +31,7 @@
  */
 #define INSTANCE_IS_BIT_VECTOR_ARRAY(instance) (((instance)->size>1) && ((instance)->type==md_type_instance_type_array_of_bit_vectors) && ((instance)->type_def.data.width>1))
 #define CLOCK_IS_GATED(clk) ((clk)->data.clock.clock_ref)
+#define MASK_OF_WIDTH(x) ((((x)==64)?0:((1ULL)<<(x))) -1)
 
 /*a Types
  */
@@ -644,7 +645,7 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
     switch (expr->type)
     {
     case md_expr_type_value: {
-        t_sl_uint64 mask = ((1ULL)<<expr->data.value.value.width)-1;
+        t_sl_uint64 mask = MASK_OF_WIDTH(expr->data.value.value.width);
         output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0]&mask ); 
         break;
     }
@@ -663,7 +664,7 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
         // No. Integers size across okay, but the expression does not know it is an integer!!! So a constant will be 32'h..., which cannot be assigned to a single bit. Hm.
         if ( (expr->data.cast.expression) &&
              (expr->data.cast.expression->type==md_expr_type_value) ) {
-            t_sl_uint64 mask = ((1ULL)<<expr->width)-1;
+            t_sl_uint64 mask = MASK_OF_WIDTH(expr->width);
             output( handle, -1, "%d'h%llx", expr->width, expr->data.cast.expression->data.value.value.value[0]&mask);
         } else {
             output_module_rtl_architecture_expression( model, output, handle, code_block, expr->data.cast.expression, main_indent, sub_indent+1, id );
@@ -915,7 +916,7 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                {
                    if (stmts_reqd || statement->data.switch_stmt.full || 1)
                    {
-                       t_sl_uint64 mask = ((1ULL)<<statement->data.switch_stmt.expr->width)-1;
+                       t_sl_uint64 mask = MASK_OF_WIDTH(statement->data.switch_stmt.expr->width);
                        output( handle, indent+1, "%d'h%llx: // req %d\n", statement->data.switch_stmt.expr->width, switem->data.value.value.value[0]&mask, stmts_reqd );
                        output( handle, indent+2, "begin\n");
                        output_module_rtl_architecture_statement( model, output, handle, code_block, switem->statement, indent+1, clock, edge, reset, reset_level );

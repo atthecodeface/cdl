@@ -161,7 +161,8 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
 
      for (efl_prev = list_ptr; (*efl_prev); efl_prev = &((*efl_prev)->next_in_list) );
 
-     efl = (t_engine_function_list *)malloc(sizeof(t_engine_function_list));
+     efl = (t_engine_function_list *)calloc(1, sizeof(t_engine_function_list));
+     // efl = new(t_engine_function_list);
      efl->next_in_list = NULL;
      efl->signal = NULL;
      efl->invocation_count = 0;

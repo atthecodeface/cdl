@@ -291,7 +291,6 @@ public:
 
      /*b Option handling methods - called by modules instances at their instantiation
       */
-     // GJS Need get options for module from force options
      int get_option_int( void *handle, const char *keyword, int default_value );
      const char *get_option_string( void *handle, const char *keyword, const char *default_value );
      void *get_option_object( void *handle, const char *keyword );

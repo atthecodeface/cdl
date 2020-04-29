@@ -1387,12 +1387,9 @@ int c_engine::interrogate_get_entity_value_string( t_se_interrogation_handle ent
           n = snprintf( buffer, buffer_size, "<none>" );
           break;
      case engine_state_desc_type_bits:
-         if (datas[0])
-         {
+         if (datas[0]) {
              sl_print_bits_hex( buffer, buffer_size, ((int **)datas)[0], sizes[0] );
-         }
-         else
-         {
+         } else {
              strcpy( buffer, "<unc>");
          }
           n = strlen(buffer);

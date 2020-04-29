@@ -36,7 +36,7 @@ typedef struct t_cvd_clock_desc {
  */
 typedef struct t_cdl_verilator_desc {
     int               all_signals_size;
-    void (*eval_fn)(class c_se_wrapped_verilator *cvd);
+    void (*eval_fn)(class c_se_wrapped_verilator *cvd, int clocks_to_toggle);
     void (*delete_fn)(class c_se_wrapped_verilator *cvd);
     t_se_cma_module_desc *module_desc;
 } t_cdl_verilator_desc;
@@ -71,9 +71,10 @@ private:
     // Per-clock-edge data
     int inputs_captured;
     int eval_invoked;
+    int clocks_to_toggle;
     void delete_instance(void);
     void capture_inputs(void);
-    void eval(void);
+    void eval(int clocks_to_toggle);
     void prepreclock(void);
     void create_submodule_for_verilated_var(const char *mp, const char *mn, class VerilatedVar &vv);
     void create_verilated_submodules_with_publics(void);

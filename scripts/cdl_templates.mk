@@ -8,6 +8,10 @@ Q?=@
 
 -include ${CDL_SCRIPTS_DIR}/Makefile_cdl_template_config
 
+BUILD_STAMPS = ${BUILD_ROOT}/stamps
+TIMESTAMP = date >
+CDL_FLAGS += --include-assertions --v_displays
+
 #a Templates
 #v Notes
 #
@@ -16,19 +20,125 @@ Q?=@
 # BIN__lib__bin__OBJS contains a list of object files to be included in a binary for a library
 # LIB__lib__VERILOG contains a list of verilog files to be included in a library
 
+#f toplevel_init_template
+define toplevel_init_template
+.PHONY: makefiles
+$(eval $(call timestamp,verilog))
+$(eval $(call timestamp,all_obj))
+$(eval $(call timestamp,all_cpp))
+
+VERILATOR_C_FLAGS += -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14
+VERILATOR_LIBS    += -pthread -lpthread -latomic -lm -lstdc++
+MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
+
+${BUILD_ROOT}/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp
+	g++ -c -g $${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
+
+endef
+
+#f timestamp
+define timestamp
+# @param $1 reason (verilog, cpp, etc)
+.PHONY: $1
+$1: ${BUILD_STAMPS}/$1
+${BUILD_STAMPS}/$1:
+	${TIMESTAMP} $$@
+endef
+
+#f lib_timestamp
+define lib_timestamp
+# @param $1 reason (verilog, cpp, etc)
+# @param $2 library name
+
+$1: ${BUILD_STAMPS}/lib__$2__$1
+
+${BUILD_STAMPS}/$1: ${BUILD_STAMPS}/lib__$2__$1
+
+${BUILD_STAMPS}/lib__$2__$1:
+	${TIMESTAMP} $$@
+
+endef
+
+#f lib_timestamp_depends
+define lib_timestamp_depends
+# @param $1 reason (verilog, cpp, etc)
+# @param $2 library name
+# @param $3 dependencies
+${BUILD_STAMPS}/lib__$2__$1: $3
+
+endef
+
+#f library_init_template
+# @param $1 library name
+# @param $2 build directory for the library
+# @param $3 source directory where library_desc.py sits
+# @param $4 library description path for the library
+# @param $5 relative_to
+define library_init_template
+.PHONY: verilog
+.PHONY: makefiles
+$(eval $(call lib_timestamp,verilog,$1))
+$(eval $(call lib_timestamp,all_cpp,$1))
+$(eval $(call lib_timestamp,all_obj,$1))
+
+LIB__$1__CLEAN_TARGETS +=
+.PHONY: lib__$1__clean
+clean: lib__$1__clean
+
+lib__$1__clean:
+	@echo "Clean library $1"
+	${Q}rm -rf $${LIB__$1__CLEAN_TARGETS}
+
+verilog_$1: $${LIB__$1__VERILOG}
+verilog: verilog_$1
+
+clean_verilog_$1:
+	@echo "Delete library $1 verilog files"
+	${Q} rm -f $${LIB__$1__VERILOG}
+
+clean_verilog: clean_verilog_$1
+
+endef
+
+#f toplevel_clean_template
+define toplevel_clean_template
+
+clean: clean_build
+
+clean_build:
+	rm -f ${BUILD_STAMPS}/*
+	rm -f ${SIM}
+	rm -f ${BUILD_ROOT}/obj_init.o
+	mkdir -p ${BUILD_ROOT}
+	mkdir -p ${BUILD_STAMPS}
+
+endef
+
 #f cdl_makefile_template
 define cdl_makefile_template
 # @param $1 required source directory - where library_desc.py exists
 # @param $2 build directory - where to put Makefile
 # @param $3 other source directories - where libraries may exist
-.PHONY:makefiles
+#
+# This must be invoked AFTER a -include of the created Makefile
+# as this will only make the specified makefile ONCE
+#
+$(eval $(call $(if ${CDL_MAKEFILES_MADE__$2},cdl_makefile_template_inner,,),$1,$2,$3))
+endef
 
+#f cdl_makefile_template_inner
+define cdl_makefile_template_inner
+# @param $1 required source directory - where library_desc.py exists
+# @param $2 build directory - where to put Makefile
+# @param $3 other source directories - where libraries may exist
+.PHONY:makefiles
+CDL_MAKEFILES_MADE__$2 += $2/Makefile
 makefiles: $2/Makefile
 
 BUILD_MAKEFILE = $2/Makefile
 
-# $2/Makefile: $(foreach s,$1,${s}/library_description.py)
-# $2/Makefile: $(foreach s,$3,${s}/library_description.py)
+$2/Makefile: $(foreach s,$1,$(wildcard ${s}/library_description.py))
+$2/Makefile: $(foreach s,$3,$(wildcard ${s}/library_description.py))
 $2/Makefile: ${CDL_LIBEXEC_DIR}/cdl_desc.py
 	${CDL_LIBEXEC_DIR}/cdl_desc.py $(foreach s,$1,--require ${s}) --build_root $2 $3
 
@@ -36,6 +146,7 @@ clean: clean_makefile__$2
 
 clean_makefile__$2:
 	rm -f $2/Makefile
+
 endef
 
 #f cpp_template
@@ -53,7 +164,12 @@ $(if $8,BIN__$1__$8__OBJS,LIB__$1__C_OBJS) += $3/$6
 LIB__$1__MODELS += $5
 $3/$6 : $2/$4
 	@echo "CC $4 -o $6" 
-	${Q}${CXX} ${CXXFLAGS} ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
+	${Q}${CXX} -g -Wall ${CXXFLAGS} ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
+
+LIB__$1__CLEAN_TARGETS += $3/$6
+
+$(eval $(call lib_timestamp_depends,all_obj,$1,$3/$6))
+
 endef
 
 #f cdl_template
@@ -76,6 +192,8 @@ $3/$6 : $2/$4
 	@echo "CDL $4 -cpp $6" 
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --dependencies-target $$@ --dependencies $3/$6.dep --dependencies-relative $(dir $2/$4) --cpp $$@  $9 $2/$4
 
+$(eval $(call lib_timestamp_depends,all_cpp,$1,$3/$6))
+
 -include $3/$6.dep
 
 LIB__$1__C_OBJS  += $3/$7
@@ -83,11 +201,15 @@ $3/$7 : $3/$6
 	@echo "CC $6 -o $7" 
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
 
+$(eval $(call lib_timestamp_depends,all_obj,$1,$3/$7))
+
 LIB__$1__VERILOG += $(if $8,$3/$8,)
 
 $3/$8 : $2/$4
 	@echo "CDL $4 -v $8" 
-	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --verilog $$@ $9 $2/$4
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --v_clks_must_have_enables --model $5 --verilog $$@ $9 $2/$4
+
+$(eval $(call lib_timestamp_depends,verilog,$1,$3/$8))
 
 $3/$5.cdlh : $2/$4
 	@echo "CDL $4 -cdlh $5" 
@@ -98,6 +220,7 @@ $3/$5.xml : $2/$4
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --xml $$@ $9 $2/$4
 
 LIB__$1__MODELS += $5
+LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7 $3/$8 $3/$5.cdlh $3/$5.xml
 
 endef
 
@@ -121,6 +244,9 @@ BIN_LIBS__$1__$2 = $(foreach l,$6,$3/$6/lib_${l}.a)
 $3/$1_$2: $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2}
 	@echo "Link binary exectable $$@"
 	${Q}${MAKE_STATIC_BINARY} $$@ $${BIN_OBJS__$1__$2} $${BIN_LIBS__$1__$2} ${LD_FLAGS}
+
+LIB__$1__CLEAN_TARGETS += $3/$1_$2
+
 endef
 
 #f library_init_object_file
@@ -145,6 +271,8 @@ $2/$3.o: $2/$3.cpp
 	@echo "Compile library init module $$@"
 	${Q}${CXX} ${CXXFLAGS} -c -o $$@ $$<
 
+LIB__$1__CLEAN_TARGETS += $2/$3.cpp $2/$3.o
+
 endef
 
 #f cdl_library_template
@@ -159,14 +287,7 @@ $2/lib_$1.a: $${LIB__$1__C_OBJS}
 	@echo "Link static library $$@"
 	${Q}${MAKE_STATIC_LIBRARY} $$@ $${LIB__$1__C_OBJS}
 
-verilog_$1: $${LIB__$1__VERILOG}
-verilog: verilog_$1
-
-clean_verilog_$1:
-	@echo "Delete library $1 verilog files"
-	${Q} rm -f $${LIB__$1__VERILOG}
-
-clean_verilog: clean_verilog_$1
+LIB__$1__CLEAN_TARGETS += $2/lib_$1.a
 
 endef
 
@@ -213,11 +334,17 @@ sim: $1
 
 all: $1
 
-$1: ${MODEL_LIBS} $3
+# MODEL_VERILATOR_OBJS should be set once
+# MODEL_VERILATOR_LIBS can be added to
+# These should be empty if verilator builds are not required
+# MODEL_VERILATOR_LIBS = $${VLIB__bbc_micro_with_rams__LIB} 
+# MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/bbc/verilate/verilated.o
+$1: ${MODEL_LIBS} $3 ${MODEL_VERILATOR_OBJS} ${MODEL_VERILATOR_LIBS}
 	@echo "Building command line simulation ${CMDLINE_PROG}"
-	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} $${VLIB__bbc_micro_with_rams__LIB} ${BUILD_ROOT}/bbc/verilate/verilated.o -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
+	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} ${MODEL_VERILATOR_LIBS} ${MODEL_VERILATOR_OBJS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
 
 endef
+
 #f make_cwv
 # @param $1 library name
 # @param $2 cdl source directory
@@ -241,15 +368,12 @@ $3/$7 : $3/$6 $${VLIB__$5__H} $${VLIB__$5__LIB}
 	@echo "CC $6 -o $7" 
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -I $9 -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -c -o $$@ $3/$6
 
-$9/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp  $${VLIB__$5__H}
-	g++ -c -g ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $9/verilated.o  -I ${VERILATOR_SHARE}/include -I. ${VERILATOR_LIBS}
+MODEL_VERILATOR_LIBS += $${VLIB__$5__LIB} 
 
-LIB__$1__C_OBJS  += $9/verilated.o
-
-# LIB__$1__C_OBJS  +=  
-MODEL_LIBS += $${VLIB__$5__LIB}
 LIB__$1__C_OBJS  += $3/$7
 LIB__$1__MODELS += cwv__$5
+LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7 
+
 endef
 
 #f make_verilator_lib
@@ -260,8 +384,6 @@ define make_verilator_lib
 # @param $4 verilog source directory (containing <module>.v)
 # @param $5 verilog source directories to include
 # @param $6 other verilog source files
-# $5 = {BUILD_ROOT}/verilog
-# $6 = ${VERILOG_DIR}/*v ${VERILOG_DIR}/xilinx/srams.v
 
 VLIB__$3__H    := $1/V$3.h
 VLIB__$3__SYMS := $1/V$3__Syms.h
@@ -283,11 +405,14 @@ $2/V$3.h: $2/V$3__ALL.a
 
 $2/V$3__Syms.h: $2/V$3__ALL.a
 
-$2/V$3__ALL.a: verilog
-$2/V$3__ALL.a: $4/$3.v
-	@echo "verilate $3"
+$2/V$3.cpp: ${BUILD_STAMPS}/verilog
+	@echo "verilate $3 $$< $$@"
 	${Q}${VERILATOR} --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
+
+$2/V$3__ALL.a: $2/V$3.cpp
 	@echo "cpp for verilate $3"
 	(cd $2 && make CFLAGS=-g VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
+
+LIB__$1__CLEAN_TARGETS += $2/V$3__ALL.a $2/V$3.h $2/V$3__Syms.h $${VLIB__$3__H} $${VLIB__$3__SYMS} $${VLIB__$3__LIB}
 
 endef
