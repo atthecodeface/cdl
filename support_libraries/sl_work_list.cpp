@@ -417,9 +417,15 @@ extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool
     t_sl_wl_worklist *worklist;
     int i, j;
 
-    worklist = (t_sl_wl_worklist *) malloc( sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items+sizeof(t_sl_wl_data)*number_of_items*data_per_item+strlen(name) );
-    worklist->data = (t_sl_wl_data *)(&((char *)worklist)[sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items]);
-    worklist->name = (&((char *)worklist)[sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items+sizeof(t_sl_wl_data)*number_of_items*data_per_item]);
+    int base_size   = sizeof(t_sl_wl_worklist);
+    int head_size   = sizeof(t_sl_wl_head)*number_of_items;
+    int wldata_size = sizeof(t_sl_wl_data)*number_of_items*data_per_item;
+    int name_len    = strlen(name)+1;
+    int data_size   = base_size+head_size+wldata_size+name_len;
+    worklist       = (t_sl_wl_worklist *) malloc(data_size);
+    memset(worklist,0,data_size);
+    worklist->data = (t_sl_wl_data *)(((char *)worklist) + base_size + head_size);
+    worklist->name = (((char *)worklist) + base_size + head_size + wldata_size);
 
     worklist->next_in_list = thread_pool->worklists;
     thread_pool->worklists = worklist;
@@ -435,8 +441,7 @@ extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool
         worklist->heads[i].subname = NULL;
         worklist->heads[i].guard_ptr = NULL;
         worklist->heads[i].affinity = NULL;
-        for (j=0; j<data_per_item; j++)
-        {
+        for (j=0; j<data_per_item; j++) {
             worklist->data[i*data_per_item+j].callback = t_sl_wl_std_callback();
         }
     }

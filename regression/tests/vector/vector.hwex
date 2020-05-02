@@ -30,7 +30,7 @@ module env_string("module_name") dut_0
 option_string "clock" system_clock
 sprintf s "%s0% %s1%" out_0 out_1
 option_string "inputs" s
-sprintf s "test_reset %s0% %s1%" in_0 in_1
+sprintf s "%s0% %s1%" in_0 in_1
 option_string "outputs" s
 option_string "filename" vector_test_harness.th
 option_string "vectors_filename" env_string("module_mif_filename")

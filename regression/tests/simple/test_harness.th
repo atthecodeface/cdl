@@ -16,8 +16,6 @@ int where
 int expected_value
 int last_expected_value
 
-signal__test_reset.reset 1
-
 bfm_wait 1
 
 set where 0
