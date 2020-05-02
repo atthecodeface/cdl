@@ -89,6 +89,18 @@ typedef struct t_sl_exec_file_object_cb
  */
 typedef t_sl_error_level t_sl_exec_file_object_callback_fn( t_sl_exec_file_object_cb *obj_cb );
 
+/*t t_sl_exec_file_lib_cb
+ */
+typedef struct t_sl_exec_file_lib_cb
+{
+    void *lib_handle;
+    struct t_sl_exec_file_lib_desc *lib_desc;
+} t_sl_exec_file_lib_cb;
+
+/*t t_sl_exec_file_lib_callback_fn
+ */
+typedef t_sl_error_level t_sl_exec_file_lib_callback_fn( t_sl_exec_file_lib_cb *lib_cb );
+
 /*t t_sl_exec_file_state_desc - state description declared by objects to the exec file
  */
 typedef struct t_sl_exec_file_state_desc_entry
@@ -241,16 +253,16 @@ typedef struct t_sl_exec_file_value
         void *ptr; // used if a label or variable reference - must be mallocked
         char *string; // an alias for the pointer to avoid too many casts
     } p;
-    char *variable_name;
+    char *variable_name; // ownership link (must be malloc/freed)
     double real; // used if a double - filled in with variable value if an expression and variable value
     t_sl_uint64 integer; // used if an integer - filled in with variable value if an expression and variable value
-    struct t_sl_exec_file_fn_instance *fn;
+    struct t_sl_exec_file_fn_instance *fn; // ownership link (must be malloc/freed)
     t_sl_exec_file_arg_eval eval;
 } t_sl_exec_file_value;
 
 /*t t_sl_exec_file_lib_desc
  */
-typedef struct
+typedef struct t_sl_exec_file_lib_desc
 {
     t_sl_ef_lib_version version; // Indicates which fields are present
     const char *library_name;
@@ -258,6 +270,7 @@ typedef struct
     t_sl_exec_file_cmd_handler_fn *cmd_handler; // NULL if the commands have to be handed back
     t_sl_exec_file_cmd *file_cmds; // NULL if no commands supplied - cmds do not include a callback fn (yet)
     t_sl_exec_file_fn *file_fns;   // NULL if no fns supplied - fns include a callback fn
+    t_sl_exec_file_lib_callback_fn *free_fn;  // Called on exec_file_free, before freeing the library
 } t_sl_exec_file_lib_desc ;
 
 /*t t_sl_exec_file_object_desc
@@ -358,6 +371,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
                                                                   const char *user,
                                                                   int clocked );
 extern void sl_exec_file_free( t_sl_exec_file_data *file_data );
+extern t_sl_exec_file_lib_callback_fn sl_exec_file_lib_free_handle;
 
 /*b Execution functions
  */

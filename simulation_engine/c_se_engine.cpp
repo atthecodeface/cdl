@@ -130,12 +130,13 @@ c_engine::~c_engine()
 
      /* Free our data
       */
+     while (vcd_files) waveform_vcd_file_free(vcd_files);
      thread_pool_delete();
      delete_instances_and_signals();
      error->reset();
      message->reset();
+     delete(message);
      free(instance_name);
-
 }
 
 /*f c_engine::delete_instances_and_signals -  also disposes of forced options
@@ -156,6 +157,8 @@ void c_engine::delete_instances_and_signals( void )
       */
      for (emi=module_instance_list; emi; emi = next_emi)
      {
+         // fprintf(stderr,"delete emi %p\n",emi);
+         // fprintf(stderr,"delete emi->name %s\n",emi->full_name);
           next_emi = emi->next_instance;
           emi->delete_cb.invoke_all();
           for (sdl=emi->state_desc_list; sdl; sdl=next_sdl) {
@@ -168,10 +171,17 @@ void c_engine::delete_instances_and_signals( void )
                se_engine_function_references_free( efn->data.input.used_by_clocks );
           }
           se_engine_function_free_functions( emi->input_list );
+          for (efn=emi->output_list; efn; efn=efn->next_in_list) {
+               se_engine_signal_reference_list_clear( &efn->data.output.drives );
+          }
           se_engine_function_free_functions( emi->output_list );
+          free(emi->type);
           free(emi->name);
           sl_option_free_list( emi->option_list );
-          free(emi);
+          while (emi->log_event_list) {
+              log_event_deregister_array(emi, emi->log_event_list);
+          }
+          delete(emi);
      }
      module_instance_list = NULL;
      toplevel_module_instance_list = NULL;

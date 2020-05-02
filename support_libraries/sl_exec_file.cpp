@@ -823,7 +823,8 @@ extern int sl_exec_file_add_file_commands( struct t_sl_exec_file_data *file_data
     lib_desc.cmd_handler = NULL;
     lib_desc.file_cmds = file_cmds;
     lib_desc.file_fns = NULL;
-
+    lib_desc.free_fn = NULL;
+    
     return (sl_exec_file_add_library( file_data, &lib_desc )!=0);
 }
 
@@ -1518,6 +1519,28 @@ static int parse_argument( t_sl_exec_file_data *file_data, int line_number, char
      return 1;
 }
 
+/*f init_line - initialize a t_sl_exec_file_line
+ */
+static void init_line(t_sl_exec_file_line *line)
+{
+    for (auto j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++) {
+        line->args[j].p.ptr = NULL;
+        line->args[j].fn = NULL;
+        line->args[j].variable_name = NULL;
+    }
+}
+
+/*f free_line - free a t_sl_exec_file_line
+ */
+static void free_line(t_sl_exec_file_line *line)
+{
+    for (auto j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++) {
+        if (line->args[j].p.ptr)         free(line->args[j].p.ptr);
+        if (line->args[j].fn)            free(line->args[j].fn);
+        if (line->args[j].variable_name) free(line->args[j].variable_name);
+    }
+}
+
 /*f parse_line
   return 0 if the line is complete (error, or comment line)
   return 1 if the line could be a declarative command (int, event, etc)
@@ -1757,6 +1780,7 @@ static void sl_exec_file_data_add_default_cmds( t_sl_exec_file_data *file_data )
     lib_desc.cmd_handler = NULL;
     lib_desc.file_cmds = internal_cmds;
     lib_desc.file_fns = internal_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
     sl_ef_lib_random_add_exec_file_enhancements( file_data );
@@ -1821,6 +1845,9 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
      sl_exec_file_data_init( *file_data_ptr, error, message, id, user );
      (*file_data_ptr)->filename = sl_str_alloc_copy(filename);
      (*file_data_ptr)->number_lines = nlines;
+     for (int i=0; i<nlines; i++) {
+         init_line((*file_data_ptr)->lines+i);
+     }
 
      /*b Add default commands and functions
       */
@@ -1908,7 +1935,11 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
              (efc->callback_fn)( efc->handle );
          }
          (*file_data_ptr)->register_state_fn = NULL;
-         (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
+        while ((*file_data_ptr)->poststate_callbacks) {
+            auto efc = (*file_data_ptr)->poststate_callbacks;
+            (*file_data_ptr)->poststate_callbacks = efc->next_in_list;
+            free(efc);
+        }
      }
 
      /*b Free text buffer, reset the threads,  and return
@@ -1926,55 +1957,56 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
  */
 extern void sl_exec_file_free( t_sl_exec_file_data *file_data )
 {
-     t_sl_exec_file_variable *var, *next_var;
-     int i, j;
+    t_sl_exec_file_variable *var, *next_var;
+    int i;
 
-     WHERE_I_AM;
+    WHERE_I_AM;
 
-     if (file_data)
-     {
-          free(file_data->id);
-          if (file_data->filename)
-              free(file_data->filename);
-          if (file_data->py_object)
-          {
-              WHERE_I_AM;
-              Py_DECREF(file_data->py_object);
-          }
-          free(file_data->user);
-          for (i=0; i<file_data->number_lines; i++) // number_lines==0 for Python
-          {
-               for (j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++)
-               {
-                    if (file_data->lines[i].args[j].p.ptr)
-                    {
-                         free(file_data->lines[i].args[j].p.ptr);
-                    }
-               }
-          }
-          for (var = file_data->variables; var; var=next_var)
-          {
-               next_var = var->next_in_list;
-               free(var);
-          }
-          {
-              t_sl_exec_file_object_chain *obj, *next_obj;
-              for (obj=file_data->object_chain; obj; obj=next_obj)
-              {
-                  if (obj->object_desc.free_fn)
-                  {
-                      t_sl_exec_file_object_cb obj_cb;
-                      obj_cb.object_handle = (void *)obj;
-                      obj_cb.object_desc = &(obj->object_desc);
-                      obj->object_desc.free_fn(&obj_cb);
-                  }
-                  next_obj=obj->next_in_list;
-                  free(obj);
-              }
-          }
-          free(file_data);
-     }
-     WHERE_I_AM;
+    if (!file_data) return;
+
+    
+    free(file_data->id);
+    if (file_data->filename)
+        free(file_data->filename);
+    if (file_data->py_object)
+    {
+        WHERE_I_AM;
+        Py_DECREF(file_data->py_object);
+    }
+    free(file_data->user);
+    for (i=0; i<file_data->number_lines; i++) // number_lines==0 for Python
+    {
+        free_line(file_data->lines+i);
+    }
+    for (var = file_data->variables; var; var=next_var)
+    {
+        next_var = var->next_in_list;
+        free(var);
+    }
+    while (file_data->object_chain) {
+        auto obj=file_data->object_chain;
+        file_data->object_chain=obj->next_in_list;
+        if (obj->object_desc.free_fn) {
+            t_sl_exec_file_object_cb obj_cb;
+            obj_cb.object_handle = (void *)obj;
+            obj_cb.object_desc = &(obj->object_desc);
+            obj->object_desc.free_fn(&obj_cb);
+        }
+        free(obj);
+    }
+    while (file_data->lib_chain) {
+        auto lib=file_data->lib_chain;
+        file_data->lib_chain=lib->next_in_list;
+        // fprintf(stderr,"Lib desc %p %s\n", lib, lib->lib_desc.library_name);
+        if (lib->lib_desc.free_fn) {
+            t_sl_exec_file_lib_cb lib_cb;
+            lib_cb.lib_handle = (void *)lib;
+            lib_cb.lib_desc = &(lib->lib_desc);
+            lib->lib_desc.free_fn(&lib_cb);
+        }
+        free(lib);
+    }
+    free(file_data);
 }
 
 /*f sl_exec_file_reset
@@ -2009,6 +2041,15 @@ extern void sl_exec_file_reset( struct t_sl_exec_file_data *file_data )
     {
         sl_exec_file_py_reset( file_data );
     }
+}
+
+/*f sl_exec_file_lib_free_handle
+  frees whatever is at handle
+ */
+extern t_sl_error_level sl_exec_file_lib_free_handle(t_sl_exec_file_lib_cb *lib_cb)
+{
+    free(lib_cb->lib_desc->handle);
+    return error_level_okay;
 }
 
 /*a Stack frame handling
@@ -4384,8 +4425,8 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     lib_desc.cmd_handler = py_cmd_handler_cb;
     lib_desc.file_cmds = py_internal_cmds;
     lib_desc.file_fns = py_internal_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( *file_data_ptr, &lib_desc );
-
 
     /*b Invoke callback to fill in extra functions and add other libraries; old exec file declared objects, not sure what to do about that here
      */
@@ -4459,7 +4500,11 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             (efc->callback_fn)( efc->handle );
         }
         (*file_data_ptr)->register_state_fn = NULL;
-        (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
+        while ((*file_data_ptr)->poststate_callbacks) {
+            auto efc = (*file_data_ptr)->poststate_callbacks;
+            (*file_data_ptr)->poststate_callbacks = efc->next_in_list;
+            free(efc);
+        }
     }
 
     /*b Add in objects for each sl_exec_file object

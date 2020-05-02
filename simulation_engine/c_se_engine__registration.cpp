@@ -313,7 +313,6 @@ void c_engine::register_comb_fn( void *engine_handle, void *handle, t_engine_cal
 void c_engine::register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn )
 {
     DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks");
-    auto emi = (t_engine_module_instance *)engine_handle;
     auto fn = ([handle,message_fn](t_se_message *m)->void{(*message_fn)(handle, (void *)m);});
     return register_message_function(engine_handle, fn );
 }
@@ -597,6 +596,7 @@ int c_engine::register_add_exec_file_enhancements( struct t_sl_exec_file_data *f
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 

@@ -75,6 +75,17 @@ extern void se_engine_signal_reference_add( t_engine_signal_reference **ref_list
      efr->signal = signal;
 }
 
+/*f se_engine_signal_reference_list_clear
+ */
+extern void se_engine_signal_reference_list_clear(t_engine_signal_reference **ref_list_ptr)
+{
+    while (*ref_list_ptr) {
+        auto efr = *ref_list_ptr;
+        *ref_list_ptr = efr->next_in_list;
+        free(efr);
+    }
+}
+
 /*a Engine function external functions
  */
 /*f se_engine_function_free_functions

@@ -12,7 +12,7 @@
 #  for more details.
 
 #a Global variables
-CDL_ROOT     = $(abspath $(CURDIR)/../build_cdl/install)
+CDL_ROOT     ?= $(abspath $(CURDIR)/../build_cdl/install)
 
 help:
 	@echo "'make all' will build the batch simulator and python shared library"

@@ -214,6 +214,7 @@ void c_engine::waveform_vcd_file_free( t_waveform_vcd_file *wvf )
      {
           *last_wvf = wvf->next_in_list;
      }
+     free(wvf->name);
      free(wvf);
 }
 
@@ -770,6 +771,7 @@ int c_engine::waveform_add_exec_file_enhancements( struct t_sl_exec_file_data *f
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = NULL;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 
@@ -796,6 +798,7 @@ int c_engine::waveform_handle_exec_file_command( struct t_sl_exec_file_data *exe
         object_desc.name = wvf->name;
         object_desc.handle = (void *)wvf;
         object_desc.methods = sl_vcd_file_object_methods;
+        object_desc.free_fn = NULL;
         sl_exec_file_add_object_instance( exec_file_data, &object_desc );
         return 1;
     }

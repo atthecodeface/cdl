@@ -210,17 +210,6 @@ static void internal_module_delete_data(t_internal_module_data *data)
     }
 }
 
-/*f internal_module_generic_logic_comb
- */
-static t_sl_error_level internal_module_generic_logic_comb( void *handle )
-{
-     auto data = (t_internal_module_data *)handle;
-
-     generic_logic_fns[ data->args[2] ].logic_fn( data->args[0], data->outputs, data->inputs, data->args[1] );
-
-     return error_level_okay;
-}
-
 /*f internal_module_generic_logic_instantiate
  */
 static t_sl_error_level internal_module_generic_logic_instantiate( c_engine *engine, void *engine_handle )

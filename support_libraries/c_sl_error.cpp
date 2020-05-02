@@ -96,26 +96,10 @@ void c_sl_error::internal_create( int private_size, int max_args )
  */
 c_sl_error::~c_sl_error()
 {
-     t_error *error, *next_error;
-     int i;
-
-     for (error=error_list; error; error=next_error )
-     {
-          next_error = error->next_in_list;
-          for (i=0; i<error->argc; i++)
-          {
-               if (error->args[i].needs_to_be_freed)
-               {
-                    if (error->args[i].string)
-                         free(error->args[i].string);
-                    if (error->args[i].handle)
-                         free(error->args[i].handle);
-               }
-          }
-     }
-     error_list = NULL;
-     last_error = NULL;
-     worst_error = error_level_okay;
+    reset();
+    delete_text_list(&error_message_lists);
+    delete_text_list(&function_message_lists);
+    worst_error = error_level_okay;
 }
 
 /*a Error handling methods
@@ -124,17 +108,31 @@ c_sl_error::~c_sl_error()
  */
 void c_sl_error::reset( void )
 {
-     t_error *error, *next_error;
+    t_error *error, *next_error;
+    for (error=error_list; error; error=next_error ) {
+        next_error = error->next_in_list;
+        for (int i=0; i<error->argc; i++) {
+            if (error->args[i].needs_to_be_freed) {
+                if (error->args[i].string) free(error->args[i].string);
+                if (error->args[i].handle) free(error->args[i].handle);
+            }
+        }
+        // fprintf(stderr,"c_sl_error::free error %p %p\n", this, error);
+        free(error);
+    }
+    error_list = NULL;
+    last_error = NULL;
+}
 
-     //fprintf(stderr,"c_sl_error::reset %p\n", this );
-
-     for (error=error_list; error; error=next_error )
-     {
-          next_error = error->next_in_list;
-          free(error);
-     }
-     error_list = NULL;
-     last_error = NULL;
+/*f c_sl_error::delete_text_list
+ */
+void c_sl_error::delete_text_list(t_sl_error_text_list **list_ptr)
+{
+    while (*list_ptr) {
+        auto nl = (*list_ptr)->next_in_list;
+        free(*list_ptr);
+        *list_ptr = nl;
+    }
 }
 
 /*f c_sl_error::add_text_list
@@ -192,14 +190,14 @@ t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_l
      int i;
      t_sl_error_arg_type arg_type;
 
-     //fprintf(stderr,"c_sl_error::add error %p (location %p) level %d number %d function %d\n", this, location, error_level, error_number, function_id );
-
      if ((int)error_level > (int)worst_error)
      {
           worst_error = error_level;
      }
 
      error = (t_error *)malloc(sizeof(t_error)+sizeof(t_error_arg)*max_error_args);
+     // fprintf(stderr,"c_sl_error::add error %p %p (location %p) level %d number %d function %d\n", this, error, location, error_level, error_number, function_id );
+
      if (!error)
           return error_level_fatal;
 

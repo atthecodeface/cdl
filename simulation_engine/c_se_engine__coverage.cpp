@@ -91,6 +91,7 @@ int c_engine::coverage_add_exec_file_enhancements( struct t_sl_exec_file_data *f
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;
     lib_desc.file_fns = sim_file_fns;
+    lib_desc.free_fn = NULL;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 

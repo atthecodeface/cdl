@@ -156,6 +156,7 @@ private:
      t_sl_error_level worst_error;
      t_sl_error_text_list *error_message_lists;
      t_sl_error_text_list *function_message_lists;
+     void delete_text_list(t_sl_error_text_list **list_ptr);
 };
 
 /*a Error number enumerations

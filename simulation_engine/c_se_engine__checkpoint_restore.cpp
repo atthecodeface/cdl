@@ -901,6 +901,7 @@ int c_engine::checkpoint_add_exec_file_enhancements( struct t_sl_exec_file_data 
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = checkpoint_file_cmds;
     lib_desc.file_fns = checkpoint_file_fns;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 
