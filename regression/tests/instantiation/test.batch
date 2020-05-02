@@ -14,12 +14,13 @@
 setenv "width" 16
 setenv "module_name" hierarchy_test_harness
 setenv "module_mif_filename" "hierarchy_test_harness.mif"
-read_hw_file vector.hwex
+read_hw_file hierarchy.hwex
 vcd_file waves
 
 #waves.reset
 #waves.open "hierarchy.vcd"
 #waves.add  "vector_input_0" "vector_input_1" "vector_output_0" "vector_output_1"
+#waves.add_hierarchy  dut_0 test_harness_0
 
 reset
 #waves.enable
@@ -32,7 +33,7 @@ step 50
 setenv "width" 16
 setenv "module_name" hierarchy_struct_test_harness
 setenv "module_mif_filename" "hierarchy_test_harness.mif"
-read_hw_file vector.hwex
+read_hw_file hierarchy.hwex
 
 #waves.reset
 #waves.open "hierarchy_struct.vcd"
@@ -50,7 +51,7 @@ step 50
 setenv "width" 16
 setenv "module_name" hierarchy_gated_clock
 setenv "module_mif_filename" "hierarchy_gated_clock.mif"
-read_hw_file vector.hwex
+read_hw_file hierarchy.hwex
 
 #waves.reset
 #waves.open "hierarchy_gated_clock.vcd"
@@ -65,7 +66,7 @@ step 100
 setenv "width" 16
 setenv "module_name" hierarchy_comb_and_clocked
 setenv "module_mif_filename" "hierarchy_comb_and_clocked.mif"
-read_hw_file vector.hwex
+read_hw_file hierarchy.hwex
 
 #waves.reset
 #waves.open "hierarchy_comb_and_clocked.vcd"
@@ -78,23 +79,23 @@ step 100
 #waves.close
 
 
-
-
 setenv "width" 16
 setenv "module_name" hierarchy_comb_and_clocked2
 setenv "module_mif_filename" "hierarchy_comb_and_clocked2.mif"
-read_hw_file vector.hwex
+read_hw_file hierarchy.hwex
 
-waves.reset
-waves.open "hierarchy_comb_and_clocked2.vcd"
-waves.add  "vector_input_0" "vector_input_1" "vector_output_0" "vector_output_1"
-#waves.add  "src" "sink"
+#waves.reset
+#waves.open "hierarchy_comb_and_clocked2.vcd"
+#waves.add  "vector_input_0" "vector_input_1" "vector_output_0" "vector_output_1"
+#waves.add_hierarchy "dut_0" "src" "sink"
 
 reset
 #waves.enable
 step 80
      
 waves.close
+
+
 
 
 end

@@ -21,8 +21,6 @@ memory test_vectors 2048 64
 
 test_vectors.load env_string("vectors_filename") 0
 
-test_reset.reset 1
-
 bfm_wait 1
 
 set vector_number 0
@@ -32,7 +30,6 @@ bfm_wait 1
 add vector_number vector_number 1
 gosub test_values
 
-test_reset.drive 0
 bfm_wait 1
 add vector_number vector_number 1
 gosub test_values

@@ -59,6 +59,7 @@ cdl vector vector_op_2
 cdl vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4
 
 cdl instantiation hierarchy_reg
+cdl instantiation hierarchy_reg2
 cdl instantiation hierarchy_and         rim:hierarchy_and=simple
 #cdl instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
 cdl instantiation hierarchy_gated_clock
@@ -67,7 +68,7 @@ cdl instantiation hierarchy_comb_and_clocked
 cdl_options mul:off
 cdl instantiation hierarchy_comb_and_clocked2
 cdl instantiation hierarchy_complex
-#cdl instantiation hierarchy                     inc:instantiation
+cdl instantiation hierarchy                     inc:instantiation
 cdl instantiation hierarchy_test_harness        inc:instantiation
 cdl instantiation hierarchy_struct              inc:instantiation
 cdl instantiation hierarchy_struct_test_harness inc:instantiation

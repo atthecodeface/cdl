@@ -13,7 +13,7 @@
 
 printf "Regression batch arg %s0%" env_string("module_name")
 printf "Regression batch arg %s0%" env_string("module_mif_filename")
-printf "Running vector test on module %s0% with mif file %s1%" env_string("module_name") env_string("module_mif_filename")
+printf "Running struct test on module %s0% with mif file %s1%" env_string("module_name") env_string("module_mif_filename")
 
 string in_0
 string in_1
@@ -28,9 +28,9 @@ sprintf out_1 "vector_output_1[%d0%]" env_int("width")
 module env_string("module_name") dut_0
 
 option_string "clock" system_clock
-sprintf s "%s0% %s1%" out_0 out_1
+sprintf s "test_reset %s0% %s1%" out_0 out_1
 option_string "inputs" s
-sprintf s "test_reset %s0% %s1%" in_0 in_1
+sprintf s "%s0% %s1%" in_0 in_1
 option_string "outputs" s
 option_string "filename" vector_test_harness.th
 option_string "vectors_filename" env_string("module_mif_filename")
@@ -41,9 +41,10 @@ drive test_harness_0.system_clock system_clock
 drive dut_0.io_clock system_clock
 
 wire test_reset
+assign test_reset 1 7 0
 wire in_0 in_1 out_0 out_1
 
-drive test_reset test_harness_0.test_reset
+drive test_harness_0.test_reset test_reset 
 drive dut_0.io_reset test_reset
 
 drive vector_input_0 test_harness_0.vector_input_0

@@ -654,17 +654,14 @@ const char *c_engine::thread_pool_submodule_mapping( t_engine_module_instance *e
  */
 void c_engine::submodule_init_clock_worklist( void *engine_handle, int number_of_calls )
 {
-    t_engine_module_instance *emi;
-    emi = (t_engine_module_instance *)engine_handle;
+    auto emi = (t_engine_module_instance *)engine_handle;
 
-    if (thread_pool_mapped_submodules(emi)) // Then the module_instance thread pool should be valid
-    {
+    if (thread_pool_mapped_submodules(emi)) { // Then the module_instance thread pool should be valid
         emi->thread_pool = this->thread_pool;
-    }
-    else
-    {
+    } else {
         emi->thread_pool = sl_wl_create_thread_pool();
     }
+    fprintf(stderr, "Adding worklist for module instance %s\n", emi->full_name);
     emi->worklist = sl_wl_add_worklist( (t_sl_wl_thread_pool_ptr)(emi->thread_pool), emi->full_name, number_of_calls, (int)se_wl_item_count );
 }
 
