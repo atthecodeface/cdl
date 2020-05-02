@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import sys, os, unittest
-import pycdl
+import cdl.sim
 import inspect
 class x: pass
 module_root = os.path.dirname(inspect.getfile(x))
 
-class vector_test_harness(pycdl.th):
+class vector_test_harness(cdl.sim.th):
     def __init__(self, clocks, inputs, outputs, vectors_filename):
-        pycdl.th.__init__(self, clocks, inputs, outputs)
+        cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.vector_output_0 = inputs["vector_output_0"]
         self.vector_output_1 = inputs["vector_output_1"]
         self.vector_input_0 = outputs["vector_input_0"]
@@ -26,7 +26,7 @@ class vector_test_harness(pycdl.th):
             self.failtest(vector_number,  "**************************************************************************** Test failed")
         
     def run(self):
-        self.test_vectors = pycdl.load_mif(self.vectors_filename, 2048, 64)
+        self.test_vectors = cdl.sim.load_mif(self.vectors_filename, 2048, 64)
         self.bfm_wait(1)
         self.test_values(0)
         self.bfm_wait(1)
@@ -38,22 +38,22 @@ class vector_test_harness(pycdl.th):
             self.test_values(i+3)
         self.passtest(self.global_cycle(), "Test succeeded")
 
-class vector_hw(pycdl.hw):
+class vector_hw(cdl.sim.hw):
     def __init__(self, width, module_name, module_mif_filename, inst_forces={} ):
         print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
 
-        self.test_reset = pycdl.wire()
-        self.vector_input_0 = pycdl.wire(width)
-        self.vector_input_1 = pycdl.wire(width)
-        self.vector_output_0 = pycdl.wire(width)
-        self.vector_output_1 = pycdl.wire(width)
-        self.system_clock = pycdl.clock(0, 1, 1)
+        self.test_reset = cdl.sim.wire()
+        self.vector_input_0 = cdl.sim.wire(width)
+        self.vector_input_1 = cdl.sim.wire(width)
+        self.vector_output_0 = cdl.sim.wire(width)
+        self.vector_output_1 = cdl.sim.wire(width)
+        self.system_clock = cdl.sim.clock(0, 1, 1)
 
         dut_forces = dict( list(inst_forces.items()) +
                            list({}.items())
                            )
 
-        self.dut_0 = pycdl.module(module_name, 
+        self.dut_0 = cdl.sim.module(module_name, 
                                   clocks={ "io_clock": self.system_clock }, 
                                   inputs={ "io_reset": self.test_reset,
                                            "vector_input_0": self.vector_input_0,
@@ -68,8 +68,8 @@ class vector_hw(pycdl.hw):
                                                   outputs={ "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-        self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)        
-        pycdl.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.rst_seq)
+        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)        
+        cdl.sim.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.rst_seq)
 
 
 
