@@ -110,6 +110,7 @@ typedef int (*t_se_engine_simulation_callback_fn)( void *handle, void *handle_b 
 typedef std::function<void(void)>   t_se_engine_std_function;
 typedef std::function<void(int)>    t_se_engine_int_std_function;
 typedef std::function<void(void *)> t_se_engine_voidp_std_function;
+typedef std::function<void(t_se_message *)> t_se_engine_msg_std_function;
 
 /*t t_engine_message_level
  */
@@ -315,7 +316,7 @@ public:
                               t_se_engine_std_function pos_clk_fn );
      void register_comb_fn( void *engine_handle, t_se_engine_std_function comb_fn );
      void register_propagate_fn( void *engine_handle, t_se_engine_std_function propagate_fn );
-     void register_message_function( void *engine_handle, t_se_engine_voidp_std_function message_fn );
+     void register_message_function( void *engine_handle, t_se_engine_msg_std_function message_fn );
      
      // Deprecated functions
      void register_delete_function( void *engine_handle, void *handle, t_engine_callback_fn delete_fn );

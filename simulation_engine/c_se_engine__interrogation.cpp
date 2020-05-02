@@ -406,13 +406,9 @@ void *c_engine::find_module_instance( const char *full_name, int length )
  */
 int c_engine::module_instance_send_message( void *module, t_se_message *message )
 {
-     t_engine_module_instance *emi;
-     emi = (t_engine_module_instance *)module;
-     if (!emi)
-         return -1;
-     if (!emi->message_fn_list)
-         return 0;
-     se_engine_function_call_invoke_all_argp( emi->message_fn_list, (void *) message );
+     auto emi = (t_engine_module_instance *)module;
+     if (!emi) return -1;
+     emi->message_cb.invoke_all(message);
      return 1;
 }
 

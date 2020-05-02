@@ -238,6 +238,14 @@ void c_engine::register_comb_fn( void *engine_handle, t_se_engine_std_function c
      emi->comb_cb.add(comb_fn);
 }
 
+/*f c_engine::register_message_function
+ */
+void c_engine::register_message_function( void *engine_handle, t_se_engine_msg_std_function message_fn )
+{
+    auto emi = (t_engine_module_instance *)engine_handle;
+    emi->message_cb.add(message_fn);
+}
+
 /*f c_engine::register_clock_fns - DEPRECATED
  */
 void c_engine::register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn, t_engine_callback_fn negedge_preclock_fn, t_engine_callback_fn negedge_clock_fn )
@@ -306,7 +314,8 @@ void c_engine::register_message_function( void *engine_handle, void *handle, t_e
 {
     DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks");
     auto emi = (t_engine_module_instance *)engine_handle;
-    (void) se_engine_function_call_add( &emi->message_fn_list, handle, message_fn );
+    auto fn = ([handle,message_fn](t_se_message *m)->void{(*message_fn)(handle, (void *)m);});
+    return register_message_function(engine_handle, fn );
 }
 
 /*f c_engine::register_input_used_on_clock
