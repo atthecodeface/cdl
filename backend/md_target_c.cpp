@@ -1282,6 +1282,13 @@ void c_md_target_c::output_constructors_destructors(void)
      */
     output( 0, "/*f c_%s::~c_%s */\n", module->output_name, module->output_name);
     output( 0, "c_%s::~c_%s() {\n", module->output_name, module->output_name);
+
+    /*b Undo logging declarations
+     */
+    if (module->output.total_log_args>0) {
+        output( 1, "if (log_signal_data) free((void *)log_signal_data);\n");
+        output( 1, "if (log_event_array) engine->log_event_deregister_array( engine_handle, log_event_array );\n");
+    }
     output( 0, "}\n");
     output( 0, "\n");
 
@@ -3269,7 +3276,6 @@ void c_md_target_c::output_simulation_methods(void)
                 }
             }
         }
-        output( 2, "int i;\n" );
         // Stage 3a. Call all required local preclock functions - calculates next_state
         output( 2, "for (auto i=0; i<clocks_to_call; i++)\n" );
         output( 3, "(this->*clocks_fired[i].preclock)();\n" );

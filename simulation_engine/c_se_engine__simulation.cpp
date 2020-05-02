@@ -301,6 +301,24 @@ static t_sl_exec_file_method ef_output_object_methods[] =
 
 /*a Cycle simulation exec_file enhancement functions and methods
  */
+/*f ef_output_object_free */
+static t_sl_error_level ef_output_object_free(t_sl_exec_file_object_cb *obj_cb)
+{
+    // fprintf(stderr,"Free output name %p\n",obj_cb->object_desc->name);
+    // fprintf(stderr,"Free output name %s\n",obj_cb->object_desc->name);
+    free((void *)obj_cb->object_desc->name);
+    return error_level_okay;
+}
+
+/*f ef_input_object_free */
+static t_sl_error_level ef_input_object_free(t_sl_exec_file_object_cb *obj_cb)
+{
+    // fprintf(stderr,"Free input name %p\n",obj_cb->object_desc->name);
+    // fprintf(stderr,"Free input name %s\n",obj_cb->object_desc->name);
+    free((void *)obj_cb->object_desc->name);
+    return error_level_okay;
+}
+
 /*f ef_input_object_event_callback
  */
 static int ef_input_object_event_callback( t_sl_exec_file_wait_cb *wait_cb )
@@ -473,6 +491,21 @@ static t_sl_error_level ef_method_eval_output_drive( t_sl_exec_file_cmd_cb *cmd_
     return error_level_okay;
 }
 
+/*f ef_bfm_support_library_free */
+static t_sl_error_level ef_bfm_support_library_free(t_sl_exec_file_lib_cb *lib_cb)
+{
+    auto lib_data = (t_sim_ef_lib_data *)(lib_cb->lib_desc->handle);
+    // fprintf(stderr,"Free library - must free input and outputs names from lib_data\n");
+    for (int i=0; i<lib_data->num_inputs; i++) {
+        if (lib_data->inputs[i].name) free((void *)(lib_data->inputs[i].name));
+    }
+    for (int i=0; i<lib_data->num_outputs; i++) {
+        if (lib_data->outputs[i].name) free((void *)(lib_data->outputs[i].name));
+    }
+    free(lib_data);
+    return error_level_okay;
+}
+
 /*f ef_bfm_support_object_reset
  */
 static t_sl_error_level ef_bfm_support_object_reset( t_sl_exec_file_object_cb *obj_cb )
@@ -635,8 +668,10 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
             object_desc.version = sl_ef_object_version_checkpoint_restore;
             snprintf( buffer, sizeof(buffer), "%s%s", signal_prefix, inputs[i] );
             object_desc.name = sl_str_alloc_copy(buffer);
+            // fprintf(stderr,"Malloc input name %p %s\n",object_desc.name, object_desc.name);
             object_desc.handle = (void *)&(lib_data->inputs[i]);
             object_desc.methods = ef_input_object_methods;
+            object_desc.free_fn = ef_input_object_free;
             sl_exec_file_add_object_instance( file_data, &object_desc );
         }
         for (i=0; i<num_outputs; i++)
@@ -651,17 +686,18 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
             lib_data->outputs[i].next_data = 0;
             register_output_signal( engine_handle, outputs[i], output_widths[i], &lib_data->outputs[i].data );
             register_output_generated_on_clock( engine_handle, outputs[i], clock, posedge );
-            //fprintf(stderr, "Added signal %s at %p data now 0x%08x\n", outputs[i], &lib_data->outputs[i].data, lib_data->outputs[i].data );
+            // fprintf(stderr, "Added signal %s at %p data now 0x%08x\n", outputs[i], &lib_data->outputs[i].data, lib_data->outputs[i].data );
 
             memset(&object_desc,0,sizeof(object_desc));
             object_desc.version = sl_ef_object_version_checkpoint_restore;
             snprintf( buffer, sizeof(buffer), "%s%s", signal_prefix, outputs[i] );
             object_desc.name = sl_str_alloc_copy(buffer);
+            // fprintf(stderr,"Malloc output name %p %s\n",object_desc.name, object_desc.name);
             object_desc.handle = (void *)&(lib_data->outputs[i]);
             object_desc.methods = ef_output_object_methods;
+            object_desc.free_fn = ef_output_object_free;
             sl_exec_file_add_object_instance( file_data, &object_desc );
         }
-
         if (engine_handle && clock)
         {
             const char *ef_completion_prefix;
@@ -699,6 +735,7 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
         lib_data->lib_desc.cmd_handler = exec_file_cmd_handler;
         lib_data->lib_desc.file_cmds = sim_file_cmds;
         lib_data->lib_desc.file_fns = sim_file_fns;
+        lib_data->lib_desc.free_fn = ef_bfm_support_library_free;
         result = sl_exec_file_add_library( file_data, &lib_data->lib_desc );
 
         t_sl_exec_file_object_desc object_desc;
@@ -709,6 +746,7 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
         object_desc.message_handler = ef_bfm_support_object_message_handler;
         object_desc.reset_fn = ef_bfm_support_object_reset;
         object_desc.methods = ef_bfm_support_object_methods;
+        object_desc.free_fn = NULL;
         sl_exec_file_add_object_instance( file_data, &object_desc );
     }
 

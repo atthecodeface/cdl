@@ -241,6 +241,7 @@ static void internal_module_test_harness_exec_file_instantiate_callback( void *h
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = test_harness_file_cmds;
     lib_desc.file_fns = test_harness_file_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
     data->engine->bfm_add_exec_file_enhancements( file_data, data->engine_handle, data->clock, data->posedge );

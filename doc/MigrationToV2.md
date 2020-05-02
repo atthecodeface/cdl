@@ -81,6 +81,7 @@ Modern code is of the form:
     engine->register_clock_fns( engine_handle, "clk", [this](){this->preclock();}, [this](){this->clock();} );
     engine->register_message_function( engine_handle, [this](t_se_message *m){this->message(m);});
     engine->register_comb_fn(engine_handle, [this](void){this->comb();});
+    engine->register_reset_function(engine_handle, [this](int pass){this->reset(pass);} );
 ```
 
 The most critical item is that registering of a clock (and its

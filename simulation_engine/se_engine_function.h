@@ -43,6 +43,7 @@ template <typename T> class efblah {
 /*a External functions
  */
 extern void se_engine_signal_reference_add( t_engine_signal_reference **list_ptr, t_engine_signal *entry );
+extern void se_engine_signal_reference_list_clear(t_engine_signal_reference **ref_list_ptr);
 
 extern void se_engine_function_free_functions( t_engine_function *list );
 extern t_engine_function *se_engine_function_add_function( t_engine_module_instance *emi, t_engine_function **efn_list, const char *name );

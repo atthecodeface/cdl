@@ -500,6 +500,7 @@ public:
      struct t_engine_log_parser *log_parse_create( void *engine_handle, int num_events, int num_args );
      struct t_engine_log_event_array *log_event_register( void *engine_handle, const char *event_name, t_se_signal_value *value_base, ... );
      struct t_engine_log_event_array *log_event_register_array( void *engine_handle, const t_engine_text_value_pair *descriptor, t_se_signal_value *value_base );
+     void log_event_deregister_array(void *engine_handle, struct t_engine_log_event_array *event_array);
      void log_event_occurred( void *engine_handle, struct t_engine_log_event_array *event_array, int event_number ); // event_number=0 if registered with log_event_register()
      struct t_engine_log_interest *log_interest( void *engine_handle, void *module_instance, const char *event_name, t_engine_log_event_callback_fn callback_fn, void *handle );
      struct t_engine_log_parser *log_parse_setup( void *engine_handle, struct t_engine_log_interest *log_handle, const char *event_name, const char **value_names );

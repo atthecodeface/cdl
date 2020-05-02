@@ -27,6 +27,8 @@ PREFIX_OBJ_DIR  = $(CURDIR)/build/
 DEBUG_BUILD     = no
 
 #a Include standard build makefile
+cxxflags += -Wall -g
+
 include ${CDL_ROOT}/lib/cdl/cdl_simulation.mk
 
 CDL_FLAGS = --library-desc ${SRC_ROOT}/library_description

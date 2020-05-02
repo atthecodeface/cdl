@@ -101,7 +101,7 @@ t_sl_error_level c_engine::enumerate_instances( t_sl_cons_list *cl )
      {
           sl_cons_reset_list( &item_list );
           sl_cons_append( &item_list, sl_cons_item( emi->full_name, 1 ));
-          sl_cons_append( &item_list, sl_cons_item( se_external_module_name(emi->module_handle), 1 ));
+          sl_cons_append( &item_list, sl_cons_item( (char *)se_external_module_name(emi->module_handle), 1 ));
           sl_cons_append( cl, sl_cons_item( &item_list ) );
      }
      return error_level_okay;

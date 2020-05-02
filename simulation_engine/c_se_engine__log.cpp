@@ -310,7 +310,7 @@ struct t_engine_log_event_array *c_engine::log_event_register( void *engine_hand
     return event_array;
 }
 
-/*f log_event_register_array
+/*f c_engine::log_event_register_array
  */
 struct t_engine_log_event_array *c_engine::log_event_register_array( void *engine_handle, const t_engine_text_value_pair *descriptor, t_se_signal_value *value_base )
 {
@@ -348,6 +348,20 @@ struct t_engine_log_event_array *c_engine::log_event_register_array( void *engin
         next_entry += event_array->events[i].num_args;
     }
     return event_array;
+}
+
+/*f c_engine::log_event_deregister_array
+ */
+void c_engine::log_event_deregister_array(void *engine_handle, struct t_engine_log_event_array *event_array)
+{
+    auto emi = (t_engine_module_instance *)engine_handle;
+    auto lea_ptr = &(emi->log_event_list);
+    while (*lea_ptr) {
+        if ((*lea_ptr)==event_array) {
+            *lea_ptr = event_array->next_in_list;
+            free(event_array);
+        }
+    }
 }
 
 /*f log_event_occurred
@@ -619,6 +633,7 @@ int c_engine::log_add_exec_file_enhancements( struct t_sl_exec_file_data *file_d
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = log_file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 

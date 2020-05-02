@@ -356,6 +356,7 @@ static void exec_file_instantiate_callback( void *handle, struct t_sl_exec_file_
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
 }
@@ -505,6 +506,8 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      }
 
      emi = new t_engine_module_instance();
+     // fprintf(stderr,"create emi %p\n",emi);
+     // fprintf(stderr,"create emi->name %s\n",full_name);
      emi->next_instance = module_instance_list;
      module_instance_list = emi;
      emi->parent_instance = pemi;

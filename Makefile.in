@@ -92,6 +92,10 @@ ${MK_build}: ${MK_include}
 	cd ${CDL_SRC_ROOT}/execution_harnesses && ${SUBMAKE} -j4 build
 	date > $@
 
+rebuild_sl:
+	cd ${CDL_SRC_ROOT}/support_libraries   && ${SUBMAKE} -j4 build
+	rm -f ${MK_build}
+
 rebuild_se:
 	cd ${CDL_SRC_ROOT}/simulation_engine   && ${SUBMAKE} -j4 build
 	rm -f ${MK_build}
