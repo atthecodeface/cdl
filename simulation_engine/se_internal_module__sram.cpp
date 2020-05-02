@@ -58,34 +58,6 @@ static t_engine_text_value_pair log_event_descriptor[] =
     {NULL, 0}
 };
 
-/*a Static functions
- */
-/*f sram_delete - simple callback wrapper for the main method
-*/
-static t_sl_error_level sram_delete( void *handle )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    t_sl_error_level result = sram->delete_instance();
-    delete( sram );
-    return result;
-}
-
-/*f sram_reset
- */
-static t_sl_error_level sram_reset( void *handle, int pass )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    return sram->reset( pass );
-}
-
-/*f sram_message
- */
-static t_sl_error_level sram_message( void *handle, void *arg )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    return sram->message( (t_se_message *)arg );
-}
-
 /*a Constructors and destructors for sram_srw
 */
 /*f c_se_internal_module__sram::c_se_internal_module__sram
@@ -146,9 +118,9 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
     data_byte_width = BITS_TO_BYTES(data_width); // In 64-bit words
     data_word_width = (data_width+8*sizeof(t_sl_uint64)-1)/(sizeof(t_sl_uint64)*8); // In 64-bit words, for the signals
 
-    engine->register_delete_function( engine_handle, [this](){sram_delete(this);} );
-    engine->register_reset_function( engine_handle,  [this](int pass){sram_reset(this, pass);} );
-    engine->register_message_function( engine_handle, (void *)this, sram_message );
+    engine->register_delete_function( engine_handle, [this](){delete(this);} );
+    engine->register_reset_function( engine_handle,  [this](int pass){this->reset(pass);} );
+    engine->register_message_function( engine_handle, [this](t_se_message *m){this->message(m);});
 
     clock_domains = (t_sram_clock_domain *)malloc(sizeof(t_sram_clock_domain)*num_ports);
     for (int i=0; i<num_ports; i++)

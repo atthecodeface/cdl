@@ -44,6 +44,7 @@ public:
 typedef class c_se_engine_callbacks<t_se_engine_std_function>                 c_se_engine_callbacks_void;
 typedef class c_se_engine_callbacks<t_se_engine_int_std_function, int>        c_se_engine_callbacks_int;
 typedef class c_se_engine_callbacks<t_se_engine_voidp_std_function, void*> c_se_engine_callbacks_voidp;
+typedef class c_se_engine_callbacks<t_se_engine_msg_std_function, t_se_message *> c_se_engine_callbacks_msg;
 
 /*a Wrapper
  */

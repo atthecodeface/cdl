@@ -163,7 +163,7 @@ void c_sram_module::write(t_sl_uint64 address, t_sl_uint64 *write_data)
 }
 void c_sram_module::reset()
 {
-    fprintf(stderr,"Reset to filename %s %p\n",filename, data);
+    // fprintf(stderr,"Reset to filename %s %p\n",filename, data);
     sl_mif_read_mif_file( parent->engine->error, filename, "CDL wrapped verilog",
                           first_element, // address_offset,
                           num_elements, // t_sl_uint64 size, // size of memory - don't callback if address in file - address_offset is outside the range 0 to size-1

@@ -214,8 +214,7 @@ static void internal_module_delete_data(t_internal_module_data *data)
  */
 static t_sl_error_level internal_module_generic_logic_comb( void *handle )
 {
-     t_internal_module_data *data;
-     data = (t_internal_module_data *)handle;
+     auto data = (t_internal_module_data *)handle;
 
      generic_logic_fns[ data->args[2] ].logic_fn( data->args[0], data->outputs, data->inputs, data->args[1] );
 
@@ -226,49 +225,35 @@ static t_sl_error_level internal_module_generic_logic_comb( void *handle )
  */
 static t_sl_error_level internal_module_generic_logic_instantiate( c_engine *engine, void *engine_handle )
 {
-     const char *type;
-     int width, number_inputs;
-     t_internal_module_data *data;
-     int i;
-     char buffer[256];
+    char buffer[256];
 
-     type = engine->get_option_string( engine_handle, "type", "<none>" );
-     width = engine->get_option_int( engine_handle, "width", 16 );
-     number_inputs = engine->get_option_int( engine_handle, "number_inputs", 2 );
+    auto type = engine->get_option_string( engine_handle, "type", "<none>" );
+    auto width = engine->get_option_int( engine_handle, "width", 16 );
+    auto number_inputs = engine->get_option_int( engine_handle, "number_inputs", 2 );
 
-     for (i=0; generic_logic_fns[i].type; i++)
-     {
-          if (!strcmp( generic_logic_fns[i].type, type))
-          {
-               break;
-          }
-     }
-     if (!generic_logic_fns[i].type)
-     {
-          return engine->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
-                                           error_arg_type_malloc_string, type,
-                                           error_arg_type_none );
-     }
+    auto generic_fn = generic_logic_fns;
+    for (; generic_fn->type; generic_fn++) {
+        if (!strcmp( generic_fn->type, type)) break;
+    }
+    if (!generic_fn->type) {
+        return engine->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
+                                  error_arg_type_malloc_string, type,
+                                  error_arg_type_none );
+    }
 
-     data = create_internal_module_data( engine );
-     data->args[0] = width;
-     data->args[1] = number_inputs;
-     data->args[2] = i;
+    auto data = create_internal_module_data( engine );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
+    engine->register_output_signal( engine_handle, "bus_out", width, &data->outputs[0] );
+    engine->register_comb_output( engine_handle, "bus_out" );
+    engine->register_comb_fn(engine_handle, [generic_fn,data,width,number_inputs](void){generic_fn->logic_fn(width, data->outputs, data->inputs, number_inputs );});
 
-     engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
-     engine->register_output_signal( engine_handle, "bus_out", width, &data->outputs[0] );
-     engine->register_comb_output( engine_handle, "bus_out" );
+    for (int i=0; i<number_inputs; i++) {
+        sprintf( buffer, "bus_in__%d__", i );
+        engine->register_input_signal( engine_handle, buffer, width, &data->inputs[i] );
+        engine->register_comb_input( engine_handle, buffer );
+    }
 
-     for (i=0; i<number_inputs; i++)
-     {
-          sprintf( buffer, "bus_in__%d__", i );
-          engine->register_input_signal( engine_handle, buffer, width, &data->inputs[i] );
-          engine->register_comb_input( engine_handle, buffer );
-     }
-
-     engine->register_comb_fn( engine_handle, (void *)data, internal_module_generic_logic_comb );
-
-     return error_level_okay;
+    return error_level_okay;
 }
 
 /*f internal_module_bit_extract_comb

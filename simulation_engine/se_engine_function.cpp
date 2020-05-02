@@ -171,7 +171,7 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
      return efl;
 }
 
-/*f se_engine_function_call_add
+/*f se_engine_function_call_add - DEPRECATED
  */
 extern void se_engine_function_call_add( t_engine_function_list **list_ptr, t_engine_function_reference *efr, t_engine_callback_fn callback_fn )
 {
@@ -180,7 +180,7 @@ extern void se_engine_function_call_add( t_engine_function_list **list_ptr, t_en
     // efl->signal = efr->signal;
 }
 
-/*f se_engine_function_call_add
+/*f se_engine_function_call_add - DEPRECATED
  */
 extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_fn callback_fn )
 {
@@ -190,7 +190,7 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
     return efl;
 }
 
-/*f se_engine_function_call_add - int
+/*f se_engine_function_call_add - int - DEPRECATED
  */
 extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_arg_fn callback_fn )
 {
@@ -200,7 +200,7 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
     return efl;
 }
 
-/*f se_engine_function_call_add - voidp
+/*f se_engine_function_call_add - voidp - DEPRECATED
  */
 extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_argp_fn callback_fn )
 {

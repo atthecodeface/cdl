@@ -79,7 +79,8 @@ Modern code is of the form:
     engine->register_delete_function(engine_handle, [this](){delete(this);} );
     engine->register_prepreclock_fn( engine_handle, [this](){this->prepreclock();} );
     engine->register_clock_fns( engine_handle, "clk", [this](){this->preclock();}, [this](){this->clock();} );
-
+    engine->register_message_function( engine_handle, [this](t_se_message *m){this->message(m);});
+    engine->register_comb_fn(engine_handle, [this](void){this->comb();});
 ```
 
 The most critical item is that registering of a clock (and its

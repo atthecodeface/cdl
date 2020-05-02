@@ -211,6 +211,8 @@ typedef struct t_engine_module_instance
     c_se_engine_callbacks_void     propagate_cb;
     c_se_engine_callbacks_void     prepreclock_cb;
     
+    c_se_engine_callbacks_msg      message_cb;
+
     c_se_engine_callbacks_void comb_cb;
 
     t_engine_function *clock_fn_list;
@@ -219,7 +221,6 @@ typedef struct t_engine_module_instance
     t_engine_state_desc_list *state_desc_list;
     t_engine_coverage_desc *coverage_desc;
     t_engine_function_list *checkpoint_fn_list;
-    t_engine_function_list *message_fn_list;
     struct t_engine_log_event_array *log_event_list;
 
     void *thread_pool; // Used for multithreaded modules

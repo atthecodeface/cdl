@@ -448,7 +448,7 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
              if ( (!strncmp(fopt->full_name, full_name, full_name_len)) && (fopt->full_name[full_name_len]=='.')) {
                  auto opt = sl_option_list_copy_item(fopt->option,&(fopt->full_name[full_name_len+1]),sl_option_keyword(fopt->option));
                  combined_option_list = sl_option_list_prepend( combined_option_list, opt );
-                 fprintf(stderr, "New option for %s is %s\n", full_name, sl_option_keyword(opt));
+                 // fprintf(stderr, "New option for %s is %s\n", full_name, sl_option_keyword(opt));
              }
          }
      }
@@ -533,10 +533,10 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      // emi->reset_cb       = new c_se_engine_callbacks_int();
      // emi->propagate_cb   = new c_se_engine_callbacks_void();
      // emi->prepreclock_cb = new c_se_engine_callbacks_void();
-     // emi->comb_fn_list   = NULL;
+     // emi->comb_cb        = 
+     // emi->message_cb     = 
 
      emi->checkpoint_fn_list = NULL;
-     emi->message_fn_list = NULL;
 
      emi->clock_fn_list  = NULL;
      emi->input_list  = NULL;
