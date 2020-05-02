@@ -5,11 +5,11 @@ import inspect
 class x: pass
 module_root = os.path.dirname(inspect.getfile(x))
 
-import pycdl
+import cdl.sim
 
-class single_port_memory_th(pycdl.th):
+class single_port_memory_th(cdl.sim.th):
     def __init__(self, clocks, inputs, outputs, test_vector_mif):
-        pycdl.th.__init__(self, clocks, inputs, outputs)
+        cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.sram_rd_0 = inputs["sram_rd_0"]
         self.address_0 = outputs["address_0"]
         self.read_not_write_0 = outputs["read_not_write_0"]
@@ -21,7 +21,7 @@ class single_port_memory_th(pycdl.th):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = pycdl.load_mif(self.test_vector_mif)
+        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif)
         self.read_not_write_0.reset(1)
         self.byte_enables_0.reset(0)
         self.bfm_wait(1)
@@ -54,9 +54,9 @@ class single_port_memory_th(pycdl.th):
         else:
             self.passtest(self.global_cycle(), "Test succeeded")
 
-class dual_port_memory_th(pycdl.th):
+class dual_port_memory_th(cdl.sim.th):
     def __init__(self, clocks, inputs, outputs, test_vector_mif):
-        pycdl.th.__init__(self, clocks, inputs, outputs)
+        cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.sram_rd_0 = inputs["sram_rd_0"]
         self.sram_rd_1 = inputs["sram_rd_1"]
         self.address_0 = outputs["address_0"]
@@ -81,7 +81,7 @@ class dual_port_memory_th(pycdl.th):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = pycdl.load_mif(self.test_vector_mif)
+        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif)
         self.read_not_write_0.reset(1)
         self.byte_enables_0.reset(0)
         self.read_not_write_1.reset(1)
@@ -151,7 +151,7 @@ class dual_port_memory_th(pycdl.th):
                 self.failtest(self.global_cycle(), "Misread of sram written by message got %016x expected %016x"%(self.read_sram_location(i),expected_data[i]))
 
 
-class single_port_memory_srw_hw(pycdl.hw):
+class single_port_memory_srw_hw(cdl.sim.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
@@ -159,24 +159,24 @@ class single_port_memory_srw_hw(pycdl.hw):
         print("Running single port SRAM test on 1024x16 %d bits per enable srw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
-            self.byte_enables_0 = pycdl.wire(2)
+            self.byte_enables_0 = cdl.sim.wire(2)
         else:
-            self.byte_enables_0 = pycdl.wire(1)
-        self.test_reset = pycdl.wire()
-        self.sram_rd_0 = pycdl.wire(16)
-        self.address_0 = pycdl.wire(10)
-        self.read_not_write_0 = pycdl.wire()
-        self.write_data_0 = pycdl.wire(16)
+            self.byte_enables_0 = cdl.sim.wire(1)
+        self.test_reset = cdl.sim.wire()
+        self.sram_rd_0 = cdl.sim.wire(16)
+        self.address_0 = cdl.sim.wire(10)
+        self.read_not_write_0 = cdl.sim.wire()
+        self.write_data_0 = cdl.sim.wire(16)
         
 
-        self.system_clock = pycdl.clock(0, 1, 1)
+        self.system_clock = cdl.sim.clock(0, 1, 1)
 
         sram_inputs={ "address": self.address_0,
                       "read_not_write": self.read_not_write_0,
                       "write_data": self.write_data_0 }
         if bits_per_enable != 0:
             sram_inputs["write_enable"] = self.byte_enables_0 
-        self.sram = pycdl.module("se_sram_srw",
+        self.sram = cdl.sim.module("se_sram_srw",
                                  options={ "filename": mif_filename,
                                            "size": 1024,
                                            "width": 16,
@@ -193,10 +193,10 @@ class single_port_memory_srw_hw(pycdl.hw):
                                                               "byte_enables_0": self.byte_enables_0,
                                                               "write_data_0": self.write_data_0},
                                                     test_vector_mif=tv_filename)
-        self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
+        cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
-class single_port_memory_hw(pycdl.hw):
+class single_port_memory_hw(cdl.sim.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
@@ -204,24 +204,24 @@ class single_port_memory_hw(pycdl.hw):
         print("Running single port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
-            self.byte_enables_0 = pycdl.wire(2)
+            self.byte_enables_0 = cdl.sim.wire(2)
         else:
-            self.byte_enables_0 = pycdl.wire(1)
-        self.test_reset = pycdl.wire()
-        self.sram_rd_0 = pycdl.wire(16)
-        self.address_0 = pycdl.wire(10)
-        self.read_not_write_0 = pycdl.wire()
-        self.write_data_0 = pycdl.wire(16)
+            self.byte_enables_0 = cdl.sim.wire(1)
+        self.test_reset = cdl.sim.wire()
+        self.sram_rd_0 = cdl.sim.wire(16)
+        self.address_0 = cdl.sim.wire(10)
+        self.read_not_write_0 = cdl.sim.wire()
+        self.write_data_0 = cdl.sim.wire(16)
         
 
-        self.system_clock = pycdl.clock(0, 1, 1)
+        self.system_clock = cdl.sim.clock(0, 1, 1)
 
         sram_inputs={ "address_0": self.address_0,
                       "read_not_write_0": self.read_not_write_0,
                       "write_data_0": self.write_data_0 }
         if bits_per_enable != 0:
             sram_inputs["write_enable_0"] = self.byte_enables_0 
-        self.sram = pycdl.module("se_sram_mrw",
+        self.sram = cdl.sim.module("se_sram_mrw",
                                  options={ "filename": mif_filename,
                                            "num_ports": 1,
                                            "size": 1024,
@@ -238,10 +238,10 @@ class single_port_memory_hw(pycdl.hw):
                                                               "byte_enables_0": self.byte_enables_0,
                                                               "write_data_0": self.write_data_0},
                                                     test_vector_mif=tv_filename)
-        self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
+        cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
-class dual_port_memory_hw(pycdl.hw):
+class dual_port_memory_hw(cdl.sim.hw):
     def __init__(self, bits_per_enable, mif_filename, tv_filename):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
@@ -249,23 +249,23 @@ class dual_port_memory_hw(pycdl.hw):
         print("Running dual port SRAM test on 1024x16 %d bits per enable mrw sram mif file %s test vector file %s" % (bits_per_enable, mif_filename, tv_filename))
 
         if bits_per_enable == 8:
-            self.byte_enables_0 = pycdl.wire(2)
-            self.byte_enables_1 = pycdl.wire(2)
+            self.byte_enables_0 = cdl.sim.wire(2)
+            self.byte_enables_1 = cdl.sim.wire(2)
         else:
-            self.byte_enables_0 = pycdl.wire(1)
-            self.byte_enables_1 = pycdl.wire(1)
-        self.test_reset = pycdl.wire()
-        self.sram_rd_0 = pycdl.wire(16)
-        self.address_0 = pycdl.wire(10)
-        self.read_not_write_0 = pycdl.wire()
-        self.write_data_0 = pycdl.wire(16)
-        self.sram_rd_1 = pycdl.wire(16)
-        self.address_1 = pycdl.wire(10)
-        self.read_not_write_1 = pycdl.wire()
-        self.write_data_1 = pycdl.wire(16)
+            self.byte_enables_0 = cdl.sim.wire(1)
+            self.byte_enables_1 = cdl.sim.wire(1)
+        self.test_reset = cdl.sim.wire()
+        self.sram_rd_0 = cdl.sim.wire(16)
+        self.address_0 = cdl.sim.wire(10)
+        self.read_not_write_0 = cdl.sim.wire()
+        self.write_data_0 = cdl.sim.wire(16)
+        self.sram_rd_1 = cdl.sim.wire(16)
+        self.address_1 = cdl.sim.wire(10)
+        self.read_not_write_1 = cdl.sim.wire()
+        self.write_data_1 = cdl.sim.wire(16)
         
 
-        self.system_clock = pycdl.clock(0, 1, 1)
+        self.system_clock = cdl.sim.clock(0, 1, 1)
 
         sram_inputs={ "address_0": self.address_0,
                       "read_not_write_0": self.read_not_write_0,
@@ -276,7 +276,7 @@ class dual_port_memory_hw(pycdl.hw):
         if bits_per_enable != 0:
             sram_inputs["write_enable_0"] = self.byte_enables_0 
             sram_inputs["write_enable_1"] = self.byte_enables_1 
-        self.sram = pycdl.module("se_sram_mrw",
+        self.sram = cdl.sim.module("se_sram_mrw",
                                  options={ "filename": mif_filename,
                                            "num_ports": 2,
                                            "size": 1024,
@@ -300,8 +300,8 @@ class dual_port_memory_hw(pycdl.hw):
                                                             "byte_enables_1": self.byte_enables_1,
                                                             "write_data_1": self.write_data_1 },
                                                   test_vector_mif=tv_filename)
-        self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)
-        pycdl.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
+        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
+        cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
         
 
 class TestMemory(unittest.TestCase):
