@@ -78,6 +78,7 @@ extern void *se_external_module_find( const char *name, const char *implementati
                     }
                     return (void *)em;
                 }
+                em = em->next_module_of_same_name;
             }
         }
     }

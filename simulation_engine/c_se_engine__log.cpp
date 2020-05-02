@@ -360,7 +360,9 @@ void c_engine::log_event_deregister_array(void *engine_handle, struct t_engine_l
         if ((*lea_ptr)==event_array) {
             *lea_ptr = event_array->next_in_list;
             free(event_array);
+            return;
         }
+        lea_ptr = &((*lea_ptr)->next_in_list);
     }
 }
 
