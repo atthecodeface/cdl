@@ -800,7 +800,7 @@ class ImportedLibrary:
 #c ImportedLibrarySet class - set of imported libraries
 class ImportedLibrarySet:
     #f __init__
-    def __init__(self, library_paths_required):
+    def __init__(self, required_paths, optional_paths):
         """
         Import all libraries from required
         """
@@ -808,9 +808,23 @@ class ImportedLibrarySet:
         self.required_libraries = []
         self.optional_libraries = []
         self.libraries_to_use = {}
-        self.library_paths_required = library_paths_required
-        for path in library_paths_required:
-            self.add_library_from_path(path, required=True)
+        self.library_paths_required = required_paths
+        for path in required_paths:
+            try:
+                self.add_library_from_path(path, required=True)
+                pass
+            except:
+                raise
+            pass
+        for path in optional_paths:
+            try:
+                self.add_library_from_path(path, required=False)
+                pass
+            except LibraryLoaded: pass
+            except DuplicateLibrary: pass
+            except LibraryNotFound: pass
+            except:
+                raise
             pass
         pass
     #f add_library_from_path
@@ -969,13 +983,13 @@ class ImportedLibrarySet:
 if __name__ == '__main__':
     import argparse, sys, re
     parser = argparse.ArgumentParser(description='Generate MIF or READMEMH files for APB processor ROM')
-    parser.add_argument('--require', type=str, nargs='+',
+    parser.add_argument('--require', action='append', required=True,
                     help='Required source libraries - the main source library_descs whose dependents have to be included')
-    parser.add_argument('--build_root', type=str, default=None,
+    parser.add_argument('--build_root', type=str, default=None, required=True,
                     help='Build directory')
     parser.add_argument('--src_root', type=str, default=None,
                     help='Source root to be used for relative paths')
-    parser.add_argument('libraries', type=str, nargs='*',
+    parser.add_argument('libraries', nargs='*',
                     help='a directory (possibly) containing a library_desc.py python CDL library description')
     args = parser.parse_args()
     show_usage = False
@@ -1009,15 +1023,13 @@ if __name__ == '__main__':
         src_root = resolve_path_or_else(args.src_root,
                                         "Specified source root '%s' does not exist"%args.src_root )
         pass
+
     required_paths = [Path(p).resolve(strict=False) for p in args.require]
-    library_paths  = [Path(p).resolve(strict=False) for p in args.libraries]
+    optional_paths = [Path(p).resolve(strict=False) for p in args.libraries]
+
     try:
-        library_set = ImportedLibrarySet(required_paths)
-        for l in library_paths:
-            library_set.add_library_from_path(l, required=False)
-            pass
-    except LibraryLoaded: pass
-    except DuplicateLibrary as e: error_of_exception(e)
+        library_set = ImportedLibrarySet(required_paths, optional_paths)
+        pass
     except BadLibraryDescription as e: error_of_exception(e)
     except LibraryNotFound as e: error_of_exception(e)
     except:
