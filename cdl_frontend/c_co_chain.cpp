@@ -55,7 +55,6 @@
 #define CHAIN_TAIL(class_name) \
 class_name *class_name::chain_tail( class_name *entry ) \
 { \
-    if (!this) return NULL; \
     if (!this->last_in_list) return NULL; \
     this->last_in_list->next_in_list = (class c_cyc_object *)entry; \
     this->last_in_list = (class c_cyc_object *)entry;                   \
