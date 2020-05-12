@@ -27,7 +27,7 @@ import itertools, collections
 import traceback
 from .c_python_telnetd import c_python_telnet_server
 
-from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional
+from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
 from typing_extensions import Protocol
 
 VersionInfo = Tuple[int,int,int,str,int]
@@ -57,37 +57,209 @@ if "CDL_BUILD_DIR" in os.environ:
         sys.path = oldpath
 else:
     import py_engine
+    pass
+
+#a For exec_file
+#c PyExecFile
+class PyExecFile(object): # from sl_exec_file.cpp
+    ThreadCallable = Callable[...,Any]
+    def pyspawn(self,fn:ThreadCallable, args:object) -> None: ...
+    def pypass(self,code:int, reason:str) -> None: ...
+    def pyfail(self,code:int, reason:str) -> None: ...
+    def list(self,what:str) -> None: ...  # what is libs, fns, cmds, objs, a library name, or an object name
+    def pypassed(self) -> int: ...
+    pass
+
+#c SysEvent
+class SysEvent(object): # from sl_ef_lib_event
+    class SlEvent:
+        def reset(self) -> None : ... # Reset the event
+        def fire(self) -> None  : ... # fire the event
+        def wait(self) -> None  : ... # if not fired, set thread to wait on the event firing
+        def fired(self) -> int  : ... # return true if the event has fired since last reset
+        pass
+    def event(self, object_name:str) -> None : ... # Create a new 'SlEvent' attribute of this name
+    pass
+
+#c SysMemory
+class SysMemory(object): # from sl_ef_lib_memory
+    class SlMemory:
+        def read(self, address:int) -> int : ... # Read the memory
+        def write(self, address:int, data:int) -> None  : ... # Write the memory
+        def load(self, filename:str, bit_offset:int) -> None  : ... # load from MIF
+        def save(self, filename:str, start:int, num_words:int) -> None  : ... # save to MIF
+        def compare(self, filename:str, offset:int) -> int  : ... # Compare file with memory contents
+        pass
+    def memory(self, object_name:str, num_words:int, word_size:int) -> None : ... # Create a new 'SlMemory' attribute of this name
+    pass
+
+#c SysRandom
+class SysRandom(object): # from sl_ef_lib_random
+    class SlRandom:
+        def next(self) -> int : ... # Get next random number
+        def seed(self, seed:str) -> None  : ... # Seed with a string
+        pass
+    def random_nial(self, object_name:str, iterations:int, base:int, range:int) -> None : ... # Create a new 'SlRandom' attribute of this name
+    def random_cyclic(self, object_name:str, value:int, base:int, range:int, step:int) -> None : ... # Create a new 'SlRandom' attribute of this name
+
+#c SysFifo
+class SysFifo(object): # from sl_ef_lib_fifo
+    class SlFifo:
+        def reset(self) -> None : ...                 # reset the pointers and flags to empty
+        def flags(self) -> int : ...                  # return e, f, ewm, fwm flags as 4 bits 0 thru 3
+        def is_empty(self) -> int : ...               #
+        def is_full(self) -> int : ...                #
+        def is_nearly_full(self) -> int : ...         #
+        def is_nearly_empty(self) -> int : ...        #
+        def has_underflowed(self) -> int : ...        #
+        def has_overflowed(self) -> int : ...         #
+        def read_ptr(self) -> int : ...               # return read ptr for the FIFO
+        def write_ptr(self) -> int : ...              # return write ptr for the FIFO
+        def uncommitted_read_ptr(self) -> int : ...   # return uncommitted_read ptr for the FIFO
+        def remove(self) -> int : ...                 # remove an element from the FIFO, error if underflow
+        def peek(self) -> int : ...                   # look at the top element from the FIFO but do not change pointers, error if underflow
+        def remove_no_commit(self) -> int : ...       # remove an element from the FIFO without committing the read ptr, error if underflow
+        def add(self, item:int) -> None : ...         # add an element to the FIFO, error if overflow
+        def commit_read(self) -> None : ...           # commit the uncommited read ptr of the FIFO after uncommitted reads
+        def revert_read(self) -> None : ...           # revert the uncommited read ptr of the FIFO back to the last committed value
+        def wait_for_flags(self, mask:int, value:int) -> None : ... # wait for FIFO flags AND mask to equal value
+        pass
+    def fifo(self, object_name:str, size:int, ne_wm:int, nf_wm:int) -> None : ... # Create a new 'SlFifo' attribute of this name
+
 
 #a Nameable
 #c Types - should be recursive (for Any, read Nameable)
 Nameable = Union['_nameable', List[Any], Dict[str,Any]]
-Hardware = Type['hw']
+HardwareType = Type['hw']
+Hardware = 'hw'
 ModuleForces = Dict[str,str]
+WireDict = Dict[str,Union['clock','wire']]
 ClockDict = Dict[str,'clock'] #Hardware]
 InputDict  = Dict[str,'wire']
 OutputDict = Dict[str,'wire']
+OptionsDict = Dict[str,Union[str,int,object]]
 class PyEngSimCDLSimReg(object): # from c_se_engine__registration enhancements
     class SlMessage:
-        class SlMessageSendFn(Protocol):
-            def __call__(x:'SlMessage', module:str, reason:int, *data:Any) -> int: ...
-            pass
-        send_int:     SlMessageSendFn # send ints
-        send_value:   SlMessageSendFn # send int64s
-        get_value:    Callable[['SlMessage',int],int] # gets n'th int in the message
-        get_string:   Callable[['SlMessage',int],str] # gets n'th string in the message
-        response:     Callable[['SlMessage',int],int]  # get response value from last message
-        text:         Callable[['SlMessage',int],str] # get message text
+        def send_int(self, module:str, reason:int, *data:Any) -> int : ... # send ints
+        def send_value(self, module:str, reason:int, *data:Any) -> int : ... # send int64s
+        def get_value(self, n:int) -> int: ... # gets n'th int in the message
+        def get_string(self, n:int) -> str: ... # gets n'th string in the message
+        def response(self, n:int) -> int: ...  # get response value from last message
+        def text(self, n:int) -> str: ... # get message text
         pass
-    sim_message : Callable[['PyEngSimCDLSimReg',str],None] # Create a new 'sl_message' attribute of this name
+    def sim_message(self, object_name:str) -> None : ... # Create a new 'SlMessage' attribute of this name
     pass
-class PyEngSim(object): # inside py_engine, type of an object
-    cdlsim_reg : PyEngSimCDLSimReg
+class PyEngSimCDLSimWave(object): # from c_se_engine__waveform enhancements
+    class Waves:
+        def open(self, filename:str) -> int: ...
+        def add(self, name:str, *names:Any) -> int: ...
+        def add_hierarchy(self, name:str, *names:Any) -> int: ...
+        def enable(self) -> None: ...
+        def close(self) -> None: ...
+        def reset(self) -> None: ...
+        def pause(self) -> None: ...
+        def restart(self) -> None: ...
+        def file_size(self) -> int: ...
+        pass
+    def vcd_file(self, object_name:str) -> None : ... # Create a new 'Waves' attribute of this name
+    pass
+class PyEngSimCDLSimSim(object): # from c_se_engine__simulation enhancements
+    def global_monitor_event(self, global_signal:str, event_name:str) -> None : ... # Tie global signal to an event
+    def bfm_wait(self, cycles:int) -> None : ... # Wait for cycles bfm clock ticks
+    def bfm_cycle(self)    -> int : ... # Get current BFM clock cycle
+    def global_cycle(self) -> int : ... # Get current global simulation cycle
+    def global_signal(self, global_signal:str) -> int : ... # Get value of global signal
+    def global_signal_value(self, global_signal:str) -> str : ... # Get string value of global signal
+    pass
+
+class PyEngSim(object): # inside py_engine, type of an instantiated thing
+    class Signal(object):
+        def value(self) -> int: ... # Get value of (input) signal
+        def drive(self, value:int) -> None: ... # Drive value after posedge of clock completes
+        def reset(self, value:int) -> None: ... # Drive value now (DEPRECATED)
+        def wait_for_value(self, value:int, timeout:int) -> None: ... # Wait up to timeout bfm ticks for signal to be at value
+        def wait_for_change(self, timeout:int) -> None: ... # Wait up to timeout bfm ticks for signal to change from current value
+    cdlsim_sim  : PyEngSimCDLSimSim
+    cdlsim_reg  : PyEngSimCDLSimReg
+    cdlsim_wave : PyEngSimCDLSimWave
+    py          : PyExecFile
+    sys_event   : SysEvent
+    sys_fifo    : SysFifo
+    sys_memory  : SysMemory
+    sys_random  : SysRandom
+    _temporary_object : Any
+    pass
+class PyEngine(object): # An engine object within the engine library - in se_py_engine.cpp
+    def setenv(self, keyword:str, value:str) -> None : ... # Set an environment variable
+    def read_hw_file(self, filename:str) -> None : ... # Read hardware from file
+    def describe_hw(self, describer:str) -> None : ... # Describe the hardware - instead of using an hwex file
+    def read_gui_file(self, filename:str) -> None : ... # Read a GUI file description (not used any more)
+    def reset_errors(self) -> None : ... # Reset the errors
+    def get_error_level(self) -> int : ... # Get the current highest error level
+    def get_error(self, error:int) -> str : ... # Get the nth error
+    def cycle(self) -> int : ... # Get current simulation cycle number (as seen in a module with global_cycle())
+    def reset(self) -> None : ... # Reset the simulation
+    def step(self, cycles:int) -> None : ... # Step for cycles
+
+    def write_profile(self, filename:str) -> None : ... # Write out simulation profile
+    def thread_pool_init(self) -> None : ... # Initialize the thread pool for multithreaded simulations
+    def thread_pool_add(self, name:str) -> None : ... # Add a named thread to the pool
+    def thread_pool_map_module(self, thread_name:str, module_name:str) -> None : ... # Assign a module to a thread
+    def thread_pool_delete(self) -> None : ... # Delete the thread pool
+
+    def list_instances(self) -> List[str] : ...
+    def get_module_ios(self, module:str) -> List[List[Tuple[str,int]]] : ... # Get list of list of signal name/width for clocks, inputs and outputs
+    def find_state(self, name:str) -> Optional[List[Any]] : ... # Get details on state - None, [int type, str], or [int type,str,int id,str]
+    def get_state_info(self, module:str, id:int) -> Optional[Tuple[int,str,str,str,int,int]] : ... # Get type, module, prefix, state_name, size[0], size[1]
+    def get_state(self, module:str, state:Union[str,int], what:Union[None,int,slice]=None) -> Union[int, List[int]] : ... # Get contents of state (either name or enumerated id)
+    def get_state_value_string(self, module:str, id:int) -> Optional[str] : ... # Get string of value
+    def get_state_memory(self, module:str, id:int, start:int, length:int) -> Optional[List[int]] : ...
+    def set_state(self, module:str, state:object, value:object, mask:Optional[int]=None, what:Optional[object]=None) -> None : ... # Set state - args is mask, what
+    def set_array_state(self, module:str, id:int, value:int, mask:Optional[int]=None, index:Optional[int]=None, state:Optional[str]=None) -> None : ... #
+    """Set state in simulation engine.
+      @module:     module name
+      @state:      state name or enumerated id
+      @value:      value(s) to set
+      @mask:       mask(s) for value(s) (or None)
+      @what:       what part of state to set (if memory/vector)
+
+      Set state contents of simulation engine.  The 'mask' bits
+      indicate which bits of the state value to set.  If 'mask' is
+      None then all bits in the state is set.
+
+      When 'state' indicates a memory 'value' and 'mask' can be
+      lists of values.  If 'mask' is a single value then it is
+      applied to all entries in the 'value' list.
+
+      The 'what' parameter can be used to indicate which parts of
+      the memory state to modify.  A single int indicates a memory
+      word with a specific index.  A slice object indicates multiple
+      memory entries.
+
+      Throw ValueError if 'module' or 'state' can not be found.},
+    """
+    #{"checkpoint_init",           (PyCFunction)py_engine_method_checkpoint_init,         METH_VARARGS|METH_KEYWORDS, "Initialize checkpointing"},
+    #{"checkpoint_add",            (PyCFunction)py_engine_method_checkpoint_add,          METH_VARARGS|METH_KEYWORDS,  "Add a checkpoint"},
+    #{"checkpoint_info",           (PyCFunction)py_engine_method_checkpoint_info,         METH_VARARGS|METH_KEYWORDS, "Get information about a checkpoint"},
+    #{"checkpoint_restore",        (PyCFunction)py_engine_method_checkpoint_restore,      METH_VARARGS|METH_KEYWORDS, "Restore a checkpoint"},
+    pass
+
+class PyEngineLibrary(object): # The engine library - in se_py_engine.cpp
+    @staticmethod
+    def new() -> PyEngine : ...
+    @staticmethod
+    def debug(level:int) -> None : ...
+    class exec_file(object):
+        pass
+    pass
+# class py_engine(PyEngineLibrary): ...
 
 #c _nameable - a class with a _name, given to it by a _namegiver
 class _nameable(object):
     """
     An object that should get named when assigned to a namegiver object.
     """
+    _name : str # Once given...
     def __repr__(self)->str: return self._name
     pass
 
@@ -96,7 +268,7 @@ class _namegiver(object):
     """
     An object that gives nameable objects a name.
     """
-    def _give_name(self, name:str, value:Nameable):
+    def _give_name(self, name:str, value:Union[Nameable,List[Nameable],Dict[str,Nameable]]) -> None:
         if isinstance(value, _nameable) and (not hasattr(value, "_name") or value._name is None):
             value._name = name
             pass
@@ -106,13 +278,13 @@ class _namegiver(object):
                 pass
             pass
         elif isinstance(value, dict):
-            for i in list(value.keys()):
-                self._give_name("%s_%s" % (name, str(i)), value[i])
+            for s in list(value.keys()):
+                self._give_name("%s_%s" % (name, str(s)), value[s])
                 pass
             pass
         pass
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name:str, value:Any) -> None:
         self._give_name(name, value)
         object.__setattr__(self, name, value)
         pass
@@ -129,19 +301,25 @@ class WireError(PyCDLError):
     """
     Thrown on a wiring mismatch.
     """
-    def __init__(self, msg="Wiring error!"):
+    def __init__(self, msg:str="Wiring error!"):
         self._msg = msg
+        pass
 
-    def __str__(self):
+    def __str__(self)->str:
         return "WireError: " + self._msg
     pass
 
 #a Bit vector class
+#c bv
 class bv(object):
     """
     A bit-vector. Has a size and a value.
     """
-    def __init__(self, val, size=None):
+    Val = Union[int, 'bv']
+    Access = Union[slice,int]
+    _val : int
+    _size : Optional[int]
+    def __init__(self, val:int, size:Optional[int]=None):
         self._val = val
         self._size = size
         if size is not None:
@@ -149,12 +327,12 @@ class bv(object):
             pass
         pass
 
-    def value(self):
+    def value(self) -> Val:
         return self._val
 
     __int__ = value # this allows us to use a bv where we otherwise use a number
 
-    def __eq__(self, other):
+    def __eq__(self, other:object) -> bool:
         if isinstance(other, bv):
             if other._size != self._size:
                 return False
@@ -163,16 +341,18 @@ class bv(object):
         else:
             return self._val == other
 
-    def __ne__(self, other):
+    def __ne__(self, other:object) -> bool:
         return not self.__eq__(other)
 
-    def __cmp__(self, other):
-        return self._val - other
+    def __cmp__(self, other:object) -> int:
+        if isinstance(other, bv):
+            return self._val - other._val
+        return self._val - cast(int,other)
 
-    def size(self):
+    def size(self) -> Optional[int]:
         return self._size
 
-    def _getset(self, key, item, isset):
+    def _getset(self, key:Access, item:int, isset:bool) -> int:
         # Figure out the start and stop.
         if isinstance(key, slice):
             start = key.start
@@ -210,14 +390,16 @@ class bv(object):
         if (isset):
             self._val &= ~shiftedmask
             self._val |= (item & unshiftedmask) << stop
-        else:
-            return (self._val & shiftedmask) >> stop
+            return self._val
+        result : int =  (self._val & shiftedmask) >> stop
+        return result
 
-    def __getitem__(self, key):
-        return self._getset(key, None, False)
+    def __getitem__(self, key:Access) -> int:
+        return self._getset(key, 0, False)
 
-    def __setitem__(self, key, item):
-        return self._getset(key, item, True)
+    def __setitem__(self, key:Access, item:int) -> None:
+        self._getset(key, item, True)
+        return None
 
     pass
 
@@ -226,19 +408,23 @@ class bvbundle(object):
     """
     A bundle of bit vectors (or of more bvbundles)
     """
-    def __init__(self, indict=None, **kw):
-        if indict:
+    _dict : Dict[str,str]
+    def __init__(self, indict:Optional[Dict[str,Union['wire', 'wirebundle']]]=None, **kw:Any) -> None:
+        if indict is not None:
             self.__dict__["_dict"] = indict
             self._dict.update(kw)
+            pass
         else:
             self.__dict__["_dict"] = kw
+            pass
+        pass
 
-    def __getattr__(self, name):
+    def __getattr__(self, name:str) -> Any:
         if name in self._dict:
             return self._dict[name]
         raise AttributeError
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name:str, value:Any) -> None:
         raise AttributeError # bvbundles are read-only
     pass
 
@@ -247,7 +433,9 @@ class wire(_nameable):
     """
     The object that represents a wire.
     """
-    def __init__(self, size=1, name=None):
+    # _cdl_signal : PyEngSim.Global # Global wire created in hardware when the hardware is built - passed in at _connect_cdl_signal
+    _instantiated_name : str # Given to the wire in the hardware when the hardware is built
+    def __init__(self, size:int=1, name:str=None):
         self._drives = []
         self._driven_by = None
         self._size = size
@@ -255,30 +443,35 @@ class wire(_nameable):
         self._name = name
         self._reset_value = None
 
-    def _name_list(self, inname):
+    def _name_list(self, inname:str) -> List[str]:
         return ["%s[%d]" % (inname, self._size)]
 
-    def _check_connectivity(self, other):
+    def _check_connectivity(self, other:'wire') -> None:
         if self._size and other._size and self._size != other._size:
             raise WireError("Size mismatch: %s has %d, %s has %d" % (repr(self), self._size, repr(other), other._size))
+        pass
 
-    def _is_driven_by(self, other):
+    def _is_driven_by(self, other:'wire') -> None:
         if self._driven_by:
             raise WireError("Double-driven signal at %s" % repr(self))
         self._check_connectivity(other)
         self._driven_by = other
         other._drives.append(self)
+        pass
 
-    def _connect_cdl_signal(self, signal):
+    def _connect_cdl_signal(self, signal:str) -> None:
         if self._cdl_signal and self._cdl_signal != signal:
             raise WireError("Connecting two CDL signals on %s: %s and %s" % (repr(self), repr(self._cdl_signal), repr(signal)))
         if not self._cdl_signal:
             #print "CONNECT %s to CDL %s" % (repr(self), repr(signal))
             self._cdl_signal = signal
+            pass
         for i in self._drives:
             i._connect_cdl_signal(signal)
+            pass
+        pass
 
-    def _connectivity_upwards(self, index):
+    def _connectivity_upwards(self, index:int) -> None:
         if self._driven_by:
             print("%sDriven by %s" % (" "*index, repr(self._driven_by)))
             return self._driven_by._connectivity_upwards(index+2)
@@ -286,28 +479,31 @@ class wire(_nameable):
             print("%sROOT AT %s" % (" "*index, repr(self)))
             return self
 
-    def _connectivity_downwards(self, index):
+    def _connectivity_downwards(self, index:int)->None:
         print("%sAt %s, CDL signal %s" % (" "*index, repr(self), repr(self._cdl_signal)))
         for i in self._drives:
             print("%sDrives %s" % (" "*index, repr(i)))
             i._connectivity_downwards(index+2)
+            pass
+        pass
 
-    def print_connectivity(self):
+    def print_connectivity(self) -> None:
         print("Finding connectivity tree for %s:" % repr(self))
         root = self._connectivity_upwards(0)
         print()
         root._connectivity_downwards(0)
+        pass
 
-    def size(self):
+    def size(self) -> int:
         return self._size
 
-    def value(self):
+    def value(self) -> bv:
         if self._cdl_signal:
             return bv(self._cdl_signal.value(), self._size)
         else:
             raise WireError("No underlying value for signal %s" % repr(self))
 
-    def drive(self, value):
+    def drive(self, value:Union[bv,int]) -> None:
         if isinstance(value, bv):
             value = int(value)
         if self._cdl_signal:
@@ -315,24 +511,25 @@ class wire(_nameable):
         else:
             raise WireError("No underlying signal to drive for %s" % repr(self))
 
-    def _reset(self, value):
+    def _reset(self, value:int) -> None:
         if self._cdl_signal:
             self._cdl_signal.reset(value)
         else:
             raise WireError("No underlying signal to drive for %s" % repr(self))
 
-    def reset(self, value):
+    def reset(self, value:int) -> None:
         if self._cdl_signal:
             self._cdl_signal.reset(value)
         self._reset_value = value
+        pass
 
-    def wait_for_value(self, val, timeout=-1):
+    def wait_for_value(self, val:int, timeout:int=-1) -> None:
         if self._cdl_signal:
             self._cdl_signal.wait_for_value(val, timeout)
         else:
             raise WireError("No underlying value for signal %s" % repr(self))
 
-    def wait_for_change(self, timeout=-1):
+    def wait_for_change(self, timeout:int=-1) -> None:
         if self._cdl_signal:
             self._cdl_signal.wait_for_change(timeout)
         else:
@@ -342,7 +539,7 @@ class wire(_nameable):
 
 #c clock - special type of wire that corresponds to a CDL simulation clock
 class clock(wire):
-    def __init__(self, init_delay=0, cycles_high=1, cycles_low=1, name=None):
+    def __init__(self, init_delay:int=0, cycles_high:int=1, cycles_low:int=1, name:str=None):
         self._init_delay = init_delay
         self._cycles_high = cycles_high
         self._cycles_low = cycles_low
@@ -355,6 +552,7 @@ class wirebundle(_nameable):
     """
     The object that represents a bundle of wires.
     """
+    _dict: Dict[str,Union[wire, 'wirebundle']]
     def __init__(self, bundletype=None, name=None, **kw):
         if bundletype:
             # Build the bundle from a dict.
@@ -371,7 +569,7 @@ class wirebundle(_nameable):
         self._reset_value = None
         self._name = name
 
-    def _name_list(self, inname):
+    def _name_list(self, inname:str) -> List[str]:
         retval = []
         for i in self._dict:
             subval = self._dict[i]._name_list(i)
@@ -379,7 +577,7 @@ class wirebundle(_nameable):
                 retval.append("%s__%s" % (inname, j))
         return retval
 
-    def _check_connectivity(self, other):
+    def _check_connectivity(self, other:'wirebundle') -> None:
         # Check that all the signals in the bundle match the one we're
         # connecting up.
         unusedkeys = set(other._dict.keys())
@@ -388,10 +586,12 @@ class wirebundle(_nameable):
                 raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
             del unusedkeys[i]
             self._dict[i].check_connectivity(other._dict[i])
+            pass
         if len(unusedkeys) > 0:
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
+        pass
 
-    def _populate_dict(self, other):
+    def _populate_dict(self, other:'wirebundle') -> None:
         # Yay! Now we know what signals we have! If we hooked up signals
         # anonymously, we now need to put together our bundle and check it.
         for i in other._dict:
@@ -406,18 +606,25 @@ class wirebundle(_nameable):
         # knowledge of what's in there.
         if self._driven_by:
             self._update_connectivity(self._driven_by)
+            pass
         for i in self._drives:
             i._update_connectivity(self)
+            pass
+        pass
 
-    def _update_connectivity(self, other):
+    def _update_connectivity(self, other:'wirebundle') -> None:
         if len(self._dict) == 0 and len(other._dict) != 0:
             self._populate_dict(other)
+            pass
         if len(other._dict) == 0 and len(self._dict) != 0:
             other._populate_dict(self)
+            pass
         if len(self._dict) > 0:
             self._check_connectivity(other)
+            pass
+        pass
 
-    def _is_driven_by(self, other):
+    def _is_driven_by(self, other:'wirebundle') -> None:
         if self._driven_by:
             raise WireError("Double-driven signal at %s" % repr(self))
         self._update_connectivity(other)
@@ -425,8 +632,9 @@ class wirebundle(_nameable):
             self._dict[i]._is_driven_by(other._dict[i])
         self._driven_by = other
         other._drives.append(self)
+        pass
 
-    def _add_wire(self, wirename, size, name):
+    def _add_wire(self, wirename:str, size:int, name:str) -> None:
         # First see if we need to recurse.
         wirelist = wirename.split("__", 1)
         if len(wirelist) > 1:
@@ -439,49 +647,51 @@ class wirebundle(_nameable):
                 raise WireError("Double add of wire %s to bundle" % wirelist[0])
             self._dict[wirelist[0]] = wire(size, name)
             return self._dict[wirelist[0]]
+        pass
 
-    def value(self):
+    def value(self) -> bvbundle:
         # We want the value. Fair enough. Go dig and get it.
         outdict = {}
         for i in self._dict:
             outdict[i] = self._dict[i].value()
         return bvbundle(outdict)
 
-    def drive(self, inbundle):
+    def drive(self, inbundle:bvbundle) -> None:
         # Drive a whole bundle.
         unusedkeys = set(inbundle._dict.keys())
         for i in self._dict:
             if i not in inbundle._dict:
                 raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
-            del unusedkeys[i]
+            unusedkeys.remove(i)
             self._dict[i].drive(inbundle._dict[i])
         if len(unusedkeys) > 0:
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
+        pass
 
-    def _reset(self, inbundle):
+    def _reset(self, inbundle:bvbundle) -> None:
         # Drive a whole bundle for reset.
         unusedkeys = set(inbundle._dict.keys())
         for i in self._dict:
             if i not in inbundle._dict:
                 raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
-            del unusedkeys[i]
+            unusedkeys.remove(i)
             self._dict[i]._reset(inbundle._dict[i])
         if len(unusedkeys) > 0:
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
 
-    def reset(self, inbundle):
+    def reset(self, inbundle:bvbundle) -> None:
         # Set the reset value for the bundle.
         unusedkeys = set(inbundle._dict.keys())
         for i in self._dict:
             if i not in inbundle._dict:
                 raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
-            del unusedkeys[i]
+            unusedkeys.remove(i)
             self._dict[i].reset(inbundle._dict[i])
         if len(unusedkeys) > 0:
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
         self._reset_value = inbundle
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr:str) -> Any:
         if attr not in self._dict:
             raise AttributeError
         else:
@@ -496,11 +706,11 @@ class _clockable(_namegiver, _nameable):
     The base class for all pieces of hardware.
     """
     #f __init__ - actually not an __init__, but called when engine is instantiated
-    def __init__(self, *children):
+    def __init__(self, *children:List['_clockable']):
         # Flatten the list of children.
         self._children = list(itertools.chain.from_iterable(children))
 
-    def _clock(self):
+    def _clock(self) -> None:
         for i in self._children:
             i._clock()
             pass
@@ -513,8 +723,11 @@ class _instantiable(_clockable):
     A module that can be instantiated -- either a CDL module or a Python
     test harness.
     """
+    PortMap = Dict[str,Union[wire,wirebundle]]
+    Ports = List[PortMap]
+    _ports : Ports
     _auto_wire_same_name = True
-    def _ports_from_ios(self, iolist, cdl_object):
+    def _ports_from_ios(self, iolist:List[List[Tuple[str,int]]], cdl_object:_clockable) -> Ports:
         if not iolist:
             raise WireError("No IOs passed to a module - perhaps the module type could not be found")
         # The I/O list should have three members -- a list of clocks, a list of
@@ -523,7 +736,7 @@ class _instantiable(_clockable):
         # wires.
         retlist = []
         for id_type in iolist:
-            retdict = {}
+            retdict : PortMap = {}
             for io in id_type:
                 if len(io[0])==0: continue
                 wirelist = io[0].split("__", 1)
@@ -554,7 +767,7 @@ class th(_instantiable):
     The object that represents a test harness.
     """
     _thfile : PyEngSim # Set when hw is instantiated
-    def _flatten_names(self, inobj, inname=None):
+    def _flatten_names(self, inobj:Union[List[Any],WireDict], inname:str=None) -> WireDict:
         outdict = {}
         if isinstance(inobj, list):
             for i in range(len(inobj)):
@@ -578,29 +791,36 @@ class th(_instantiable):
         self._outputs = self._flatten_names(outputs)
         self._eventanonid = 1
 
-    def sim_message(self):
-        self._thfile.cdlsim_reg.sim_message( "sim_message_obj" )
-        x = self._thfile.sim_message_obj
-        #x = self._thfile.sim_message
-        del self._thfile.sim_message_obj
+    def sim_message(self) -> PyEngSimCDLSimReg.SlMessage:
+        self._thfile.cdlsim_reg.sim_message( "_temporary_object" )
+        x = cast(PyEngSimCDLSimReg.SlMessage,self._thfile._temporary_object)
+        del self._thfile._temporary_object
         return x
 
-    def bfm_wait(self, cycles):
+    def sim_memory(self, num_words:int, width:int) -> SysMemory.SlMemory:
+        self._thfile.sys_memory.memory( "_temporary_object", num_words, width )
+        x = cast(SysMemory.SlMemory,self._thfile._temporary_object)
+        del self._thfile._temporary_object
+        return x
+
+    def bfm_wait(self, cycles:int) -> None:
         self._thfile.cdlsim_sim.bfm_wait(cycles)
+        pass
 
-    def spawn(self, boundfn, *args):
+    def spawn(self, boundfn:PyExecFile.ThreadCallable, *args:Any) -> None:
         self._thfile.py.pyspawn(boundfn, args)
+        pass
 
-    def global_cycle(self):
+    def global_cycle(self) -> int:
         return self._thfile.cdlsim_sim.global_cycle()
 
-    def passtest(self, code, message):
+    def passtest(self, code:int, message:str) -> None:
         return self._thfile.py.pypass(code, message)
 
-    def failtest(self, code, message):
+    def failtest(self, code:int, message:str) -> None:
         return self._thfile.py.pyfail(code, message)
 
-    def passed(self):
+    def passed(self) -> int:
         return self._thfile.py.pypassed()
 
     class _event(object):
@@ -612,17 +832,22 @@ class th(_instantiable):
             self._cdl_obj = getattr(th._thfile, "__anonevent%3d" % th._eventanonid)
             self._th = th
             th._eventanonid += 1
+            pass
 
-        def reset(self):
+        def reset(self)->None:
             self._cdl_obj.reset()
+            pass
 
-        def fire(self):
+        def fire(self)->None:
             self._cdl_obj.fire()
+            pass
 
-        def wait(self):
+        def wait(self)->None:
             self._cdl_obj.wait()
+            pass
+        pass
 
-    def event(self):
+    def event(self) -> SysEvent.SlEvent:
         return th._event(self)
     pass
 
@@ -640,9 +865,10 @@ class _wave_hook(_internal_th):
     """
     A timed assignment, often used for a reset sequence.
     """
-    def __init__(self):
+    def __init__(self)->None:
         th.__init__(self, clocks={}, inputs={}, outputs={})
-    def run(self):
+        pass
+    def run(self)->None:
         pass
 
 #c timed_assign
@@ -650,7 +876,7 @@ class timed_assign(_instantiable):
     """
     A timed assignment, often used for a reset sequence.
     """
-    def __init__(self, signal, init_value, wait=None, later_value=None):
+    def __init__(self, signal:wire, init_value:int, wait:Optional[int]=None, later_value:Optional[int]=None):
         if wait is None:
             wait = 1<<31
         if later_value is None:
@@ -666,43 +892,53 @@ class module(_instantiable):
     """
     The object that represents a CDL module.
     """
-    _ports : str
-    def __init__(self, moduletype, clocks={}, inputs={}, outputs={}, options={}, forces={}):
+    _name : str # Because this is nameable, this is defined at hardware instantiation time
+    def __init__(self, moduletype:str, options:OptionsDict={}, clocks:ClockDict={}, inputs:InputDict={}, outputs:OutputDict={}, forces:ModuleForces={}):
         self._type = moduletype
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
         self._options = options
         self._forces = forces
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Module {0}>".format(self._type)
 
 #c _thfile
 class _thfile(py_engine.exec_file):
-    def __init__(self, th):
+    def __init__(self, th:th):
         self._th = th
         py_engine.exec_file.__init__(self)
-    def exec_init(self):
         pass
-    def exec_reset(self):
+
+    def create_waves(self) -> PyEngSimCDLSimWave.Waves:
+        self.cdlsim_wave.vcd_file("_waves")
+        x = self._waves
+        del(self._waves)
+        return x
+
+    def exec_init(self) -> None:
         pass
-    def exec_run(self):
+    def exec_reset(self) -> None:
+        pass
+    def exec_run(self) -> None:
         try:
             self._th.run()
         except:
-            self._th.failtest(0, "Exception raised!"+traceback.format_exc())
+            self._th.failtest(0, "Exception raised in run method!"+traceback.format_exc())
             raise
 
 #c _hwexfile
 class _hwexfile(py_engine.exec_file):
-    def __init__(self, hw):
+    _hw : 'hw'
+    def __init__(self, hw:'hw'):
         self._hw = hw
         self._running = False
         self._instantiated_wires = set()
         self._instantiation_anonid = 0
         py_engine.exec_file.__init__(self)
+        pass
 
-    def _connect_wire(self, name, wireinst, connectedwires, inputs, ports, assign, firstval, wait, afterval):
+    def _connect_wire(self, name:str, wireinst:wire, connectedwires:Set[wire], inputs:int, ports:Dict[str,wire], assign:int, firstval:int, wait:int, afterval:int):
         wire_basename = name.split('.')[-1].split('__')[-1]
         if wire_basename not in ports:
             raise WireError("Connecting to undefined port '%s' (from name '%s')" % (wire_basename,name))
@@ -744,7 +980,7 @@ class _hwexfile(py_engine.exec_file):
             #print "Wire %s driven by port %s" % (repr(wireinst), repr(port))
             wireinst._is_driven_by(port)
 
-    def _connect_wires(self, name, wiredict, connectedwires, inputs, ports, assign=False, firstval=None, wait=None, afterval=None):
+    def _connect_wires(self, name:str, wiredict:str, connectedwires:str, inputs:str, ports:str, assign:Optional[bool]=False, firstval:Optional[int]=None, wait:Optional[int]=None, afterval:Optional[int]=None) -> None:
         for i in wiredict:
             if isinstance(wiredict[i], wire):
                 self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports, assign, firstval, wait, afterval)
@@ -755,7 +991,7 @@ class _hwexfile(py_engine.exec_file):
             else:
                 raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
 
-    def _set_up_reset_values(self):
+    def _set_up_reset_values(self)->None:
         # And set up the reset values.
         if not hasattr(self, "_connectedwires"):
             return
@@ -764,11 +1000,11 @@ class _hwexfile(py_engine.exec_file):
                 i._reset(i._reset_value)
 
 
-    def exec_init(self):
+    def exec_init(self)->None:
         pass
-    def exec_reset(self):
+    def exec_reset(self)->None:
         self._set_up_reset_values()
-    def exec_run(self):
+    def exec_run(self)->None:
         anonid = 1
         connectedwires = set()
         for i in self._hw._children:
@@ -848,18 +1084,110 @@ class _hwexfile(py_engine.exec_file):
         self._set_up_reset_values()
 
         # Hook up any waves.
-        if self._hw._wavesinst:
+        if hasattr(self._hw, "_wavesinst"):
             self._hw._wavesinst._connect_waves()
 
         # Say we're in business.
         self._running = True
+
+
+#c Waves
+class Waves(object):
+    waves : PyEngSimCDLSimWave.Waves
+    """
+    The object that controls waves, inside a hardware object. It's
+    singletonized per hardware object
+    """
+    def __init__(self, waves:PyEngSimCDLSimWave.Waves) -> None:
+        self._waves = waves
+        self._waves_enabled = 0
+        pass
+
+    def reset(self)->None:
+        self._waves.reset()
+        pass
+
+    def open(self, filename:str) -> None:
+        self._waves.open(filename)
+        pass
+
+    def close(self)->None:
+        self._waves.close()
+        pass
+
+    def enable(self)->None:
+        if not self._waves_enabled:
+            self._waves_enabled = 1
+            self._waves.enable()
+        else:
+            self._waves.restart()
+
+    def disable(self)->None:
+        self._waves.pause()
+        pass
+
+    def file_size(self)->int:
+        return self._waves.file_size()
+
+    def _add(self, hierlist:List[Any]):
+        for x in hierlist:
+            if isinstance(x, list):
+                self._add(x)
+                pass
+            elif isinstance(x, dict):
+                self._add([x[i] for i in list(x.keys())])
+                pass
+            else:
+                self._waves.add(x._name)
+                pass
+            pass
+        pass
+
+    def add(self, *hier:Any) -> None:
+        assert hasattr(self, "_waves")
+        self._add(hier)
+        pass
+
+    def _add_hierarchy(self, hierlist:List[Any]) -> None:
+        for x in hierlist:
+            if isinstance(x, list):
+                self._add_hierarchy(x)
+                pass
+            elif isinstance(x, dict):
+                self._add_hierarchy([x[i] for i in list(x.keys())])
+                pass
+            else:
+                self._waves.add_hierarchy(x._name)
+                pass
+            pass
+        pass
+    def add_hierarchy(self, *hier:Any) -> None:
+        assert hasattr(self, "_waves")
+        self._add_hierarchy(hier)
+        pass
+    pass
 
 #c hw
 class hw(_clockable):
     """
     The object that represents a piece of hardware.
     """
+    _engine : ClassVar[PyEngine] # Created when the object is instantiated
+    _waves  : ClassVar[PyEngSimCDLSimWave.Waves]
+    @classmethod
+    def prepare_for_waves(cls, hw) -> _wave_hook:
+        assert not hasattr(cls, "_waves")
+        hw._wave_hook = _wave_hook()
+        return hw._wave_hook
+
+    @classmethod
+    def create_waves(cls, hw) -> None:
+        if hasattr(cls, "_waves"): return
+        cls._waves = hw._wave_hook._thfile.create_waves()
+        return
+
     hw_class_data = {"engine":None,"id":0}
+    _wavesinst     : Waves
     def __init__(self, thread_mapping=None, children=None, *children_list):
         # Hack arguments
         if (children is None) or (type(children)!=list):
@@ -876,8 +1204,6 @@ class hw(_clockable):
         self.hw_class_data["id"] = self.hw_class_data["id"]+1
         self._id = self.hw_class_data["id"]
 
-        self._wavesinst = None
-        self._wave_hook = _wave_hook()
         children_unpacked = []
         for child in children:
             if (isinstance(child,list)):
@@ -885,7 +1211,10 @@ class hw(_clockable):
             else:
                 children_unpacked.append(child)
         children_unpacked = tuple(children_unpacked)
-        _clockable.__init__(self, children_unpacked + (self._wave_hook,))
+        if not hasattr(self, "_waves"):
+            children_unpacked += (self.prepare_for_waves(self),)
+            pass
+        _clockable.__init__(self, children_unpacked)
         self._engine = self.hw_class_data["engine"]
 
         if thread_mapping is not None:
@@ -901,8 +1230,9 @@ class hw(_clockable):
         self._hwex = _hwexfile(self)
         self._engine.describe_hw(self._hwex)
         self.display_all_errors()
+        pass
 
-    def passed(self):
+    def passed(self) -> bool:
         for i in self._children:
             if isinstance(i, th) and not isinstance(i, _internal_th):
                 if not i.passed():
@@ -911,103 +1241,53 @@ class hw(_clockable):
         print("ALL TEST HARNESSES PASSED")
         return True
 
-    def display_all_errors( self, max=10000 ):
+    def display_all_errors( self, max:int=10000 )->None:
         for i in range(max):
             x = self._engine.get_error(i)
             if x==None:
                 break
             print("CDL SIM ERROR %2d %s"%(i+1,x), file=sys.stderr)
         self._engine.reset_errors()
+        pass
 
-    class _waves(object):
-        """
-        The object that controls waves, inside a hardware object. It's
-        singletonized per hardware object
-        """
-        def __init__(self, hw):
-            self._cdl_obj = None
-            self._hw = hw
-            self._waves_enabled = 0
-            if hw._hwex and hw._hwex._running:
-                self._connect_waves()
-
-        def _connect_waves(self):
-            self._hw._wave_hook._thfile.cdlsim_wave.vcd_file("_waves%d"%self._hw._id)
-            self._cdl_obj = eval("self._hw._wave_hook._thfile._waves%d"%self._hw._id)
-
-        def reset(self):
-            self._cdl_obj.reset()
-
-        def open(self, filename):
-            self._cdl_obj.open(filename)
-
-        def close(self):
-            self._cdl_obj.close()
-
-        def enable(self):
-            if not self._waves_enabled:
-                self._waves_enabled = 1
-                self._cdl_obj.enable()
-            else:
-                self._cdl_obj.restart()
-
-        def disable(self):
-            self._cdl_obj.pause()
-
-        def file_size(self):
-            return self._cdl_obj.file_size()
-
-        def _add(self, hierlist):
-            for x in hierlist:
-                if isinstance(x, list):
-                    self._add(x)
-                elif isinstance(x, dict):
-                    self._add([x[i] for i in list(x.keys())])
-                else:
-                    self._cdl_obj.add(x._name)
-
-        def add(self, *hier):
-            self._add(hier)
-
-        def _add_hierarchy(self, hierlist):
-            for x in hierlist:
-                if isinstance(x, list):
-                    self._add_hierarchy(x)
-                elif isinstance(x, dict):
-                    self._add_hierarchy([x[i] for i in list(x.keys())])
-                else:
-                    self._cdl_obj.add_hierarchy(x._name)
-
-        def add_hierarchy(self, *hier):
-            self._add_hierarchy(hier)
-
-    def waves(self):
-        if not self._wavesinst:
-            self._wavesinst = hw._waves(self)
+    def waves(self) -> Waves:
+        self.create_waves(self)
+        #if hw._hwex and hw._hwex._running:
+        #    pass
+        if not hasattr(self, "_wavesinst"):
+            self._wavesinst = Waves(self._waves)
+            pass
         return self._wavesinst
 
-    def reset(self):
+    def reset(self)->None:
         """
         Reset the engine.
         """
         self._engine.reset()
+        pass
 
-    def step(self, cycles=1):
+    def step(self, cycles:int=1)->None:
         """
         Step for n cycles.
         """
-        self._engine.step(cycles,1)
+        self._engine.step(cycles)
         self.display_all_errors()
-    def run_console( self, port=8745, locals={} ):
+        pass
+
+    def run_console( self, port:int=8745, locals:Dict[str,str]={} ) -> None:
         console_server = c_python_telnet_server( port=port, locals=locals )
         console_server.serve()
+        pass
+    pass
 
 #c load_mif
-def load_mif(filename, length=0, width=64):
+def load_mif(filename:str, length:int=0, width:int=64, acknowledge_deprecated:bool=False) -> List[int]:
     """
     Open a file and read in hex values into an array. Provided mostly for
     compatibility with legacy CDL.
     """
+    print("Deprecated load_mif called")
+    if not acknowledge_deprecated: raise Exception("Deprecated load_mif called")
     fd = open(filename, "r")
     retarray = []
     for line in fd:
@@ -1030,17 +1310,20 @@ def load_mif(filename, length=0, width=64):
     return retarray
 
 #c save_mif
-def save_mif(array, filename, length=0, width=64):
+def save_mif(array:Sequence[int], filename:str, length:int=0, width:int=64, acknowledge_deprecated:bool=False) -> None:
     """
     Write hex values from an array into a file. Provided mostly for
     compatibility with legacy CDL.
     """
+    print("Deprecated save_mif called")
+    if not acknowledge_deprecated: raise Exception("Deprecated save_mif called")
     fd = open(filename, "w")
+    wd4 : int = width // 4
     for val in array:
-        print("%0*.*x" % (width/4, width/4, val), file=fd)
+        print("%0*.*x" % (wd4, wd4, val), file=fd)
     # Finally, zero-pad the list.
     if len(array) < length:
         for i in range(length-len(array)):
-            print("%0*.*x" % (width/4, width/4, 0), file=fd)
+            print("%0*.*x" % (wd4, wd4, 0), file=fd)
     fd.close()
 
