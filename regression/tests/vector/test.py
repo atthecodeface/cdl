@@ -27,7 +27,7 @@ class vector_test_harness(cdl.sim.th):
             self.failtest(vector_number,  "**************************************************************************** Test failed")
 
     def run(self) -> None:
-        self.test_vectors = cdl.sim.load_mif(self.vectors_filename, 2048, 64)
+        self.test_vectors = cdl.sim.load_mif(self.vectors_filename, 2048, 64, acknowledge_deprecated=True)
         self.bfm_wait(1)
         self.test_values(0)
         self.bfm_wait(1)

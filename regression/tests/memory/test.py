@@ -6,6 +6,7 @@ class x: pass
 module_root = os.path.dirname(inspect.getfile(x))
 
 import cdl.sim
+from typing import Optional, Type
 
 class single_port_memory_th(cdl.sim.th):
     def __init__(self, clocks:cdl.sim.ClockDict, inputs:cdl.sim.InputDict, outputs:cdl.sim.OutputDict, test_vector_mif:str):
@@ -21,7 +22,7 @@ class single_port_memory_th(cdl.sim.th):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif)
+        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif, acknowledge_deprecated=True)
         self.read_not_write_0.reset(1)
         self.byte_enables_0.reset(0)
         self.bfm_wait(1)
@@ -83,14 +84,13 @@ class dual_port_memory_th(cdl.sim.th):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif)
+        self.test_vectors = cdl.sim.load_mif(self.test_vector_mif, acknowledge_deprecated=True)
         self.read_not_write_0.reset(1)
         self.byte_enables_0.reset(0)
         self.read_not_write_1.reset(1)
         self.byte_enables_1.reset(0)
         self.bfm_wait(1)
-        self._thfile.cdlsim_reg.sim_message("sim_msg")
-        self.sim_msg = self._thfile.sim_msg # typing ignore
+        self.sim_msg = self.sim_message()
         #self._thfile.cdlsim_chkpnt.checkpoint_init("blob")
         #self._thfile.cdlsim_chkpnt.checkpoint_add("fred","joe")
         #print dir(self)
@@ -310,7 +310,7 @@ class dual_port_memory_hw(cdl.sim.hw):
 
 
 class TestMemory(unittest.TestCase):
-    def do_memory_test(self, memory_type:cdl.sim.Hardware, bits_per_enable:int, mif_filename:str, tv_filename:str)->None:
+    def do_memory_test(self, memory_type:cdl.sim.HardwareType, bits_per_enable:int, mif_filename:str, tv_filename:str)->None:
         hw = memory_type(bits_per_enable, os.path.join(module_root,mif_filename), os.path.join(module_root,tv_filename))
         hw.reset()
         hw.step(1000)
