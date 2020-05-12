@@ -27,9 +27,12 @@ $(eval $(call timestamp,verilog))
 $(eval $(call timestamp,all_obj))
 $(eval $(call timestamp,all_cpp))
 
+ifneq (${VERILATOR_SHARE},)
+MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
+endif
+
 VERILATOR_C_FLAGS += -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14
 VERILATOR_LIBS    += -pthread -lpthread -latomic -lm -lstdc++
-MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
 
 ${BUILD_ROOT}/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp
 	g++ -c -g $${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
@@ -137,8 +140,8 @@ makefiles: $2/Makefile
 
 BUILD_MAKEFILE = $2/Makefile
 
-$2/Makefile: $(foreach s,$1,$(wildcard ${s}/library_description.py))
-$2/Makefile: $(foreach s,$3,$(wildcard ${s}/library_description.py))
+$2/Makefile: $(foreach s,$1,$(wildcard ${s}/library_desc.py))
+$2/Makefile: $(foreach s,$3,$(wildcard ${s}/library_desc.py))
 $2/Makefile: ${CDL_LIBEXEC_DIR}/cdl_desc.py
 	${CDL_LIBEXEC_DIR}/cdl_desc.py $(foreach s,$1,--require ${s}) --build_root $2 $3
 
@@ -163,7 +166,7 @@ define cpp_template
 $(if $8,BIN__$1__$8__OBJS,LIB__$1__C_OBJS) += $3/$6
 LIB__$1__MODELS += $5
 $3/$6 : $2/$4
-	@echo "CC $4 -o $6" 
+	@echo "CC $4 -o $6"
 	${Q}${CXX} -g -Wall ${CXXFLAGS} ${CDL_INCLUDES} -c -o $$@ $2/$4 $7
 
 LIB__$1__CLEAN_TARGETS += $3/$6
@@ -189,7 +192,7 @@ do_all_cdl: $3/$6 $3/$8 $3/$5.cdlh $3/$5.xml
 $5: $3/$6 $3/$7 $3/$8  $3/$5.cdlh  $3/$5.xml
 
 $3/$6 : $2/$4
-	@echo "CDL $4 -cpp $6" 
+	@echo "CDL $4 -cpp $6"
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --dependencies-target $$@ --dependencies $3/$6.dep --dependencies-relative $(dir $2/$4) --cpp $$@  $9 $2/$4
 
 $(eval $(call lib_timestamp_depends,all_cpp,$1,$3/$6))
@@ -198,7 +201,7 @@ $(eval $(call lib_timestamp_depends,all_cpp,$1,$3/$6))
 
 LIB__$1__C_OBJS  += $3/$7
 $3/$7 : $3/$6
-	@echo "CC $6 -o $7" 
+	@echo "CC $6 -o $7"
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
 
 $(eval $(call lib_timestamp_depends,all_obj,$1,$3/$7))
@@ -206,17 +209,17 @@ $(eval $(call lib_timestamp_depends,all_obj,$1,$3/$7))
 LIB__$1__VERILOG += $(if $8,$3/$8,)
 
 $3/$8 : $2/$4
-	@echo "CDL $4 -v $8" 
+	@echo "CDL $4 -v $8"
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --v_clks_must_have_enables --model $5 --verilog $$@ $9 $2/$4
 
 $(eval $(call lib_timestamp_depends,verilog,$1,$3/$8))
 
 $3/$5.cdlh : $2/$4
-	@echo "CDL $4 -cdlh $5" 
+	@echo "CDL $4 -cdlh $5"
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --cdlh $$@ $9 $2/$4
 
 $3/$5.xml : $2/$4
-	@echo "CDL $4 -xml $5" 
+	@echo "CDL $4 -xml $5"
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --xml $$@ $9 $2/$4
 
 LIB__$1__MODELS += $5
@@ -299,11 +302,11 @@ MODEL_LIBS += $1/lib_$2.a
 
 endef
 
-#f sim_init_object_file
+#f sim_init_object_file_template
 #
 # The file created here links with lib<name>.a and other libraries and an execution harness in libcdl_*.a
 #
-define sim_init_object_file
+define sim_init_object_file_template
 # @param $1 output directory
 # @param $2 output filename in output directory
 # @param $3 library names
@@ -324,8 +327,8 @@ $1/$2.o: $1/$2.cpp
 
 endef
 
-#f command_line_sim
-define command_line_sim
+#f command_line_sim_template
+define command_line_sim_template
 # @param $1 output filename
 # @param $2 output directory
 # @param $3 init object files
@@ -337,11 +340,32 @@ all: $1
 # MODEL_VERILATOR_OBJS should be set once
 # MODEL_VERILATOR_LIBS can be added to
 # These should be empty if verilator builds are not required
-# MODEL_VERILATOR_LIBS = $${VLIB__bbc_micro_with_rams__LIB} 
+# MODEL_VERILATOR_LIBS = $${VLIB__bbc_micro_with_rams__LIB}
 # MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/bbc/verilate/verilated.o
 $1: ${MODEL_LIBS} $3 ${MODEL_VERILATOR_OBJS} ${MODEL_VERILATOR_LIBS}
 	@echo "Building command line simulation ${CMDLINE_PROG}"
 	${Q}${MAKE_STATIC_BINARY} $1 $3 ${MODEL_LIBS} ${MODEL_VERILATOR_LIBS} ${MODEL_VERILATOR_OBJS} -L${CDL_ROOT}/lib -lcdl_se_batch ${LDFLAGS}
+
+endef
+
+#f python_library_template
+define python_library_template
+# @param $1 output filename
+# @param $2 output directory
+# @param $3 init object files
+.PHONY: python
+python: $1
+
+all: $1
+
+# MODEL_VERILATOR_OBJS should be set once
+# MODEL_VERILATOR_LIBS can be added to
+# These should be empty if verilator builds are not required
+# MODEL_VERILATOR_LIBS = $${VLIB__bbc_micro_with_rams__LIB}
+# MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/bbc/verilate/verilated.o
+$1: ${MODEL_LIBS} ${MODEL_VERILATOR_OBJS} ${MODEL_VERILATOR_LIBS} $3
+	@echo "Building python library"
+	${Q}${MAKE_DYNAMIC_LIBRARY} $$@ $3 ${MODEL_LIBS} ${MODEL_VERILATOR_LIBS} ${MODEL_VERILATOR_OBJS} -L${CDL_ROOT}/lib -lcdl_se_python ${PYTHON_LIBS} -lc++ -lc ${LDFLAGS}
 
 endef
 
@@ -358,21 +382,21 @@ endef
 define make_cwv
 
 $3/$6 : $2/$4
-	@echo "CDL $4 -cwv $6" 
+	@echo "CDL $4 -cwv $6"
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model cwv__$5 --cwv $$@ $8 $2/$4
 
 .PHONY:all_cwv
 all_cwv:$3/$7
 # The library we depend on is <model>, not cwv__<model>
 $3/$7 : $3/$6 $${VLIB__$5__H} $${VLIB__$5__LIB}
-	@echo "CC $6 -o $7" 
+	@echo "CC $6 -o $7"
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -I $9 -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -c -o $$@ $3/$6
 
-MODEL_VERILATOR_LIBS += $${VLIB__$5__LIB} 
+MODEL_VERILATOR_LIBS += $${VLIB__$5__LIB}
 
 LIB__$1__C_OBJS  += $3/$7
 LIB__$1__MODELS += cwv__$5
-LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7 
+LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7
 
 endef
 
