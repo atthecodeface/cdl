@@ -1,15 +1,13 @@
-#!/usr/bin/env python
-
-import sys, os, unittest
+import unittest
 import cdl.sim
 
 class and_gate_test_harness(cdl.sim.th):
-    def __init__(self, clocks, inputs, outputs):
+    def __init__(self, clocks:cdl.sim.ClockDict, inputs:cdl.sim.InputDict, outputs:cdl.sim.OutputDict):
         cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.and_out = inputs["and_out"]
         self.and_in_0 = outputs["and_in_0"]
         self.and_in_1 = outputs["and_in_1"]
-    def run(self):
+    def run(self) -> None:
         self.bfm_wait(1)
         for i in range(2):
             for j in range(2):
@@ -18,14 +16,14 @@ class and_gate_test_harness(cdl.sim.th):
                 self.bfm_wait(1)
                 if self.and_out.value() != i&j:
                     self.failtest(self.global_cycle(), "AND gate produced %d from %d and %d, not %d!" % (self.and_out.value(), i, j, i&j))
-                    print "%2d: AND gate WRONGLY produced %d from %d and %d (should be %d)!" % (self.global_cycle(), self.and_out.value(), i, j, i&j)
+                    print("%2d: AND gate WRONGLY produced %d from %d and %d (should be %d)!" % (self.global_cycle(), self.and_out.value(), i, j, i&j))
                 else:
-                    print "%2d: AND gate correctly produced %d from %d and %d!" % (self.global_cycle(), self.and_out.value(), i, j)
+                    print("%2d: AND gate correctly produced %d from %d and %d!" % (self.global_cycle(), self.and_out.value(), i, j))
         self.passtest(self.global_cycle(), "AND gate test succeeded")
-        print "%2d: AND gate test completed" % self.global_cycle()
+        print("%2d: AND gate test completed" % self.global_cycle())
 
 class test_basic_hw(cdl.sim.hw):
-    def __init__(self):
+    def __init__(self) -> None:
         self.clk = cdl.sim.clock(0, 1, 1)
         self.and_in_0 = cdl.sim.wire()
         self.and_in_1 = cdl.sim.wire()
@@ -43,11 +41,9 @@ class test_basic_hw(cdl.sim.hw):
         cdl.sim.hw.__init__(self, self.andgate, self.th, self.clk)
 
 class TestPyCDL(unittest.TestCase):
-    def test_basic(self):
+    def test_basic(self) -> None:
         hw = test_basic_hw()
         hw.reset()
         hw.step(50)
         self.assertTrue(hw.passed())
 
-if __name__ == '__main__':
-    unittest.main()

@@ -8,7 +8,7 @@ module_root = os.path.dirname(inspect.getfile(x))
 import cdl.sim
 
 class single_port_memory_th(cdl.sim.th):
-    def __init__(self, clocks, inputs, outputs, test_vector_mif):
+    def __init__(self, clocks:cdl.sim.ClockDict, inputs:cdl.sim.InputDict, outputs:cdl.sim.OutputDict, test_vector_mif:str):
         cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.sram_rd_0 = inputs["sram_rd_0"]
         self.address_0 = outputs["address_0"]
@@ -17,7 +17,7 @@ class single_port_memory_th(cdl.sim.th):
         self.write_data_0 = outputs["write_data_0"]
         self.test_vector_mif = test_vector_mif
 
-    def run(self):
+    def run(self) -> None:
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
@@ -26,6 +26,7 @@ class single_port_memory_th(cdl.sim.th):
         self.byte_enables_0.reset(0)
         self.bfm_wait(1)
         tv_addr = 0
+        last_data_0 : int
         while True:
             rnw_0 = self.test_vectors[tv_addr]
             ben_0 = self.test_vectors[tv_addr+1]
@@ -55,29 +56,30 @@ class single_port_memory_th(cdl.sim.th):
             self.passtest(self.global_cycle(), "Test succeeded")
 
 class dual_port_memory_th(cdl.sim.th):
-    def __init__(self, clocks, inputs, outputs, test_vector_mif):
+    sim_msg : cdl.sim.PyEngSimCDLSimReg.SlMessage
+    def __init__(self, clocks:cdl.sim.ClockDict, inputs:cdl.sim.InputDict, outputs:cdl.sim.OutputDict, test_vector_mif:str):
         cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.sram_rd_0 = inputs["sram_rd_0"]
         self.sram_rd_1 = inputs["sram_rd_1"]
-        self.address_0 = outputs["address_0"]
+        self.address_0        = outputs["address_0"]
         self.read_not_write_0 = outputs["read_not_write_0"]
-        self.byte_enables_0 = outputs["byte_enables_0"]
-        self.write_data_0 = outputs["write_data_0"]
-        self.address_1 = outputs["address_1"]
+        self.byte_enables_0   = outputs["byte_enables_0"]
+        self.write_data_0     = outputs["write_data_0"]
+        self.address_1        = outputs["address_1"]
         self.read_not_write_1 = outputs["read_not_write_1"]
         self.byte_enables_1 = outputs["byte_enables_1"]
         self.write_data_1 = outputs["write_data_1"]
         self.test_vector_mif = test_vector_mif
 
-    def read_sram_location( self, address ):
-        self._thfile.sim_msg.send_value("sram",8,0,address)
-        return self._thfile.sim_msg.get_value(2)
+    def read_sram_location( self, address:int ) -> int:
+        self.sim_msg.send_value("sram",8,0,address)
+        return self.sim_msg.get_value(2)
 
-    def write_sram_location( self, address, data ):
-        self._thfile.sim_msg.send_value("sram",9,0,address,data)
-        return self._thfile.sim_msg.get_value(0)
+    def write_sram_location( self, address:int, data:int ) -> int:
+        self.sim_msg.send_value("sram",9,0,address,data)
+        return self.sim_msg.get_value(0)
 
-    def run(self):
+    def run(self) -> None:
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
@@ -88,18 +90,21 @@ class dual_port_memory_th(cdl.sim.th):
         self.byte_enables_1.reset(0)
         self.bfm_wait(1)
         self._thfile.cdlsim_reg.sim_message("sim_msg")
+        self.sim_msg = self._thfile.sim_msg # typing ignore
         #self._thfile.cdlsim_chkpnt.checkpoint_init("blob")
         #self._thfile.cdlsim_chkpnt.checkpoint_add("fred","joe")
         #print dir(self)
         #print dir(self._thfile)
         tv_addr = 0
+        last_data_0 : int
+        last_data_1 : int
         while True:
-            rnw_0 = self.test_vectors[tv_addr]
-            ben_0 = self.test_vectors[tv_addr+1]
+            rnw_0  = self.test_vectors[tv_addr]
+            ben_0  = self.test_vectors[tv_addr+1]
             addr_0 = self.test_vectors[tv_addr+2]
             data_0 = self.test_vectors[tv_addr+3]
-            rnw_1 = self.test_vectors[tv_addr+4]
-            ben_1 = self.test_vectors[tv_addr+5]
+            rnw_1  = self.test_vectors[tv_addr+4]
+            ben_1  = self.test_vectors[tv_addr+5]
             addr_1 = self.test_vectors[tv_addr+6]
             data_1 = self.test_vectors[tv_addr+7]
             tv_addr += 8
@@ -152,7 +157,7 @@ class dual_port_memory_th(cdl.sim.th):
 
 
 class single_port_memory_srw_hw(cdl.sim.hw):
-    def __init__(self, bits_per_enable, mif_filename, tv_filename):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -167,7 +172,7 @@ class single_port_memory_srw_hw(cdl.sim.hw):
         self.address_0 = cdl.sim.wire(10)
         self.read_not_write_0 = cdl.sim.wire()
         self.write_data_0 = cdl.sim.wire(16)
-        
+
 
         self.system_clock = cdl.sim.clock(0, 1, 1)
 
@@ -175,7 +180,7 @@ class single_port_memory_srw_hw(cdl.sim.hw):
                       "read_not_write": self.read_not_write_0,
                       "write_data": self.write_data_0 }
         if bits_per_enable != 0:
-            sram_inputs["write_enable"] = self.byte_enables_0 
+            sram_inputs["write_enable"] = self.byte_enables_0
         self.sram = cdl.sim.module("se_sram_srw",
                                  options={ "filename": mif_filename,
                                            "size": 1024,
@@ -195,9 +200,9 @@ class single_port_memory_srw_hw(cdl.sim.hw):
                                                     test_vector_mif=tv_filename)
         self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
         cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
-        
+
 class single_port_memory_hw(cdl.sim.hw):
-    def __init__(self, bits_per_enable, mif_filename, tv_filename):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -212,7 +217,7 @@ class single_port_memory_hw(cdl.sim.hw):
         self.address_0 = cdl.sim.wire(10)
         self.read_not_write_0 = cdl.sim.wire()
         self.write_data_0 = cdl.sim.wire(16)
-        
+
 
         self.system_clock = cdl.sim.clock(0, 1, 1)
 
@@ -220,7 +225,7 @@ class single_port_memory_hw(cdl.sim.hw):
                       "read_not_write_0": self.read_not_write_0,
                       "write_data_0": self.write_data_0 }
         if bits_per_enable != 0:
-            sram_inputs["write_enable_0"] = self.byte_enables_0 
+            sram_inputs["write_enable_0"] = self.byte_enables_0
         self.sram = cdl.sim.module("se_sram_mrw",
                                  options={ "filename": mif_filename,
                                            "num_ports": 1,
@@ -240,9 +245,9 @@ class single_port_memory_hw(cdl.sim.hw):
                                                     test_vector_mif=tv_filename)
         self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
         cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
-        
+
 class dual_port_memory_hw(cdl.sim.hw):
-    def __init__(self, bits_per_enable, mif_filename, tv_filename):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -263,7 +268,7 @@ class dual_port_memory_hw(cdl.sim.hw):
         self.address_1 = cdl.sim.wire(10)
         self.read_not_write_1 = cdl.sim.wire()
         self.write_data_1 = cdl.sim.wire(16)
-        
+
 
         self.system_clock = cdl.sim.clock(0, 1, 1)
 
@@ -274,8 +279,8 @@ class dual_port_memory_hw(cdl.sim.hw):
                       "read_not_write_1": self.read_not_write_1,
                       "write_data_1": self.write_data_1 }
         if bits_per_enable != 0:
-            sram_inputs["write_enable_0"] = self.byte_enables_0 
-            sram_inputs["write_enable_1"] = self.byte_enables_1 
+            sram_inputs["write_enable_0"] = self.byte_enables_0
+            sram_inputs["write_enable_1"] = self.byte_enables_1
         self.sram = cdl.sim.module("se_sram_mrw",
                                  options={ "filename": mif_filename,
                                            "num_ports": 2,
@@ -302,56 +307,50 @@ class dual_port_memory_hw(cdl.sim.hw):
                                                   test_vector_mif=tv_filename)
         self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
         cdl.sim.hw.__init__(self, self.sram, self.test_harness_0, self.system_clock, self.rst_seq)
-        
+
 
 class TestMemory(unittest.TestCase):
-    def do_memory_test(self, memory_type, bits_per_enable, mif_filename, tv_filename):
+    def do_memory_test(self, memory_type:cdl.sim.Hardware, bits_per_enable:int, mif_filename:str, tv_filename:str)->None:
         hw = memory_type(bits_per_enable, os.path.join(module_root,mif_filename), os.path.join(module_root,tv_filename))
         hw.reset()
         hw.step(1000)
         hw.step(1000)
         self.assertTrue(hw.passed())
 
-    def xtest_simple(self):
-        hw = simple_memory_hw()
-        hw.reset()
-        hw.step(50)
-        self.assertTrue(hw.passed())
-
     # This is the first single-port test: 1024x16, rnw, no additional enables
-    def test_1024x16_srw_rnw_no_enables(self):
+    def test_1024x16_srw_rnw_no_enables(self)->None:
         self.do_memory_test(single_port_memory_srw_hw, 0, "single_port_memory_in.mif", "single_port_memory.tv")
 
     # This is the second single-port test: 1024x16, rnw, with write enable
-    def test_1024x16_srw_rnw_write_enable(self):
+    def test_1024x16_srw_rnw_write_enable(self)->None:
         self.do_memory_test(single_port_memory_srw_hw, 16, "single_port_memory_in.mif", "single_port_memory_1_be.tv")
 
     # This is the third single-port test: 1024x16, rnw, with individaul byte write enables
-    def test_1024x16_srw_rnw_byte_write_enable(self):
+    def test_1024x16_srw_rnw_byte_write_enable(self)->None:
         self.do_memory_test(single_port_memory_srw_hw, 8, "single_port_memory_in.mif", "single_port_memory_2_be.tv")
 
     # This is the first  single multi-port test: 1024x16, rnw, no additional enables
-    def test_1024x16_srnw_byte_write_enable(self):
+    def test_1024x16_srnw_byte_write_enable(self)->None:
         self.do_memory_test(single_port_memory_hw, 0, "single_port_memory_in.mif", "single_port_memory.tv")
 
     # This is the second single multi-port test: 1024x16, rnw, with write enable
-    def test_1024x16_srnw_write_enable(self):
+    def test_1024x16_srnw_write_enable(self)->None:
         self.do_memory_test(single_port_memory_hw, 16, "single_port_memory_in.mif", "single_port_memory_1_be.tv")
 
     # This is the third single multi-port test: 1024x16, rnw, with individaul byte write enables
-    def test_1024x16_srnw_byte_write_enable(self):
+    def test_1024x16_srnw_byte_write_enable2(self)->None:
         self.do_memory_test(single_port_memory_hw, 8, "single_port_memory_in.mif", "single_port_memory_2_be.tv")
 
     # This is the first  dual-port test: 1024x16, rnw, no additional enables
-    def test_1024x16_drnw_byte_write_enable(self):
+    def test_1024x16_drnw_byte_write_enable(self)->None:
         self.do_memory_test(dual_port_memory_hw, 0, "dual_port_memory_in.mif", "dual_port_memory.tv")
 
     # This is the second dual-port test: 1024x16, rnw, with write enable
-    def test_1024x16_drnw_write_enable(self):
+    def test_1024x16_drnw_write_enable(self)->None:
         self.do_memory_test(dual_port_memory_hw, 16, "dual_port_memory_in.mif", "dual_port_memory_1_be.tv")
 
     # This is the third dual-port test: 1024x16, rnw, with individaul byte write enables
-    def test_1024x16_drnw_byte_write_enable2(self):
+    def test_1024x16_drnw_byte_write_enable2(self)->None:
         self.do_memory_test(dual_port_memory_hw, 8, "dual_port_memory_in.mif", "dual_port_memory_2_be.tv")
 
 
