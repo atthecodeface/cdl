@@ -5,8 +5,9 @@ import inspect
 class x: pass
 module_root = os.path.dirname(inspect.getfile(x))
 
+#c vector_test_harness
 class vector_test_harness(cdl.sim.th):
-    def __init__(self, clocks, inputs, outputs, vectors_filename):
+    def __init__(self, clocks:cdl.sim.ClockDict, inputs:cdl.sim.InputDict, outputs:cdl.sim.OutputDict, vectors_filename:str):
         cdl.sim.th.__init__(self, clocks, inputs, outputs)
         self.vector_output_0 = inputs["vector_output_0"]
         self.vector_output_1 = inputs["vector_output_1"]
@@ -14,7 +15,7 @@ class vector_test_harness(cdl.sim.th):
         self.vector_input_1 = outputs["vector_input_1"]
         self.vectors_filename = vectors_filename
 
-    def test_values(self, vector_number):
+    def test_values(self, vector_number:int) -> None:
         print("Cycle %d vector number %d, testing values" % (self.global_cycle(), vector_number))
         self.vector_input_0.drive(self.test_vectors[vector_number*4])
         self.vector_input_1.drive(self.test_vectors[vector_number*4+1])
@@ -24,8 +25,8 @@ class vector_test_harness(cdl.sim.th):
         if tv_0 != self.vector_output_0.value() or tv_1 != self.vector_output_1.value():
             print("Test failed, vector number %d" % vector_number)
             self.failtest(vector_number,  "**************************************************************************** Test failed")
-        
-    def run(self):
+
+    def run(self) -> None:
         self.test_vectors = cdl.sim.load_mif(self.vectors_filename, 2048, 64)
         self.bfm_wait(1)
         self.test_values(0)
@@ -38,8 +39,9 @@ class vector_test_harness(cdl.sim.th):
             self.test_values(i+3)
         self.passtest(self.global_cycle(), "Test succeeded")
 
+#c vector_hw
 class vector_hw(cdl.sim.hw):
-    def __init__(self, width, module_name, module_mif_filename, inst_forces={} ):
+    def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:cdl.sim.ModuleForces={} ):
         print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
 
         self.test_reset = cdl.sim.wire()
@@ -53,8 +55,8 @@ class vector_hw(cdl.sim.hw):
                            list({}.items())
                            )
 
-        self.dut_0 = cdl.sim.module(module_name, 
-                                  clocks={ "io_clock": self.system_clock }, 
+        self.dut_0 = cdl.sim.module(module_name,
+                                  clocks={ "io_clock": self.system_clock },
                                   inputs={ "io_reset": self.test_reset,
                                            "vector_input_0": self.vector_input_0,
                                            "vector_input_1": self.vector_input_1 },
@@ -62,19 +64,19 @@ class vector_hw(cdl.sim.hw):
                                             "vector_output_1": self.vector_output_1 },
                                   forces = dut_forces
                                   )
-        self.test_harness_0 = vector_test_harness(clocks={ "clock": self.system_clock }, 
+        self.test_harness_0 = vector_test_harness(clocks={ "clock": self.system_clock },
                                                   inputs={ "vector_output_0": self.vector_output_0,
                                                            "vector_output_1": self.vector_output_1 },
                                                   outputs={ "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)        
+        self.rst_seq = cdl.sim.timed_assign(self.test_reset, 1, 5, 0)
         cdl.sim.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.rst_seq)
 
 
-
+#c TestVectorx
 class TestVector(unittest.TestCase):
-    def do_vector_test(self, width, module_name, module_mif_filename, inst_forces={} ):
+    def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:cdl.sim.ModuleForces={} ) -> None:
         hw = vector_hw(width, module_name, os.path.join(module_root,module_mif_filename), inst_forces=inst_forces)
         waves = hw.waves()
         waves.open(module_name+".vcd")
@@ -84,38 +86,38 @@ class TestVector(unittest.TestCase):
         hw.step(50)
         self.assertTrue(hw.passed())
 
-    def test_toggle_16(self):
+    def test_toggle_16(self)->None:
         self.do_vector_test(16, "vector_toggle__width_16", "vector_toggle__width_16.mif")
 
-    def test_toggle_18_complex(self):
+    def test_toggle_18_complex(self)->None:
         self.do_vector_test(18, "vector_toggle__width_18", "vector_toggle__width_18.mif", inst_forces={"vector_toggle__width_18.__implementation_name":"complex_cdl_model"})
 
-    def test_toggle_18_simple(self):
+    def test_toggle_18_simple(self)->None:
         self.do_vector_test(18, "vector_toggle__width_18", "vector_toggle__width_18.mif", inst_forces={"vector_toggle__width_18.__implementation_name":"cdl_model"})
-                      
-    def test_add_4(self):
+
+    def test_add_4(self)->None:
         self.do_vector_test(4, "vector_add__width_4", "vector_add__width_4.mif")
 
-    def test_mult_11_8(self):
+    def test_mult_11_8(self)->None:
         self.do_vector_test(8, "vector_mult_by_11__width_8", "vector_mult_by_11__width_8.mif")
 
-    def test_reverse_8(self):
+    def test_reverse_8(self)->None:
         self.do_vector_test(8, "vector_reverse__width_8", "vector_reverse__width_8.mif")
 
     # Run vector_nest with the vector_reverse file; the functionality is identical
-    def test_nest_8(self):
+    def test_nest_8(self)->None:
         self.do_vector_test(8, "vector_nest__width_8", "vector_reverse__width_8.mif")
 
-    def test_sum_4(self):
+    def test_sum_4(self)->None:
         self.do_vector_test(4, "vector_sum__width_4", "vector_sum__width_4.mif")
 
-    def test_sum_2_4(self):
+    def test_sum_2_4(self)->None:
         self.do_vector_test(4, "vector_sum_2__width_4", "vector_sum_2__width_4.mif")
 
-    def test_op_1_16(self):
+    def test_op_1_16(self)->None:
         self.do_vector_test(16, "vector_op_1", "vector_op_1.mif")
 
-    def test_op_2_16(self):
+    def test_op_2_16(self)->None:
         self.do_vector_test(16, "vector_op_2", "vector_op_2.mif")
 
 

@@ -27,7 +27,8 @@ import itertools, collections
 import traceback
 from .c_python_telnetd import c_python_telnet_server
 
-from typing import Tuple, Any, Union, Dict, List
+from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional
+from typing_extensions import Protocol
 
 VersionInfo = Tuple[int,int,int,str,int]
 
@@ -60,6 +61,27 @@ else:
 #a Nameable
 #c Types - should be recursive (for Any, read Nameable)
 Nameable = Union['_nameable', List[Any], Dict[str,Any]]
+Hardware = Type['hw']
+ModuleForces = Dict[str,str]
+ClockDict = Dict[str,'clock'] #Hardware]
+InputDict  = Dict[str,'wire']
+OutputDict = Dict[str,'wire']
+class PyEngSimCDLSimReg(object): # from c_se_engine__registration enhancements
+    class SlMessage:
+        class SlMessageSendFn(Protocol):
+            def __call__(x:'SlMessage', module:str, reason:int, *data:Any) -> int: ...
+            pass
+        send_int:     SlMessageSendFn # send ints
+        send_value:   SlMessageSendFn # send int64s
+        get_value:    Callable[['SlMessage',int],int] # gets n'th int in the message
+        get_string:   Callable[['SlMessage',int],str] # gets n'th string in the message
+        response:     Callable[['SlMessage',int],int]  # get response value from last message
+        text:         Callable[['SlMessage',int],str] # get message text
+        pass
+    sim_message : Callable[['PyEngSimCDLSimReg',str],None] # Create a new 'sl_message' attribute of this name
+    pass
+class PyEngSim(object): # inside py_engine, type of an object
+    cdlsim_reg : PyEngSimCDLSimReg
 
 #c _nameable - a class with a _name, given to it by a _namegiver
 class _nameable(object):
@@ -468,11 +490,12 @@ class wirebundle(_nameable):
         pass
     pass
 
-#c _clockable
+#c _clockable - something that appears in an engine when the hw's hwex file is run in that engine
 class _clockable(_namegiver, _nameable):
     """
     The base class for all pieces of hardware.
     """
+    #f __init__ - actually not an __init__, but called when engine is instantiated
     def __init__(self, *children):
         # Flatten the list of children.
         self._children = list(itertools.chain.from_iterable(children))
@@ -525,11 +548,12 @@ class _instantiable(_clockable):
             retlist.append(retdict)
         return retlist
 
-#c _th
+#c th
 class th(_instantiable):
     """
     The object that represents a test harness.
     """
+    _thfile : PyEngSim # Set when hw is instantiated
     def _flatten_names(self, inobj, inname=None):
         outdict = {}
         if isinstance(inobj, list):
@@ -548,7 +572,7 @@ class th(_instantiable):
             outdict = { inname: inobj }
         return outdict
 
-    def __init__(self, clocks, inputs, outputs):
+    def __init__(self, clocks:ClockDict, inputs:InputDict, outputs:OutputDict):
         self._clocks = self._flatten_names(clocks)
         self._inputs = self._flatten_names(inputs)
         self._outputs = self._flatten_names(outputs)
@@ -642,6 +666,7 @@ class module(_instantiable):
     """
     The object that represents a CDL module.
     """
+    _ports : str
     def __init__(self, moduletype, clocks={}, inputs={}, outputs={}, options={}, forces={}):
         self._type = moduletype
         self._clocks = clocks
