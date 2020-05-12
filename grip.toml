@@ -16,3 +16,11 @@ exec = "mkdir -p @BUILD_DIR@ && autoreconf --force --install --verbose && cd @BU
 requires = [".configure"]
 wd = "@BUILD_DIR@"
 exec = "make clean && make -j8 && make install"
+
+[regress]
+requires = [".install"]
+wd = "@BUILD_DIR@"
+env = {REGRESSION_DIR="@GRIP_REPO_PATH@/regression"}
+exec = "make -f @REGRESSION_DIR@/Makefile CDL_ROOT=@TOOLS_DIR@ SRC_ROOT=@REGRESSION_DIR@ BUILD_ROOT=@BUILD_DIR@ regress_python"
+action = "Yes"
+

@@ -26,7 +26,7 @@ A CDL library has the form:
 >
 > class SomeMoreModules(cdl_desc.Modules):
 >    ...
-> 
+>
 > class ExecutableBlah(cdl_desc.Executable):
 >    name = "<executable name>"
 >    srcs = [ cdl_desc.CSrc() instances ]
@@ -80,7 +80,7 @@ make_verilator_old:
 	(cd ${BUILD_ROOT}/obj_dir && make VERILATOR_ROOT=${VERILATOR_SHARE} -f V${TOP}.mk )
 	(cd ${BUILD_ROOT}/obj_dir && g++ -o vsim__${TOP} -include V${TOP}.h -DCLK1=clk -DCLK1_P=2 -DVTOP=V${TOP} ${SRC_ROOT}/tb_v/tb_bbc_micro_with_rams.cpp ${VERILATOR_SHARE}/include/verilated.cpp V${TOP}__ALL.a -I ${VERILATOR_SHARE}/include -I.)
 
-VERILATOR_C_FLAGS = -D VM_THREADS=1 -std=c++11 
+VERILATOR_C_FLAGS = -D VM_THREADS=1 -std=c++11
 VERILATOR_C_FLAGS = -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14
 VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++
 
@@ -106,7 +106,7 @@ x_clean:
 	make -f ${FPGA_ROOT}/Makefile ROOT=${FPGA_ROOT} SRC_ROOT=${BUILD_ROOT} VERILOG_DIR=${BUILD_ROOT}/verilog RTL_DIR=${VERILOG_DIR} BUILD_ROOT=${BUILD_ROOT} PROJECTS_DIR=${CURDIR}/projects PROJECT=de1_cl/bbc USE_MTL_AS_VGA= clean
 
 x:
-	make -f ${FPGA_ROOT}/Makefile ROOT=${FPGA_ROOT} SRC_ROOT=${BUILD_ROOT} VERILOG_DIR=${BUILD_ROOT}/verilog RTL_DIR=${VERILOG_DIR} BUILD_ROOT=${BUILD_ROOT} PROJECTS_DIR=${CURDIR}/projects PROJECT=de1_cl/bbc USE_MTL_AS_VGA= synth timing fit 
+	make -f ${FPGA_ROOT}/Makefile ROOT=${FPGA_ROOT} SRC_ROOT=${BUILD_ROOT} VERILOG_DIR=${BUILD_ROOT}/verilog RTL_DIR=${VERILOG_DIR} BUILD_ROOT=${BUILD_ROOT} PROJECTS_DIR=${CURDIR}/projects PROJECT=de1_cl/bbc USE_MTL_AS_VGA= synth timing fit
 
 
 mount_xilinx:
@@ -561,8 +561,8 @@ class VerilatedModels(BuildableGroup):
             "cwv__"+self.obj_filename+".o",
             "${CDL_EXTRA_FLAGS} "+cdl_include_dir_option, # +self.cdl_flags_string()
             # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
-            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string()+" "+cdl_include_dir_option, 
-            "${BUILD_DIR}/verilate",           
+            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string()+" "+cdl_include_dir_option,
+            "${BUILD_DIR}/verilate",
         ]
         r += ",".join(make_verilator_lib_template)
         r += "))"
@@ -668,8 +668,10 @@ class ImportedLibrary:
         try:
             module = importlib.import_module("library_desc")
             del sys.modules["library_desc"]
-        except:
-            raise
+        except ModuleNotFoundError as e:
+            raise LibraryNotFound(library_path)
+        except Exception as e:
+            raise e
         sys.path.pop(0)
         (library, library_name, library_path) = self.validate_library_module(module, imported_modules)
         imported_modules[library_name] = self
@@ -855,7 +857,7 @@ class ImportedLibrarySet:
         l = self.imported_libraries[library_name]
         if library_name in acc: return acc
         acc[library_name] = l
-        
+
         dependency_names = l.get_libraries(required=True)
         # if include_optional: dependency_names += l.get_libraries(required=False)
 
@@ -931,7 +933,8 @@ class ImportedLibrarySet:
         write("CDL_ROOT ?= %s"%default_cdl_root)
         write("include ${CDL_ROOT}/lib/cdl/cdl_templates.mk")
         write("BUILD_ROOT = %s"%str(self.build_root))
-        write("SIM ?= ${BUILD_ROOT}/sim")
+        write("SIM   ?= ${BUILD_ROOT}/sim")
+        write("PYSIM ?= ${BUILD_ROOT}/py_engine.so")
         write("all: sim")
         write("SUBMAKE=${MAKE} CDL_ROOT=${CDL_ROOT}")
         write("")
@@ -958,8 +961,10 @@ class ImportedLibrarySet:
     def makefile_write_footer(self, write):
         library_names = []
         for (n,l) in self.iter_libraries(): library_names.append(n)
-        write("$(eval $(call sim_init_object_file,${BUILD_ROOT},obj_init,%s))"%" ".join(library_names))
-        write("$(eval $(call command_line_sim,${SIM},${BUILD_ROOT},${BUILD_ROOT}/obj_init.o))")
+        write("$(eval $(call sim_init_object_file_template,${BUILD_ROOT},obj_init,%s))"%" ".join(library_names))
+        write("$(eval $(call command_line_sim_template,${SIM},${BUILD_ROOT},${BUILD_ROOT}/obj_init.o))")
+        write("$(eval $(call python_library_template,${PYSIM},${BUILD_ROOT},${BUILD_ROOT}/obj_init.o))")
+
         write("")
         write("$(eval $(call toplevel_clean_template))")
         pass

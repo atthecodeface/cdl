@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 #a Copyright
-#  
+#
 #  This file '__init__' copyright Gavin J Stark 2011
-#  
+#
 #  This program is free software; you can redistribute it and/or modify it under
 #  the terms of the GNU General Public License as published by the Free Software
 #  Foundation, version 2.0.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
@@ -27,13 +27,17 @@ import itertools, collections
 import traceback
 from .c_python_telnetd import c_python_telnet_server
 
-version_info = (1,4,13,"",0)
+from typing import Tuple, Any, Union, Dict, List
 
-def version():
+VersionInfo = Tuple[int,int,int,str,int]
+
+version_info : VersionInfo = (1,4,13,"",0)
+
+def version() -> VersionInfo:
     global version_info
     return version_info
 
-def hexversion():
+def hexversion() -> int:
     global version_info
     v = ( (version_info[0]<<24) |
           (version_info[1]<<16) |
@@ -53,31 +57,46 @@ if "CDL_BUILD_DIR" in os.environ:
 else:
     import py_engine
 
+#a Nameable
+#c Types - should be recursive (for Any, read Nameable)
+Nameable = Union['_nameable', List[Any], Dict[str,Any]]
+
+#c _nameable - a class with a _name, given to it by a _namegiver
 class _nameable(object):
     """
     An object that should get named when assigned to a namegiver object.
     """
-    def __repr__(self): return self._name
+    def __repr__(self)->str: return self._name
     pass
 
+#c _nameable - a class that gives names to _nameables/List[_nameable]/Dict[str,_nameable]
 class _namegiver(object):
     """
     An object that gives nameable objects a name.
     """
-    def _give_name(self, name, value):
+    def _give_name(self, name:str, value:Nameable):
         if isinstance(value, _nameable) and (not hasattr(value, "_name") or value._name is None):
             value._name = name
+            pass
         elif isinstance(value, list):
             for i in range(len(value)):
                 self._give_name("%s_%d" % (name, i), value[i])
+                pass
+            pass
         elif isinstance(value, dict):
             for i in list(value.keys()):
                 self._give_name("%s_%s" % (name, str(i)), value[i])
+                pass
+            pass
+        pass
 
     def __setattr__(self, name, value):
         self._give_name(name, value)
         object.__setattr__(self, name, value)
+        pass
+    pass
 
+#a Exceptions
 class PyCDLError(Exception):
     """
     Base class for all errors.
@@ -93,7 +112,9 @@ class WireError(PyCDLError):
 
     def __str__(self):
         return "WireError: " + self._msg
+    pass
 
+#a Bit vector class
 class bv(object):
     """
     A bit-vector. Has a size and a value.
@@ -103,6 +124,8 @@ class bv(object):
         self._size = size
         if size is not None:
             self._val &= (1<<size)-1
+            pass
+        pass
 
     def value(self):
         return self._val
@@ -122,7 +145,7 @@ class bv(object):
         return not self.__eq__(other)
 
     def __cmp__(self, other):
-        return self._val - other        
+        return self._val - other
 
     def size(self):
         return self._size
@@ -166,14 +189,17 @@ class bv(object):
             self._val &= ~shiftedmask
             self._val |= (item & unshiftedmask) << stop
         else:
-            return (self._val & shiftedmask) >> stop 
+            return (self._val & shiftedmask) >> stop
 
     def __getitem__(self, key):
         return self._getset(key, None, False)
-    
+
     def __setitem__(self, key, item):
         return self._getset(key, item, True)
 
+    pass
+
+#c bvbundle - Bundle of bit vectors
 class bvbundle(object):
     """
     A bundle of bit vectors (or of more bvbundles)
@@ -192,7 +218,9 @@ class bvbundle(object):
 
     def __setattr__(self, name, value):
         raise AttributeError # bvbundles are read-only
+    pass
 
+#c wire - nameable that is driven_by something and drives something
 class wire(_nameable):
     """
     The object that represents a wire.
@@ -241,7 +269,7 @@ class wire(_nameable):
         for i in self._drives:
             print("%sDrives %s" % (" "*index, repr(i)))
             i._connectivity_downwards(index+2)
-    
+
     def print_connectivity(self):
         print("Finding connectivity tree for %s:" % repr(self))
         root = self._connectivity_upwards(0)
@@ -287,15 +315,20 @@ class wire(_nameable):
             self._cdl_signal.wait_for_change(timeout)
         else:
             raise WireError("No underlying value for signal %s" % repr(self))
+        pass
+    pass
 
-
+#c clock - special type of wire that corresponds to a CDL simulation clock
 class clock(wire):
     def __init__(self, init_delay=0, cycles_high=1, cycles_low=1, name=None):
         self._init_delay = init_delay
         self._cycles_high = cycles_high
         self._cycles_low = cycles_low
         wire.__init__(self, 1, name)
+        pass
+    pass
 
+#c wirebundle - nameable that represents a bundle of wires through a dictionary
 class wirebundle(_nameable):
     """
     The object that represents a bundle of wires.
@@ -352,7 +385,7 @@ class wirebundle(_nameable):
         if self._driven_by:
             self._update_connectivity(self._driven_by)
         for i in self._drives:
-            i._update_connectivity(self)        
+            i._update_connectivity(self)
 
     def _update_connectivity(self, other):
         if len(self._dict) == 0 and len(other._dict) != 0:
@@ -384,7 +417,7 @@ class wirebundle(_nameable):
                 raise WireError("Double add of wire %s to bundle" % wirelist[0])
             self._dict[wirelist[0]] = wire(size, name)
             return self._dict[wirelist[0]]
-            
+
     def value(self):
         # We want the value. Fair enough. Go dig and get it.
         outdict = {}
@@ -432,6 +465,10 @@ class wirebundle(_nameable):
         else:
             return self._dict[attr]
 
+        pass
+    pass
+
+#c _clockable
 class _clockable(_namegiver, _nameable):
     """
     The base class for all pieces of hardware.
@@ -443,7 +480,11 @@ class _clockable(_namegiver, _nameable):
     def _clock(self):
         for i in self._children:
             i._clock()
+            pass
+        pass
+    pass
 
+#c _instantiable
 class _instantiable(_clockable):
     """
     A module that can be instantiated -- either a CDL module or a Python
@@ -480,11 +521,11 @@ class _instantiable(_clockable):
                 else:
                     #print "No CDL signal!"
                     pass
-                    
+
             retlist.append(retdict)
         return retlist
-                
 
+#c _th
 class th(_instantiable):
     """
     The object that represents a test harness.
@@ -547,7 +588,7 @@ class th(_instantiable):
             self._cdl_obj = getattr(th._thfile, "__anonevent%3d" % th._eventanonid)
             self._th = th
             th._eventanonid += 1
-                
+
         def reset(self):
             self._cdl_obj.reset()
 
@@ -559,7 +600,10 @@ class th(_instantiable):
 
     def event(self):
         return th._event(self)
+    pass
 
+
+#c _internal_th
 class _internal_th(th):
     """
     A sentinel to show an internal test harness that does not need to be considered
@@ -567,6 +611,7 @@ class _internal_th(th):
     """
     pass
 
+#c _wave_hook
 class _wave_hook(_internal_th):
     """
     A timed assignment, often used for a reset sequence.
@@ -576,6 +621,7 @@ class _wave_hook(_internal_th):
     def run(self):
         pass
 
+#c timed_assign
 class timed_assign(_instantiable):
     """
     A timed assignment, often used for a reset sequence.
@@ -591,6 +637,7 @@ class timed_assign(_instantiable):
         self._wait = wait
         self._afterval = later_value
 
+#c module
 class module(_instantiable):
     """
     The object that represents a CDL module.
@@ -605,6 +652,7 @@ class module(_instantiable):
     def __repr__(self):
         return "<Module {0}>".format(self._type)
 
+#c _thfile
 class _thfile(py_engine.exec_file):
     def __init__(self, th):
         self._th = th
@@ -620,6 +668,7 @@ class _thfile(py_engine.exec_file):
             self._th.failtest(0, "Exception raised!"+traceback.format_exc())
             raise
 
+#c _hwexfile
 class _hwexfile(py_engine.exec_file):
     def __init__(self, hw):
         self._hw = hw
@@ -738,7 +787,7 @@ class _hwexfile(py_engine.exec_file):
                 pass # we'll hook up later
             else:
                 raise NotImplementedError
-            
+
         for i in self._hw._children:
             if hasattr(i, "_ports") and (not i._ports):
                 raise WireError("Bad port structure in connecting module '%s' - perhaps a module could not be found?" % (repr(i)))
@@ -761,7 +810,7 @@ class _hwexfile(py_engine.exec_file):
             # Find a CDL signal for this tree.
             while not i._cdl_signal and i._driven_by:
                 i = i._driven_by
-            if i._cdl_signal:                    
+            if i._cdl_signal:
                 # Find the root of the driving tree.
                 sig = i._cdl_signal
                 while i._driven_by:
@@ -780,6 +829,7 @@ class _hwexfile(py_engine.exec_file):
         # Say we're in business.
         self._running = True
 
+#c hw
 class hw(_clockable):
     """
     The object that represents a piece of hardware.
@@ -855,7 +905,7 @@ class hw(_clockable):
             self._waves_enabled = 0
             if hw._hwex and hw._hwex._running:
                 self._connect_waves()
-                
+
         def _connect_waves(self):
             self._hw._wave_hook._thfile.cdlsim_wave.vcd_file("_waves%d"%self._hw._id)
             self._cdl_obj = eval("self._hw._wave_hook._thfile._waves%d"%self._hw._id)
@@ -927,6 +977,7 @@ class hw(_clockable):
         console_server = c_python_telnet_server( port=port, locals=locals )
         console_server.serve()
 
+#c load_mif
 def load_mif(filename, length=0, width=64):
     """
     Open a file and read in hex values into an array. Provided mostly for
@@ -953,6 +1004,7 @@ def load_mif(filename, length=0, width=64):
     fd.close()
     return retarray
 
+#c save_mif
 def save_mif(array, filename, length=0, width=64):
     """
     Write hex values from an array into a file. Provided mostly for
