@@ -94,10 +94,10 @@ class vector_hw(Hardware):
 class TestVector(unittest.TestCase):
     def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:ModuleForces={} ) -> None:
         hw = vector_hw(width, module_name, os.path.join(module_root,module_mif_filename), inst_forces=inst_forces)
-        waves = hw.waves()
-        waves.open(module_name+".vcd")
-        waves.add_hierarchy(hw.dut_0)
-        waves.enable()
+        # waves = hw.waves()
+        # waves.open(module_name+".vcd")
+        # waves.add_hierarchy(hw.dut_0)
+        # waves.enable()
         hw.reset()
         hw.step(50)
         self.assertTrue(hw.passed())

@@ -27,7 +27,7 @@ import itertools, collections
 import traceback
 from .base import BaseExecFile
 from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
-from .exec_file import SysMemory, SysEvent, SysFifo, SysRandom, ExecFile
+from .exec_file import SysMemory, SysEvent, SysFifo, SysRandom, ExecFile, ExecFileThreadFn
 from .waves     import Waves
 from .exceptions import *
 class _thfile(SimulationExecFile):
@@ -60,7 +60,7 @@ Nameable = Union['_nameable', List[Any], Dict[str,Any]]
 HardwareType = Type['hw']
 Hardware = 'hw'
 ModuleForces = Dict[str,str]
-WireDict = Dict[str,Union['clock','wire']]
+WireDict = Dict[str,'WireBase']
 ClockDict = Dict[str,'clock'] #Hardware]
 InputDict  = Dict[str,'wire']
 OutputDict = Dict[str,'wire']
@@ -103,8 +103,12 @@ class _namegiver(object):
     pass
 
 #a Bit vector class
+#c Value
+class Value(object):
+    pass
+
 #c bv - sized int
-class bv(object):
+class bv(Value):
     """
     A bit-vector. Has a size and a value.
     """
@@ -196,7 +200,7 @@ class bv(object):
     pass
 
 #c bvbundle - Bundle of bit vectors
-class bvbundle(object):
+class bvbundle(Value):
     """
     A bundle of bit vectors (or of more bvbundles)
     """
@@ -226,6 +230,33 @@ class WireBase(_nameable):
     def _name_list(self, inname:str) -> List[str]: ...
     def _check_connectivity(self:T, other:T) -> None: ...
     def _is_driven_by(self:T, other:T) -> None: ...
+    # for input signals (should be a subtype)
+    def value(self) -> Value: ...
+    # for output signals (should be a subtype)
+    def drive(self, value:Value) -> None: ...
+    def reset(self, value:Value) -> None: ...
+    #f __init__
+    def __init__(self, name:str="", size:int=1):
+        self._size = size
+        self._name = name
+        pass
+
+    pass
+
+#c clock - special type of wire that corresponds to a CDL simulation clock
+class clock(WireBase):
+    _drives :   List['clock'] = []
+    _driven_by: Optional['clock'] = None
+    _size : int
+    _cdl_signal : Optional[Any]
+    def __init__(self, name:str="", init_delay:int=0, cycles_high:int=1, cycles_low:int=1):
+        self._init_delay = init_delay
+        self._cycles_high = cycles_high
+        self._cycles_low = cycles_low
+        WireBase.__init__(self, name=name)
+        self._size = 1
+        self._cdl_signal = None
+        pass
     pass
 
 #c wire - nameable that is driven_by something and drives something
@@ -235,18 +266,19 @@ class wire(WireBase):
     """
     # _cdl_signal : PyEngSim.Global # Global wire created in hardware when the hardware is built - passed in at _connect_cdl_signal
     _instantiated_name : str # Given to the wire in the hardware when the hardware is built
-    _drives : List['wire']
+    _drives :   List['wire']
     _driven_by: Optional['wire']
     _size : int
     _cdl_signal : Optional[Any]
     _reset_value : Optional[int]
+
     #f __init__
     def __init__(self, name:str="", size:int=1):
+        WireBase.__init__(self, name=name)
+        self._size=size
         self._drives = []
         self._driven_by = None
-        self._size = size
         self._cdl_signal = None
-        self._name = name
         self._reset_value = None
         pass
 
@@ -363,16 +395,6 @@ class wire(WireBase):
     #f All done
     pass
 
-#c clock - special type of wire that corresponds to a CDL simulation clock
-class clock(wire):
-    def __init__(self, name:str="", init_delay:int=0, cycles_high:int=1, cycles_low:int=1):
-        self._init_delay = init_delay
-        self._cycles_high = cycles_high
-        self._cycles_low = cycles_low
-        wire.__init__(self, size=1, name=name)
-        pass
-    pass
-
 #c wirebundle - nameable that represents a bundle of wires through a dictionary
 class wirebundle(WireBase):
     """
@@ -385,8 +407,9 @@ class wirebundle(WireBase):
     _driven_by  : Optional['wirebundle']
     _size : int
     _cdl_signal : Optional[Any]
-    _reset_value : Optional[int]
-    def __init__(self, name:str, bundletype:Optional[WireBundleDefn]=None, **kw:Any):
+    _reset_value : Optional[bvbundle]
+    def __init__(self, name:str="", bundletype:Optional[WireBundleDefn]=None, **kw:Any):
+        WireBase.__init__(self, name=name)
         if bundletype:
             # Build the bundle from a dict.
             self._dict = {}
@@ -406,7 +429,6 @@ class wirebundle(WireBase):
         self._drives = []
         self._driven_by   = None
         self._reset_value = None
-        self._name = name
         pass
 
     #f _name_list
@@ -625,7 +647,6 @@ class _hwexfile(HardwareExecFile):
         print(name,str(wiredict))
         for i in wiredict:
             if isinstance(wiredict[i], wire):
-                print("self._connect_wire", name+i, wiredict[i], connectedwires, inputs, ports, assign, firstval, wait, afterval)
                 self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports, assign, firstval, wait, afterval)
                 pass
             elif isinstance(wiredict[i], wirebundle):
@@ -633,17 +654,21 @@ class _hwexfile(HardwareExecFile):
                     raise WireError("Connecting wire bundle %s to unknown port!" % i)
                 self._connect_wires(name+i+"__", wiredict[i]._dict, connectedwires, inputs, ports[i]._dict, assign, firstval, wait, afterval)
                 pass
+            elif isinstance(wiredict[i], clock):
+                self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports, assign, firstval, wait, afterval)
+                pass
             else:
                 raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
             pass
         pass
+
     #f _set_up_reset_values
     def _set_up_reset_values(self)->None:
         # And set up the reset values.
         if not hasattr(self, "_connectedwires"):
             return
         for i in self._connectedwires:
-            if i._reset_value:
+            if hasattr(i, "_reset_value") and i._reset_value:
                 i._reset(i._reset_value)
 
 
@@ -770,7 +795,7 @@ class ThExecFile(_th):
 
     #f sim_event
     def sim_event(self) -> SysEvent.SlEvent:
-        self.sys_event.event( "_temporary_object", num_words, width )
+        self.sys_event.event( "_temporary_object")
         x = cast(SysEvent.SlEvent,self._temporary_object)
         del self._temporary_object
         return x
@@ -788,7 +813,7 @@ class ThExecFile(_th):
         pass
 
     #f spawn
-    def spawn(self, boundfn:ExecFile.py.ThreadCallable, *args:Any) -> None:
+    def spawn(self, boundfn:ExecFileThreadFn, *args:Any) -> None:
         self.py.pyspawn(boundfn, args)
         pass
 
@@ -881,27 +906,37 @@ class BaseTestHarnessModule(_instantiable):
     """
     The object that represents a test harness.
     """
-    exec_file_object = None
-    def _flatten_names(self, inobj:Union[List[Any],WireDict], inname:str=None) -> WireDict:
+    exec_file_object : Optional[Callable[[Any],ThExecFile]] = None
+    def _flatten_names(self, inobj:Union[List[Any],WireDict,WireBase], inname:Optional[str]=None) -> WireDict:
         outdict = {}
         if isinstance(inobj, list):
             for i in range(len(inobj)):
                 if inname is None:
                     outdict.update(self._flatten_names(inobj[i], "%d" % i))
+                    pass
                 else:
                     outdict.update(self._flatten_names(inobj[i], "%s_%d" % (inname, i)))
+                    pass
+                pass
+            pass
         elif isinstance(inobj, dict):
-            for i in list(inobj.keys()):
+            for sn in list(inobj.keys()):
                 if inname is None:
-                    outdict.update(self._flatten_names(inobj[i], "%s" % str(i)))
+                    outdict.update(self._flatten_names(inobj[sn], "%s" % str(sn)))
+                    pass
                 else:
-                    outdict.update(self._flatten_names(inobj[i], "%s_%s" % (inname, str(i))))
+                    outdict.update(self._flatten_names(inobj[sn], "%s_%s" % (inname, str(sn))))
+                    pass
+                pass
+            pass
         else:
+            assert inname is not None
             outdict = { inname: inobj }
+            pass
         return outdict
 
     #f __init__
-    def __init__(self, clocks:ClockDict, inputs:InputDict, outputs:OutputDict, exec_file_object=None):
+    def __init__(self, clocks:ClockDict, inputs:InputDict, outputs:OutputDict, exec_file_object: Optional[Callable[[Any],ThExecFile]]=None):
         self._clocks   = self._flatten_names(clocks)
         self._inputs   = self._flatten_names(inputs)
         self._outputs  = self._flatten_names(outputs)
