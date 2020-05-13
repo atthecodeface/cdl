@@ -15,12 +15,13 @@
 from .base import BaseExecFile
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
 from typing_extensions import Protocol
+from typing import TYPE_CHECKING
 
 #a For exec_file
 #c PyExecFile
+ExecFileThreadFn = Callable[...,Any]
 class PyExecFile(object): # from sl_exec_file.cpp
-    ThreadCallable = Callable[...,Any]
-    def pyspawn(self,fn:ThreadCallable, args:object) -> None: ...
+    def pyspawn(self,fn:ExecFileThreadFn, args:object) -> None: ...
     def pypass(self,code:int, reason:str) -> None: ...
     def pyfail(self,code:int, reason:str) -> None: ...
     def list(self,what:str) -> None: ...  # what is libs, fns, cmds, objs, a library name, or an object name
@@ -112,11 +113,13 @@ class ExecFile(BaseExecFile):
     it would probably break things.
 
     """
-    py          = PyExecFile
-    sys_event   = SysEvent
-    sys_fifo    = SysFifo
-    sys_memory  = SysMemory
-    sys_random  = SysRandom
+    if TYPE_CHECKING:
+        py          : PyExecFile
+        sys_event   : SysEvent
+        sys_fifo    : SysFifo
+        sys_memory  : SysMemory
+        sys_random  : SysRandom
+        pass
     _temporary_object : Any
     def __init__(self) -> None:
         """
