@@ -1,10 +1,10 @@
 /*a Copyright
-  
+
   This file 'eh_py_engine.cpp' copyright Gavin J Stark 2003, 2004, 2012
-  
+
   This is free software; you can redistribute it and/or modify it however you wish,
   with no obligations
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.
@@ -1548,12 +1548,11 @@ extern "C" PyObject *py_engine_str( PyObject *self )
  */
 extern "C" PyObject *py_engine_debug( PyObject* self, PyObject* args, PyObject *kwds )
 {
-    t_py_engine_PyObject *py_eng = (t_py_engine_PyObject *)self;
+    t_py_engine_PyObject *unused = (t_py_engine_PyObject *)self;
     char lv[] = "level";
     char *kwdlist[] = { lv, NULL };
     int level;
 
-    py_engine_method_enter( py_eng, "debug", args );
     if (PyArg_ParseTupleAndKeywords( args, kwds, "i", kwdlist, &level ))
     {
         sl_debug_set_level( (t_sl_debug_level)level );
@@ -1566,27 +1565,24 @@ extern "C" PyObject *py_engine_debug( PyObject* self, PyObject* args, PyObject *
 
 /*f py_engine_new
  */
-extern "C" PyObject *py_engine_new( PyObject* self, PyObject* args )
+extern "C" PyObject *py_engine_new( PyTypeObject* subtype, PyObject* args, PyObject *kwds )
 {
-	 t_py_engine_PyObject *py_eng;
+    auto self = (t_py_engine_PyObject *)subtype->tp_alloc(subtype, 0);
+    if (!self) return NULL;
+	self->error  = new c_sl_error( 4, 8 ); // GJS
+	self->engine = new c_engine( self->error, "default engine" );
+    self->env_options = NULL;
 
-    if (!PyArg_ParseTuple(args,":new"))
-	{
-        return NULL;
-	}
-
-    py_eng = PyObject_New( t_py_engine_PyObject, &py_engine_PyTypeObject_frame );
-	py_eng->error = new c_sl_error( 4, 8 ); // GJS
-	py_eng->engine = new c_engine( py_eng->error, "default engine" );
-    py_eng->env_options = NULL;
-
-    return (PyObject*)py_eng;
+    return (PyObject*)self;
 }
 
 /*f py_engine_dealloc
  */
 extern "C" void py_engine_dealloc( PyObject* self )
 {
+    t_py_engine_PyObject *py_eng = (t_py_engine_PyObject *)self;
+    delete(py_eng->engine);
+	delete(py_eng->error);
     PyObject_Del(self);
 }
 
