@@ -19,11 +19,7 @@ class vector_test_harness_exec_file(ThExecFile):
         self.th = s
         pass
     def exec_init(self):
-        print(dir(self))
-        # self.vector_output_0  = self.th.inputs["vector_output_0"]
-        # self.vector_output_1  = self.th.inputs["vector_output_1"]
-        # self.vector_input_0   = self.th.outputs["vector_input_0"]
-        # s#elf.vector_input_1   = self.th.outputs["vector_input_1"]
+        self.th._hw._engine.create_vcd_file(self)
         pass
 
     def test_values(self, vector_number:int) -> None:
@@ -98,10 +94,10 @@ class vector_hw(Hardware):
 class TestVector(unittest.TestCase):
     def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:ModuleForces={} ) -> None:
         hw = vector_hw(width, module_name, os.path.join(module_root,module_mif_filename), inst_forces=inst_forces)
-        # waves = hw.waves()
-        # waves.open(module_name+".vcd")
-        # waves.add_hierarchy(hw.dut_0)
-        # waves.enable()
+        waves = hw.waves()
+        waves.open(module_name+".vcd")
+        waves.add_hierarchy(hw.dut_0)
+        waves.enable()
         hw.reset()
         hw.step(50)
         self.assertTrue(hw.passed())

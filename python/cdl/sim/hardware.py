@@ -563,6 +563,7 @@ class _hwexfile(HardwareExecFile):
 
     #f __init__
     def __init__(self, hw:'hw'):
+        self._name = "hardware_exec_file"
         self._hw = hw
         self._running = False
         self._instantiated_wires = set()
@@ -697,6 +698,7 @@ class _hwexfile(HardwareExecFile):
                 self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs]))
                 self.cdlsim_instantiation.option_object("object", i.exec_file_object(self))
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
+                i._hw = self
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), None) #i._thfile)
             elif isinstance(i, clock):
                 pass # we'll hook up later
@@ -979,6 +981,7 @@ class hw(_clockable):
         pass
     _wavesinst     : Waves
     def __init__(self, thread_mapping=None, children=None, *children_list):
+        self._name = "hardware"
         self.create_engine()
         # Hack arguments
         if (children is None) or (type(children)!=list):
@@ -1045,9 +1048,6 @@ class hw(_clockable):
         pass
 
     def waves(self) -> Waves:
-        # self.create_waves(self)
-        #if hw._hwex and hw._hwex._running:
-        #    pass
         if not hasattr(self, "_wavesinst"):
             self._wavesinst = Waves(self._engine.vcd_file())
             pass

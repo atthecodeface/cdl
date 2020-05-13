@@ -83,8 +83,10 @@ class PyBfmExecFile(ExecFile):
     register_add_exec_file_enhancements( file_data, engine_handle );
     checkpoint_add_exec_file_enhancements( file_data, engine_handle );
     """
-    class Signal(object):
+    class Input(object):
         def value(self) -> int: ... # Get value of (input) signal
+        pass
+    class Output(object):
         def drive(self, value:int) -> None: ... # Drive value after posedge of clock completes
         def reset(self, value:int) -> None: ... # Drive value now (DEPRECATED)
         def wait_for_value(self, value:int, timeout:int) -> None: ... # Wait up to timeout bfm ticks for signal to be at value
@@ -95,6 +97,12 @@ class PyBfmExecFile(ExecFile):
         cdlsim_reg  = PyEngSimCDLSimReg
         cdlsim_wave = PyEngSimCDLSimWave
         pass
+    _waves : VcdFile
+    def create_waves(self) -> VcdFile:
+        self.cdlsim_wave.vcd_file("_waves")
+        x = self._waves
+        del(self._waves)
+        return x
     pass
 
 #c SimulationExecFile
@@ -128,13 +136,6 @@ class HardwareExecFile(PyBfmExecFile): # from c_se_engine__instantiation enhance
         def clock_phase(self, output_name:str, source_clock:str, delay_to_start:int, clock_ticks_pattern:int, pattern_string:str) -> None : ...
         def drive(self, driven:str, drive_with:str) -> None : ...
         pass
-    _waves : VcdFile
-    def create_waves(self, o) -> VcdFile:
-        print(dir(self))
-        self.cdlsim_wave.vcd_file("_waves")
-        x = self._waves
-        del(self._waves)
-        return x
     pass
 
 #c PyEngine -  An engine object within the engine library - in eh_c_py_engine.cpp (standard python, not exec file)
@@ -179,7 +180,7 @@ class Engine(PyEngine): # so we can extend it
     _waves  : ClassVar[VcdFile]
     def create_vcd_file(self, x:Any) -> None:
         if not hasattr(self, "_waves"):
-            self._waves = x.create_waves(self)
+            self._waves = x.create_waves()
             pass
         pass
     def vcd_file(self) -> VcdFile:
