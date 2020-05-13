@@ -14,7 +14,7 @@ EXTERN void py_engine_dealloc( PyObject *self );
 EXTERN int py_engine_print( PyObject *self, FILE *f, int unknown );
 EXTERN PyObject *py_engine_repr( PyObject *self );
 EXTERN PyObject *py_engine_str( PyObject *self );
-EXTERN PyObject *py_engine_new( PyObject* self, PyObject* args );
 EXTERN PyObject *py_engine_debug( PyObject* self, PyObject* args, PyObject *kwds );
+EXTERN PyObject *py_engine_new ( PyTypeObject* self, PyObject* args, PyObject *kwds );
 EXTERN PyMethodDef engine_methods[];
 
