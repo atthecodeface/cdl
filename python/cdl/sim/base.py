@@ -21,19 +21,18 @@ else:
     pass
 
 from types import ModuleType
-#class py_engine(ModuleType):
-#    class py_engine(PyEngine):
-#        pass
-#    def debug(self, level:int) -> None : ...
-#    pass
+if TYPE_CHECKING:
+    class py_engine(ModuleType):
+        class engine(object): ...
+        class exec_file(object): ...
+        @staticmethod
+        def debug(level:int) -> None : ...
+        pass
+    pass
+
 class BaseEngine(py_engine.engine):
     pass
 
-x=BaseEngine()
-
 class BaseExecFile(py_engine.exec_file):
-    def check_me(self):
-        print("Check me!")
-        pass
     pass
 

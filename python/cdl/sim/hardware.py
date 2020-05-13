@@ -563,7 +563,6 @@ class _hwexfile(HardwareExecFile):
 
     #f __init__
     def __init__(self, hw:'hw'):
-        self.check_me()
         self._hw = hw
         self._running = False
         self._instantiated_wires = set()
