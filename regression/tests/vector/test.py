@@ -13,10 +13,11 @@ module_root = os.path.dirname(inspect.getfile(x))
 
 #c vector_test_harness_exec_file
 class vector_test_harness_exec_file(ThExecFile):
-    def __init__(self, vectors_filename:str, s, **kwargs):
+    def __init__(self, vectors_filename:str, hw, th_module, **kwargs):
         self.vectors_filename = vectors_filename
         ThExecFile.__init__(self, **kwargs)
-        self.th = s
+        self.th = th_module
+        self.hw = hw
         pass
     def exec_init(self):
         self.th._hw._engine.create_vcd_file(self)
@@ -49,7 +50,7 @@ class vector_test_harness_exec_file(ThExecFile):
 
 class vector_test_harness(ThModule):
     def __init__(self, vectors_filename:str, **kwargs):
-        x = lambda s:vector_test_harness_exec_file(vectors_filename,s)
+        x = lambda hw, th_module:vector_test_harness_exec_file(vectors_filename,hw,th_module)
         ThModule.__init__(self, exec_file_object=x, **kwargs)
         pass
     pass
@@ -59,7 +60,7 @@ class vector_hw(Hardware):
     def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:ModuleForces={} ):
         print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
 
-        self.test_reset      = Wire()
+        self.test_reset = TimedAssign(init_value=1, wait=5, later_value=0)
         self.vector_input_0  = Wire(size=width)
         self.vector_input_1  = Wire(size=width)
         self.vector_output_0 = Wire(size=width)
@@ -85,8 +86,7 @@ class vector_hw(Hardware):
                                                   outputs={ "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-        self.rst_seq = TimedAssign(self.test_reset, 1, 5, 0)
-        Hardware.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.rst_seq)
+        Hardware.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.test_reset)
         pass
     pass
 
