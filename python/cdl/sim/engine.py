@@ -184,7 +184,7 @@ class PyEngine(BaseEngine):
 #c PyEngineLibrary class - py_engine module effectively has this class
 #f Engine
 class Engine(PyEngine): # so we can extend it
-    _waves  : ClassVar[VcdFile]
+    _waves  : VcdFile
     def create_vcd_file(self, x:Any) -> None:
         if not hasattr(self, "_waves"):
             self._waves = x.create_waves()

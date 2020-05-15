@@ -34,9 +34,7 @@ $(eval $(call add_python_files,cdl,${PYTHON_CDL_FILES}))
 $(eval $(call add_python_files,cdl/sim,${PYTHON_CDL_SIM_FILES}))
 
 #a Type checking
-# PYTHONPATH=`pwd`/../python/cdl:`pwd`/..:$PYTHONPATH mypy --strict --allow-untyped-calls regress.py  tests/*/*py ../python/cdl/sim/__init__.py ../python/cdl/sim/py_engine.pyi
-# PYTHONPATH=`pwd`/../python/cdl:`pwd`/..:$PYTHONPATH mypy --strict --allow-untyped-calls cdl/sim/__init__.py
 PYTHON_DIR = $(CURDIR)
 PYTHON_SRCS = cdl/sim/engine.py cdl/sim/exec_file.py cdl/sim/base.py cdl/sim/exceptions.py cdl/sim/hardware.py
 check_types:
-	PYTHONPATH=${PYTHON_DIR}:$PYTHONPATH mypy --strict --allow-untyped-calls ${PYTHON_SRCS}
+	PYTHONPATH=${PYTHON_DIR}:$PYTHONPATH mypy --strict ${PYTHON_SRCS}

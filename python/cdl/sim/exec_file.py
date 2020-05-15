@@ -29,59 +29,59 @@ class PyExecFile(object): # from sl_exec_file.cpp
     pass
 
 #c SysEvent
+class SlEvent:
+    def reset(self) -> None : ... # Reset the event
+    def fire(self) -> None  : ... # fire the event
+    def wait(self) -> None  : ... # if not fired, set thread to wait on the event firing
+    def fired(self) -> int  : ... # return true if the event has fired since last reset
+    pass
 class SysEvent(object): # from sl_ef_lib_event
-    class SlEvent:
-        def reset(self) -> None : ... # Reset the event
-        def fire(self) -> None  : ... # fire the event
-        def wait(self) -> None  : ... # if not fired, set thread to wait on the event firing
-        def fired(self) -> int  : ... # return true if the event has fired since last reset
-        pass
     def event(self, object_name:str) -> None : ... # Create a new 'SlEvent' attribute of this name
     pass
 
 #c SysMemory
+class SlMemory:
+    def read(self, address:int) -> int : ... # Read the memory
+    def write(self, address:int, data:int) -> None  : ... # Write the memory
+    def load(self, filename:str, bit_offset:int) -> None  : ... # load from MIF
+    def save(self, filename:str, start:int, num_words:int) -> None  : ... # save to MIF
+    def compare(self, filename:str, offset:int) -> int  : ... # Compare file with memory contents
+    pass
 class SysMemory(object): # from sl_ef_lib_memory
-    class SlMemory:
-        def read(self, address:int) -> int : ... # Read the memory
-        def write(self, address:int, data:int) -> None  : ... # Write the memory
-        def load(self, filename:str, bit_offset:int) -> None  : ... # load from MIF
-        def save(self, filename:str, start:int, num_words:int) -> None  : ... # save to MIF
-        def compare(self, filename:str, offset:int) -> int  : ... # Compare file with memory contents
-        pass
     def memory(self, object_name:str, num_words:int, word_size:int) -> None : ... # Create a new 'SlMemory' attribute of this name
     pass
 
 #c SysRandom
+class SlRandom:
+    def next(self) -> int : ... # Get next random number
+    def seed(self, seed:str) -> None  : ... # Seed with a string
+    pass
 class SysRandom(object): # from sl_ef_lib_random
-    class SlRandom:
-        def next(self) -> int : ... # Get next random number
-        def seed(self, seed:str) -> None  : ... # Seed with a string
-        pass
     def random_nial(self, object_name:str, iterations:int, base:int, range:int) -> None : ... # Create a new 'SlRandom' attribute of this name
     def random_cyclic(self, object_name:str, value:int, base:int, range:int, step:int) -> None : ... # Create a new 'SlRandom' attribute of this name
 
 #c SysFifo
+class SlFifo:
+    def reset(self) -> None : ...                 # reset the pointers and flags to empty
+    def flags(self) -> int : ...                  # return e, f, ewm, fwm flags as 4 bits 0 thru 3
+    def is_empty(self) -> int : ...               #
+    def is_full(self) -> int : ...                #
+    def is_nearly_full(self) -> int : ...         #
+    def is_nearly_empty(self) -> int : ...        #
+    def has_underflowed(self) -> int : ...        #
+    def has_overflowed(self) -> int : ...         #
+    def read_ptr(self) -> int : ...               # return read ptr for the FIFO
+    def write_ptr(self) -> int : ...              # return write ptr for the FIFO
+    def uncommitted_read_ptr(self) -> int : ...   # return uncommitted_read ptr for the FIFO
+    def remove(self) -> int : ...                 # remove an element from the FIFO, error if underflow
+    def peek(self) -> int : ...                   # look at the top element from the FIFO but do not change pointers, error if underflow
+    def remove_no_commit(self) -> int : ...       # remove an element from the FIFO without committing the read ptr, error if underflow
+    def add(self, item:int) -> None : ...         # add an element to the FIFO, error if overflow
+    def commit_read(self) -> None : ...           # commit the uncommited read ptr of the FIFO after uncommitted reads
+    def revert_read(self) -> None : ...           # revert the uncommited read ptr of the FIFO back to the last committed value
+    def wait_for_flags(self, mask:int, value:int) -> None : ... # wait for FIFO flags AND mask to equal value
+    pass
 class SysFifo(object): # from sl_ef_lib_fifo
-    class SlFifo:
-        def reset(self) -> None : ...                 # reset the pointers and flags to empty
-        def flags(self) -> int : ...                  # return e, f, ewm, fwm flags as 4 bits 0 thru 3
-        def is_empty(self) -> int : ...               #
-        def is_full(self) -> int : ...                #
-        def is_nearly_full(self) -> int : ...         #
-        def is_nearly_empty(self) -> int : ...        #
-        def has_underflowed(self) -> int : ...        #
-        def has_overflowed(self) -> int : ...         #
-        def read_ptr(self) -> int : ...               # return read ptr for the FIFO
-        def write_ptr(self) -> int : ...              # return write ptr for the FIFO
-        def uncommitted_read_ptr(self) -> int : ...   # return uncommitted_read ptr for the FIFO
-        def remove(self) -> int : ...                 # remove an element from the FIFO, error if underflow
-        def peek(self) -> int : ...                   # look at the top element from the FIFO but do not change pointers, error if underflow
-        def remove_no_commit(self) -> int : ...       # remove an element from the FIFO without committing the read ptr, error if underflow
-        def add(self, item:int) -> None : ...         # add an element to the FIFO, error if overflow
-        def commit_read(self) -> None : ...           # commit the uncommited read ptr of the FIFO after uncommitted reads
-        def revert_read(self) -> None : ...           # revert the uncommited read ptr of the FIFO back to the last committed value
-        def wait_for_flags(self, mask:int, value:int) -> None : ... # wait for FIFO flags AND mask to equal value
-        pass
     def fifo(self, object_name:str, size:int, ne_wm:int, nf_wm:int) -> None : ... # Create a new 'SlFifo' attribute of this name
 
 #a Exec file extensions
