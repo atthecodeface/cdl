@@ -40,7 +40,7 @@ def hexversion() -> int:
 from .mif import load_mif, save_mif
 from .th_exec_file import ThExecFile
 from .modules  import BaseTestHarnessModule
-from .modules  import ModuleForces
+from .modules  import OptionsDict
 from .wires    import Wire as Wire
 from .wires    import Clock as Clock
 from .wires    import TimedAssign as TimedAssign

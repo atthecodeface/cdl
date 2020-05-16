@@ -35,6 +35,17 @@ $(eval $(call add_python_files,cdl/sim,${PYTHON_CDL_SIM_FILES}))
 
 #a Type checking
 PYTHON_DIR = $(CURDIR)
-PYTHON_SRCS = cdl/sim/engine.py cdl/sim/exec_file.py cdl/sim/base.py cdl/sim/exceptions.py cdl/sim/hardware.py
+PYTHON_SRCS = cdl/sim/engine.py \
+	cdl/sim/base.py \
+	cdl/sim/exec_file.py \
+	cdl/sim/exceptions.py \
+	cdl/sim/hardware.py \
+	cdl/sim/instantiable.py \
+	cdl/sim/mif.py \
+	cdl/sim/modules.py \
+	cdl/sim/th_exec_file.py \
+	cdl/sim/waves.py
+
+# cdl/sim/unittest.py
 check_types:
 	PYTHONPATH=${PYTHON_DIR}:$PYTHONPATH mypy --strict ${PYTHON_SRCS}
