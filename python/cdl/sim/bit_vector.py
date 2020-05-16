@@ -18,24 +18,16 @@
 This file implements PyCDL, which is the human-friendly interface from Python
 code to CDL's py_engine interface.
 """
-
-# First, try to import the py_engine that we built. Either something around us
-# will have put it in the PYTHONPATH or it will have set the CDL_BUILD_DIR
-# environment variable.
-import sys, os
-import itertools, collections
-import traceback
-from .base import BaseExecFile
-from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
-from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
 from .waves     import Waves
 from .exceptions import *
-from .th_exec_file import ThExecFile
 
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
-from typing import TypeVar
-T = TypeVar('T')
-from typing_extensions import Protocol
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .wires import Wire
+    pass
+else:
+    Wire=Type
 
 #a Bit vector class
 #c Value
@@ -140,7 +132,7 @@ class bvbundle(Value):
     A bundle of bit vectors (or of more bvbundles)
     """
     _dict : Dict[str,str]
-    def __init__(self, indict:Optional[Dict[str,Union['wire', 'wirebundle']]]=None, **kw:Any) -> None:
+    def __init__(self, indict:Optional[Dict[str,Union[Wire]]]=None, **kw:Any) -> None:
         if indict is not None:
             self.__dict__["_dict"] = indict
             self._dict.update(kw)

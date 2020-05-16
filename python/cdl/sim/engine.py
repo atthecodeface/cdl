@@ -41,17 +41,18 @@ class VcdFile:
 
 #a Simulation engine module exec file enhancements
 #c PyEngSimCDLSimReg - from c_se_engine__registration enhancements
+class SlMessage:
+    def send_int(self, module:str, reason:int, *data:Any) -> int : ... # send ints
+    def send_value(self, module:str, reason:int, *data:Any) -> int : ... # send int64s
+    def get_value(self, n:int) -> int: ... # gets n'th int in the message
+    def get_string(self, n:int) -> str: ... # gets n'th string in the message
+    def response(self, n:int) -> int: ...  # get response value from last message
+    def text(self, n:int) -> str: ... # get message text
+    pass
 class PyEngSimCDLSimReg(object):
-  if TYPE_CHECKING:
-    class SlMessage:
-        def send_int(self, module:str, reason:int, *data:Any) -> int : ... # send ints
-        def send_value(self, module:str, reason:int, *data:Any) -> int : ... # send int64s
-        def get_value(self, n:int) -> int: ... # gets n'th int in the message
-        def get_string(self, n:int) -> str: ... # gets n'th string in the message
-        def response(self, n:int) -> int: ...  # get response value from last message
-        def text(self, n:int) -> str: ... # get message text
+    if TYPE_CHECKING:
+        def sim_message(self, object_name:str) -> None : ... # Create a new 'SlMessage' attribute of this name
         pass
-    def sim_message(self, object_name:str) -> None : ... # Create a new 'SlMessage' attribute of this name
     pass
 
 #c PyEngSimCDLSimWave - from c_se_engine__waveform enhancements
