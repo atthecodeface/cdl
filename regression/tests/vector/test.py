@@ -2,7 +2,7 @@
 import sys, os, unittest
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import BaseTestHarnessModule as ThModule
-from cdl.sim import hw                    as Hardware
+from cdl.sim import Hardware              as Hardware
 from cdl.sim import ModuleForces
 from cdl.sim import Wire, Clock, Module, TimedAssign
 from cdl.sim import load_mif

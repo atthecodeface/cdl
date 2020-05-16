@@ -45,4 +45,4 @@ from .wires    import Wire as Wire
 from .wires    import Clock as Clock
 from .wires    import TimedAssign as TimedAssign
 from .modules  import Module as Module
-from .hardware import hw
+from .hardware import Hardware

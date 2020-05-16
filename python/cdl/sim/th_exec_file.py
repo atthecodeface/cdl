@@ -26,7 +26,7 @@ import sys, os
 import itertools, collections
 import traceback
 from .base import BaseExecFile
-from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
+from .engine    import SlMessage, Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
 from .waves     import Waves
 from .exceptions import *
@@ -39,24 +39,22 @@ T = TypeVar('T')
 from typing_extensions import Protocol
 
 #a Test harness for now
-class _th(SimulationExecFile):
+#c ThExecFile
+class ThExecFile(SimulationExecFile):
+    def exec_init(self) -> None:
+        SimulationExecFile.exec_init(self)
+        # Would auto-create input / output bundles here
+        pass
+
+    def run(self) -> None: ...
     def exec_run(self) -> None:
         try:
             self.run()
         except:
-            self._th.failtest(0, "Exception raised in run method!"+traceback.format_exc())
+            self.failtest(0, "Exception raised in run method!"+traceback.format_exc())
             raise
-    pass
-
-#c ThExecFile
-class ThExecFile(_th):
-    def exec_init(self) -> None:
-        _th.exec_init(self)
-        # Would auto-create input / output bundles here
-        pass
-
     def exec_reset(self) -> None:
-        _th.exec_reset(self)
+        SimulationExecFile.exec_reset(self)
         # _set_up_reset_values
         pass
 
@@ -76,9 +74,9 @@ class ThExecFile(_th):
         pass
 
     #f sim_message
-    def sim_message(self):# -> SimulationExecFile.cdlsim_reg.SlMessage:
+    def sim_message(self) -> SlMessage:
         self.cdlsim_reg.sim_message( "_temporary_object" )
-        x = cast(SimulationExecFile.SlMessage,self._temporary_object)
+        x = cast(SlMessage,self._temporary_object)
         del self._temporary_object
         return x
 

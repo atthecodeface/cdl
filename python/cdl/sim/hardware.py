@@ -172,9 +172,8 @@ class HardwareDescription(HardwareExecFile):
     pass
 
 #a Hardware - really an engine
-#c hw
-# class hw(Engine):
-class hw():
+# class Hardware(Engine):
+class Hardware(object):
     """
     The object that represents a piece of hardware.
     """

@@ -31,7 +31,7 @@ WiringDict = Dict[str,Wiring]
 ClockDict = Dict[str,'Clock']
 
 #a Useful functions
-def split_name(name:str, sep:str="__") -> Tuple[str,str]:
+def split_name(name:str, sep:str="__") -> Tuple[Optional[str],str]:
     name_split = name.split(sep, 1)
     if len(name_split)<2: return (None, name)
     return (name_split[0], name_split[1])
@@ -63,32 +63,38 @@ class WireBase(object): # was _nameable
             self._name = self.get_name(hint=hint)
             pass
         pass
+
     #f __init__
     def __init__(self, name:str="", size:int=1, full_name:str=""):
         self._size = size
         self._name = name
         self._full_name = full_name
         pass
+
     #f flatten
-    def flatten(self, name) -> List[Tuple[str, 'Wire']]:
+    def flatten(self, name:str) -> List[Tuple[str, 'WireBase']]:
         return [(name, self)]
 
     #f passed - for wires that are childen of hardware
-    def passed(self): return True
-    def __str__(self)->str:
+    def passed(self) -> bool: return True
+
+    def __str__(self) -> str:
         return self._full_name
+
     def has_name(self) -> bool:
         if not hasattr(self, "_name"): return False
         if self._name is None: return False
         if self._name=="": return False
         return True
-    def full_name_list(self, name:str, prefix:List[str]=[]):
+
+    def full_name_list(self, name:str, prefix:List[str]=[]) -> List[str]:
         """
         Return list of names for a wire called 'name' within this prefix
         If this were a bundle, the list would be longer
         """
         return ["__".join(prefix) + self._name]
-    def str_short(self):
+
+    def str_short(self) -> str:
         return "%s[%d]"%(self._name, self._size)
     pass
 
@@ -99,8 +105,8 @@ class Wire(WireBase):
     """
     # _cdl_signal : PyEngSim.Global # Global wire created in hardware when the hardware is built - passed in at _connect_cdl_signal
     _instantiated_name : str # Given to the wire in the hardware when the hardware is built
-    _drives :   List['wire']
-    _driven_by: Optional['wire']
+    _drives :   List['Wire']
+    _driven_by: Optional['Wire']
     _size : int
     _cdl_signal : Optional[Any]
     _reset_value : Optional[int]
@@ -131,46 +137,6 @@ class Wire(WireBase):
         else:
             raise WireError("No underlying value for signal %s" % repr(self))
 
-    #f drive
-    def drive(self, value:Union[bv,int]) -> None:
-        if isinstance(value, bv):
-            value = value.value()
-            pass
-        if self._cdl_signal:
-            self._cdl_signal.drive(value)
-            pass
-        else:
-            raise WireError("No underlying signal to drive for %s" % repr(self))
-
-    #f _reset
-    def _reset(self, value:int) -> None:
-        if self._cdl_signal:
-            self._cdl_signal.reset(value)
-        else:
-            raise WireError("No underlying signal to drive for %s" % repr(self))
-
-    #f reset
-    def reset(self, value:int) -> None:
-        if self._cdl_signal:
-            self._cdl_signal.reset(value)
-        self._reset_value = value
-        pass
-
-    #f wait_for_value
-    def wait_for_value(self, val:int, timeout:int=-1) -> None:
-        if self._cdl_signal:
-            self._cdl_signal.wait_for_value(val, timeout)
-        else:
-            raise WireError("No underlying value for signal %s" % repr(self))
-
-    #f wait_for_change
-    def wait_for_change(self, timeout:int=-1) -> None:
-        if self._cdl_signal:
-            self._cdl_signal.wait_for_change(timeout)
-        else:
-            raise WireError("No underlying value for signal %s" % repr(self))
-        pass
-
     #f All done
     pass
 
@@ -180,10 +146,10 @@ class WireHierarchy(object):
     Fully flattened hierarchy
     This is a dictionary of dictionaries of ... of Wires
     """
-    wiring : Dict[str,Union['Wire',Dict[str,Any]]] # Recursive really
+    wiring : WiringDict # Recursive really
 
     #f __init__
-    def __init__(self):
+    def __init__(self) -> None:
         self.wiring = {}
         pass
 
@@ -195,7 +161,7 @@ class WireHierarchy(object):
         return self.add_wire_hierarchy(self.wiring, full_name, full_name, size)
 
     #f add_wire_hierarchy
-    def add_wire_hierarchy(self, wiring_dict:Dict[str,Wiring], full_name:str, remaining_name:str, size:int) -> Wire:
+    def add_wire_hierarchy(self, wiring_dict:WiringDict, full_name:str, remaining_name:str, size:int) -> Wire:
         (root, rest) = split_name(remaining_name)
         if root is None:
             if rest in wiring_dict:
@@ -203,7 +169,7 @@ class WireHierarchy(object):
             wire = Wire(name=rest, size=size, full_name=full_name)
             wiring_dict[rest] = wire
             return wire
-        if root not in wiring_dict: wiringdict[root] = {}
+        if root not in wiring_dict: wiring_dict[root] = {}
         if type(wiring_dict[root])!=dict:
             raise Exception("Bug in wire bundle in adding '%s' as part of '%s' - already a wire, now also a bundle"%(remaining_name, full_name))
         return self.add_wire_hierarchy(wiring_dict[root], full_name=full_name, remaining_name=rest, size=size)
@@ -237,7 +203,7 @@ class WireHierarchy(object):
         return self.iter_element(self.wiring, "", prefix)
 
     #f flatten - not used
-    def flatten(self, name:str) -> List[Tuple[str, Wire]]:
+    def flatten(self, name:str) -> List[Tuple[str, WireBase]]:
         result = []
         for (n,w) in self.wiring:
             result.extend(self.flatten_element(n,w))

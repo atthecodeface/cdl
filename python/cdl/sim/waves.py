@@ -64,7 +64,7 @@ class Waves(object):
     def file_size(self)->int:
         return self._waves.file_size()
 
-    def _add(self, hierlist:List[Any]):
+    def _add(self, hierlist:Any) -> None:
         for x in hierlist:
             if isinstance(x, list):
                 self._add(x)
@@ -83,7 +83,7 @@ class Waves(object):
         self._add(hier)
         pass
 
-    def _add_hierarchy(self, hierlist:List[Any]) -> None:
+    def _add_hierarchy(self, hierlist:Any) -> None:
         for x in hierlist:
             if isinstance(x, list):
                 self._add_hierarchy(x)
