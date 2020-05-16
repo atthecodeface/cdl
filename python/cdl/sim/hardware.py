@@ -46,6 +46,7 @@ from typing_extensions import Protocol
 #c HardwareDescription
 class HardwareDescription(HardwareExecFile):
     _hw : 'Hardware'
+    error_count : int
 
     #f __init__
     def __init__(self, hw:'Hardware'):
@@ -53,13 +54,21 @@ class HardwareDescription(HardwareExecFile):
         self._hw = hw
         self._running = False
         HardwareExecFile.__init__(self)
+        self.error_count = 0
         pass
 
     #f report_error
     def report_error(self, msg:str) -> None:
         print(msg)
-        # error count, etc
+        self.error_count = self.error_count + 1
         pass
+
+    #f check_errors
+    def check_errors(self, stage:str) -> None:
+        if self.error_count>0:
+            raise Exception("Hardware had errors during %s")
+        return None
+
     #f instantiate_modules
     def instantiate_modules(self)->None:
         for i in self._hw._children:
@@ -68,6 +77,7 @@ class HardwareDescription(HardwareExecFile):
         for i in self._hw._children:
             i.debug()
             pass
+        self.check_errors("module instantiation")
         pass
 
     #f get_connectivity
@@ -77,16 +87,19 @@ class HardwareDescription(HardwareExecFile):
             print(i)
             i.add_connectivity(self, self.connectivity)
             pass
+        self.check_errors("creating wiring")
         pass
 
     #f check_connectivity
     def check_connectivity(self)->None:
         self.connectivity.check(self, self._hw)
+        self.check_errors("checking connectivity")
         pass
 
     #f connect_wires
     def connect_wires(self)->None:
         self.connectivity.connect_wires(self, self._hw)
+        self.check_errors("wiring module instances")
         pass
 
     #f exec_run - create the hardware

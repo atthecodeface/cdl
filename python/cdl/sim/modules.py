@@ -83,7 +83,7 @@ class Instance(object):
         pass
     #f debug
     def debug(self) -> None:
-        print("Instance:\n")
+        print("Instance:")
         for (n,o) in self.options.items():
             print("  Option '%s':'%s'"%(n,str(o)))
             pass
@@ -138,7 +138,6 @@ class Module(Instantiable):
     module_names : ClassVar[Dict[str,Set[str]]] = {}
     #t Instance property types
     _ports : Ports
-    _name : str
     _clocks:  ClockDict
     _inputs:  Dict[str,WiringHierarchy]
     _outputs: Dict[str,WiringHierarchy]
@@ -166,7 +165,7 @@ class Module(Instantiable):
     #f __init__
     def __init__(self, moduletype:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
         self._type = moduletype
-        self._name = self.create_name(moduletype, hint="")
+        self.set_instance_name(self.create_name(moduletype, hint=""))
         self._clocks = {}
         for (c, ck) in clocks.items():
             self._clocks[c] = ck
@@ -195,9 +194,10 @@ class Module(Instantiable):
 
     #f instantiate
     def instantiate(self, hwex:HardwareDescription, hw:Hardware) -> None:
+        name = self.get_instance_name()
         self.inst = self.get_instance(hwex, hw)
-        self.inst.instantiate(hwex, self._name)
-        self._ports = Ports(hw, self._name)
+        self.inst.instantiate(hwex, name)
+        self._ports = Ports(hw, name)
         pass
 
     #f add_connectivity
@@ -208,7 +208,7 @@ class Module(Instantiable):
                 connectivity.add_clock_sink(self, c, ck)
                 pass
             else:
-                hwex.report_error("module %s has wiring specified to clock '%s' but the hardware module does not have that port"%(self._name, c))
+                hwex.report_error("module %s has wiring specified to clock '%s' but the hardware module does not have that port"%(self.get_instance_name(), c))
                 pass
             pass
         for (name, wiring) in self._inputs.items():
@@ -224,7 +224,7 @@ class Module(Instantiable):
         return "<Module {0}>".format(self._type)
     #f debug
     def debug(self) -> None:
-        print("Module '%s' as '%s'"%(self._type, self._name))
+        print("Module '%s' as '%s'"%(self._type, self.get_instance_name()))
         if hasattr(self, "_ports"):
             self._ports.debug()
             pass
@@ -245,7 +245,7 @@ class BaseTestHarnessModule(Module):
     def passed(self) -> bool:
         if hasattr(self, "exec_file_object"):
             if not self.exec_file_object.passed():
-                print("Test harness %s : %s not PASSED" % (self._name,str(th)))
+                print("Test harness %s : %s not PASSED" % (self.get_instance_name(),str(th)))
                 return False
                 pass
             pass

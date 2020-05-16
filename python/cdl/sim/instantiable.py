@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     pass
 
 class Instantiable(object):
-    _name : str
+    instance_name : str
     #f instantiate
     def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
         pass
@@ -36,8 +36,19 @@ class Instantiable(object):
     #f passed
     def passed(self) -> bool:
         return True
+
+    #f set_instance_name
+    def set_instance_name(self, name:str) -> None:
+        self.instance_name = name
+        pass
+
+    #f get_instance_name
+    def get_instance_name(self) -> str:
+        if not hasattr(self, "instance_name"): return "<unnamed>"
+        return self.instance_name
+
     #f debug
     def debug(self) -> None:
-        print("Instantiable:\n")
+        print("Instantiable '%s':"%(self.get_instance_name()))
     #f All done
     pass

@@ -36,30 +36,41 @@ if TYPE_CHECKING:
 #a Wires
 #c WireBase
 class WireBase(object):
-    _name : str
-    _full_name: str
+    full_name: str
+    given_name : str
+    derived_name : str
     _anonid: ClassVar[int] = 0
     def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,'Wire']]: ...
 
-    #f get_name
+    #f get_name_from_class
     @classmethod
-    def get_name(cls, hint:str="") -> str:
+    def get_name_from_class(cls, hint:str="") -> str:
         name = "%s_%d"%(cls.__name__,cls._anonid)
         cls._anonid = cls._anonid+1
         return name
 
-    #f assure_name
-    def assure_name(self, hint:str="") -> None:
-        if self._name=="":
-            self._name = self.get_name(hint=hint)
-            pass
-        pass
-
     #f __init__
     def __init__(self, name:str="", full_name:str=""):
-        self._name = name
-        self._full_name = full_name
+        self.given_name = name
+        self.full_name  = full_name
+        self.derived_name = ""
         pass
+
+    #f get_name
+    def get_name(self) -> str:
+        if self.given_name   != "": return self.given_name
+        return self.derived_name
+
+    #f has_name
+    def has_name(self) -> bool:
+        return self.get_name()==""
+
+    #f get_or_create_name
+    def get_or_create_name(self, hint:str="") -> str:
+        name = self.get_name()
+        if name!="": return name
+        self.derived_name = self.get_name_from_class(hint=hint)
+        return self.derived_name
 
     #f flatten
     def flatten(self, name:str) -> List[Tuple[str, 'WireBase']]:
@@ -70,14 +81,9 @@ class WireBase(object):
 
     #f __str__
     def __str__(self) -> str:
-        return self._full_name
-
-    #f has_name
-    def has_name(self) -> bool:
-        if not hasattr(self, "_name"): return False
-        if self._name is None: return False
-        if self._name=="": return False
-        return True
+        n = self.get_name()
+        if n=="": n="<unnamed>"
+        return n
 
     #f full_name_list
     def full_name_list(self, name:str, prefix:Prefix=[]) -> Prefix:
@@ -85,7 +91,7 @@ class WireBase(object):
         Return list of names for a wire called 'name' within this prefix
         If this were a bundle, the list would be longer
         """
-        return ["__".join(prefix) + self._name]
+        return ["__".join(prefix) + self.get_name()]
 
     #f flatten_element
     def flatten_element(self, name:str) -> Dict[str,'Wire']:
@@ -119,22 +125,20 @@ class Wire(WireBase, HierarchyElement):
 
     #f str_short
     def str_short(self) -> str:
-        if self._name=="":
-            return "<unnamed>[%d]"%(self._size)
-        return "%s[%d]"%(self._name, self._size)
+        return "%s[%d]"%(WireBase.__str__(self), self._size)
 
     #f __str__
     def __str__(self) -> str:
         return self.str_short()
 
-    #f size
-    def size(self) -> int:
+    #f get_size
+    def get_size(self) -> int:
         return self._size
 
     #f iter_element
     def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,'Wire']]:
         if name is None:
-            yield(prefix, self._name, self)
+            yield(prefix, self.get_name(), self)
             pass
         else:
             yield(prefix,name,self)
@@ -177,12 +181,10 @@ class WireHierarchy(WireBase, Hierarchy):
         """
         Add a wire of the bit size with full hierarchical name in to the dictionary hierarchy
         """
-        print("adding wire",hierarchical_name,size)
         return self.hierarchy_add_element(name=hierarchical_name, element_args=(hierarchical_name,size))
 
     #f iter_element
     def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,Wire]]:
-        # print("iter_element of wirehierarchy",self.is_defined(), self.is_endpoint())
         for (pfx, n, elt) in self.hierarchy_iter(name=name, prefix=prefix):
             wire = cast(Wire, elt)
             yield (pfx, n, wire)
@@ -198,7 +200,7 @@ class WireHierarchy(WireBase, Hierarchy):
     def str_short(self) -> str:
         r = ""
         for (pfx,k,w) in self.iter_element():
-            r+=" %s:%s"%(join_name(pfx,k,"."),str(w))
+            r+=" %s"%(join_name(pfx,k,".")) # ,str(w))
             pass
         return r
 
@@ -211,30 +213,33 @@ class WireHierarchy(WireBase, Hierarchy):
 
 #c Clock - special type of wire that corresponds to a simulation clock - it can be a child of hardware, and so is instantiable
 class Clock(WireBase, Instantiable):
+    init_delay: int
+    cycles_high : int
+    cycles_low : int
     def __init__(self, name:str="", init_delay:int=0, cycles_high:int=1, cycles_low:int=1):
         Instantiable.__init__(self)
         WireBase.__init__(self, name=name)
-        self._init_delay = init_delay
-        self._cycles_high = cycles_high
-        self._cycles_low = cycles_low
+        self.init_delay = init_delay
+        self.cycles_high = cycles_high
+        self.cycles_low = cycles_low
         pass
 
     #f instantiate
     def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
-        self.assure_name()
-        print("Create clock driving %s"%(self._name))
-        hwex.cdlsim_instantiation.clock(self._name, self._init_delay, self._cycles_high, self._cycles_low)
+        name = self.get_or_create_name()
+        Instantiable.set_instance_name(self, name)
+        hwex.cdlsim_instantiation.clock(name, self.init_delay, self.cycles_high, self.cycles_low)
         pass
 
     #f add_connectivity
     def add_connectivity(self, hwex:'HardwareDescription', connectivity:'Connectivity') -> None:
-        print("Driving clock %s"%self._name)
-        connectivity.add_clock_driver(self, self._name)
+        name = self.get_name()
+        connectivity.add_clock_driver(self, name)
         pass
 
     #f __str__
     def __str__(self) -> str:
-        return str(self.__repr__())
+        return "Clock '%s'"%(WireBase.__str__(self))
     pass
 
 #c TimedAssign
@@ -242,10 +247,9 @@ class TimedAssign(Wire, Instantiable):
     """
     A timed assignment, often used for a reset sequence.
     """
-    _firstval : int
-    _wait : int
-    _afterval : int
-    _size : int
+    firstval : int
+    wait : int
+    afterval : int
 
     #f __init__
     def __init__(self, name:str="", size:int=1, init_value:int=0, wait:Optional[int]=None, later_value:Optional[int]=None):
@@ -256,21 +260,18 @@ class TimedAssign(Wire, Instantiable):
         if later_value is None:
             later_value = init_value
             pass
-        # self._outputs = {"sig": signal}
-        # self._ports = Ports(clocks=[], inputs=[], outputs=[["sig", signal._size]])
-        self._firstval = init_value
-        self._wait = wait
-        self._afterval = later_value
+        self.firstval = init_value
+        self.wait = wait
+        self.afterval = later_value
         Wire.__init__(self, name=name, size=size)
         pass
 
     #f instantiate
     def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
-        self.assure_name()
-        print("Create timed_assign driving '%s'"%(self._name))
-        print(self._name, self._firstval, self._wait, self._afterval)
-        hwex.cdlsim_instantiation.wire(self._name)
-        hwex.cdlsim_instantiation.assign(self._name, self._firstval, self._wait, self._afterval)
+        name = self.get_or_create_name()
+        self.set_instance_name(name)
+        hwex.cdlsim_instantiation.wire(name)
+        hwex.cdlsim_instantiation.assign(name, self.firstval, self.wait, self.afterval)
         pass
 
     #f add_connectivity
@@ -280,7 +281,7 @@ class TimedAssign(Wire, Instantiable):
 
     #f str_short
     def str_short(self)->str:
-        return "timed_assign[%d](%d,%d,%d)"%(self._size,self._firstval,self._wait,self._afterval)
+        return "timed_assign[%d](%d,%d,%d)"%(self.get_size(),self.firstval,self.wait,self.afterval)
     pass
 
 #c WiringHierarchy
