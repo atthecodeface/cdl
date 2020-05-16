@@ -26,11 +26,18 @@ if TYPE_CHECKING:
     pass
 
 class Instantiable(object):
+    _name : str
     #f instantiate
     def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
         pass
     #f add_connectivity
     def add_connectivity(self, hwex:'HardwareDescription', connectivity:'Connectivity') -> None:
         pass
+    #f passed
+    def passed(self) -> bool:
+        return True
+    #f debug
+    def debug(self) -> None:
+        print("Instantiable:\n")
     #f All done
     pass

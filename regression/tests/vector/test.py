@@ -3,7 +3,7 @@ import sys, os, unittest
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import BaseTestHarnessModule as ThModule
 from cdl.sim import Hardware              as Hardware
-from cdl.sim import ModuleForces
+from cdl.sim import OptionsDict
 from cdl.sim import Wire, Clock, Module, TimedAssign
 from cdl.sim import load_mif
 
@@ -20,7 +20,7 @@ class vector_test_harness_exec_file(ThExecFile):
         self.hw = hw
         pass
     def exec_init(self):
-        self.th._hw._engine.create_vcd_file(self)
+        # self.th._hw._engine.create_vcd_file(self)
         pass
 
     def test_values(self, vector_number:int) -> None:
@@ -57,7 +57,7 @@ class vector_test_harness(ThModule):
 
 #c vector_hw
 class vector_hw(Hardware):
-    def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:ModuleForces={} ):
+    def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:OptionsDict={} ):
         print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
 
         self.test_reset = TimedAssign(init_value=1, wait=5, later_value=0)
@@ -86,13 +86,13 @@ class vector_hw(Hardware):
                                                   outputs={ "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-        Hardware.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.test_reset)
+        Hardware.__init__(self, children=[self.dut_0, self.test_harness_0, self.system_clock, self.test_reset])
         pass
     pass
 
 #c TestVector
 class TestVector(unittest.TestCase):
-    def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:ModuleForces={} ) -> None:
+    def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:OptionsDict={} ) -> None:
         hw = vector_hw(width, module_name, os.path.join(module_root,module_mif_filename), inst_forces=inst_forces)
         # waves = hw.waves()
         # waves.open(module_name+".vcd")

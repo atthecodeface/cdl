@@ -163,7 +163,7 @@ class PyEngine(BaseEngine):
         def write_profile(self, filename:str) -> None : ... # Write out simulation profile
         def thread_pool_init(self) -> None : ... # Initialize the thread pool for multithreaded simulations
         def thread_pool_add(self, name:str) -> None : ... # Add a named thread to the pool
-        def thread_pool_map_module(self, thread_name:str, module_name:str) -> None : ... # Assign a module to a thread
+        def thread_pool_map_module(self, thread_name:str, module_name:str) -> int : ... # Assign a module to a thread
         def thread_pool_delete(self) -> None : ... # Delete the thread pool
 
         def list_instances(self) -> List[str] : ...

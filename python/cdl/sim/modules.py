@@ -21,7 +21,8 @@ code to CDL's py_engine interface.
 from .exceptions import *
 from .th_exec_file import ThExecFile
 from .instantiable import Instantiable
-from .wires import Wiring, Clock, Wire, WiringDict, ClockDict, WireHierarchy, WiringHierarchy
+from .types import *
+from .wires import Clock, Wire, WireHierarchy, WiringHierarchy
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
 
 from typing import TYPE_CHECKING
@@ -35,19 +36,24 @@ else:
     Connectivity = Type
     pass
 
-ModuleForces = Dict[str,str]
 OptionsDict = Dict[str,Union[str,int,object]]
 
 #a Hardware modules
 #c Instance
 class Instance(object):
-    forces  = {}
-    options = {}
-    def __init__(self):
-        self.options = {}
-        self.forces = {}
+    module_type : str
+    forces  : OptionsDict
+    options : OptionsDict
+    #f __init__
+    def __init__(self, module_type:str,
+                 force_options:OptionsDict,
+                 options:OptionsDict ) -> None:
+        self.module_type = module_type
+        self.options     = options
+        self.forces      = force_options
         pass
-    def instantiate(self, hwex, instance_name:str):
+    #f instantiate
+    def instantiate(self, hwex:'HardwareDescription', instance_name:str) -> None:
         for [fk,f] in self.forces.items():
             (submodule,s,option) = fk.rpartition(".")
             submodule = instance_name + "." + submodule
@@ -72,9 +78,18 @@ class Instance(object):
                 hwex.cdlsim_instantiation.option_object(ok, o)
                 pass
             pass
-        print("Instantiate %s as %s options %s"%(self.module_type, instance_name, self.options))
+        print("Instantiated %s as %s options %s"%(self.module_type, instance_name, self.options))
         hwex.cdlsim_instantiation.module(self.module_type, instance_name)
         pass
+    #f debug
+    def debug(self) -> None:
+        print("Instance:\n")
+        for (n,o) in self.options.items():
+            print("  Option '%s':'%s'"%(n,str(o)))
+            pass
+        for (n,o) in self.forces.items():
+            print("  Force '%s':'%s'"%(n,str(o)))
+            pass
     pass
 
 #c Ports
@@ -87,19 +102,30 @@ class Ports(object):
     outputs : WireHierarchy
     def __init__(self, hardware:Hardware, instance_name:str):
         (clocks, inputs, outputs) = hardware.get_module_ios(instance_name)
+        print("Hardware Clocks: %s"%(str(clocks)))
+        print("Hardware Inputs: %s"%(str(inputs)))
+        print("Hardware Outputs: %s"%(str(outputs)))
         self.clocks  = set()
         for (ck,_) in clocks: self.clocks.add(ck)
         self.inputs  = WireHierarchy()
-        for (full_name, size) in inputs: self.inputs.add_wire(full_name, size)
+        for (full_name, size) in inputs:
+            self.inputs.add_wire(full_name, size)
+            pass
         self.outputs  = WireHierarchy()
-        for (full_name, size) in outputs: self.outputs.add_wire(full_name, size)
+        for (full_name, size) in outputs:
+            self.outputs.add_wire(full_name, size)
+            pass
         pass
-    def has_clock(self, name):
+    def has_clock(self, name:str) -> bool:
         return name in self.clocks
-    def get_input_set(self, name):
-        return self.inputs.get_set(name)
-    def get_output_set(self, name):
-        return self.outputs.get_set(name)
+    def debug(self) -> None:
+        print("Ports:")
+        for c in self.clocks:
+            print("  Clock '%s'"%(c))
+            pass
+        print("  Inputs: '%s'"%(self.inputs.str_short()))
+        print("  Outputs: '%s'"%(self.outputs.str_short()))
+        pass
 
 #c Module
 class Module(Instantiable):
@@ -135,10 +161,10 @@ class Module(Instantiable):
         return n
 
     #f passed
-    def passed(self): return True
+    def passed(self) -> bool: return True
 
     #f __init__
-    def __init__(self, moduletype:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:ModuleForces={}, options:OptionsDict={}):
+    def __init__(self, moduletype:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
         self._type = moduletype
         self._name = self.create_name(moduletype, hint="")
         self._clocks = {}
@@ -161,16 +187,16 @@ class Module(Instantiable):
 
     #f get_instance
     def get_instance(self, hwex:HardwareDescription, hw:Hardware) -> Instance:
-        inst = Instance()
-        inst.force_options = self._forces
-        inst.options       = self._options
-        inst.module_type   = self._type
+        inst = Instance(module_type   = self._type,
+                        force_options = self._forces,
+                        options       = self._options
+        )
         return inst
 
     #f instantiate
     def instantiate(self, hwex:HardwareDescription, hw:Hardware) -> None:
-        inst = self.get_instance(hwex, hw)
-        inst.instantiate(hwex, self._name)
+        self.inst = self.get_instance(hwex, hw)
+        self.inst.instantiate(hwex, self._name)
         self._ports = Ports(hw, self._name)
         pass
 
@@ -196,17 +222,27 @@ class Module(Instantiable):
     #f __str__
     def __str__(self) -> str:
         return "<Module {0}>".format(self._type)
+    #f debug
+    def debug(self) -> None:
+        print("Module '%s' as '%s'"%(self._type, self._name))
+        if hasattr(self, "_ports"):
+            self._ports.debug()
+            pass
+        if hasattr(self, "inst"):
+            self.inst.debug()
+            pass
     pass
 
 #c BaseTestHarnessModule
+EFGenerator = Callable[...,ThExecFile]
 class BaseTestHarnessModule(Module):
     """
     The object that represents a test harness.
     """
-    exec_file_object_fn : Optional[Callable[[Any],ThExecFile]] = None
+    exec_file_object_fn : EFGenerator
     exec_file_object    : ThExecFile
     #f passed
-    def passed(self):
+    def passed(self) -> bool:
         if hasattr(self, "exec_file_object"):
             if not self.exec_file_object.passed():
                 print("Test harness %s : %s not PASSED" % (self._name,str(th)))
@@ -216,9 +252,9 @@ class BaseTestHarnessModule(Module):
         return True
 
     #f __init__
-    def __init__(self, clocks:ClockDict, inputs:WiringDict, outputs:WiringDict, exec_file_object: Optional[Callable[[Any],ThExecFile]]=None):
+    def __init__(self, clocks:ClockDict, inputs:WiringDict, outputs:WiringDict, exec_file_object:EFGenerator):
         Module.__init__(self, moduletype="se_test_harness", clocks=clocks, inputs=inputs, outputs=outputs, options={}, forces={})
-        self.exec_file_object_fn = exec_file_object
+        self.exec_file_object_fn = exec_file_object # type: ignore
         pass
 
     #f get_instance
@@ -229,18 +265,17 @@ class BaseTestHarnessModule(Module):
         for (n,i) in self._inputs.items():
             input_names.extend(i.full_sized_name_list(n))
             pass
-        print(input_names)
         output_names = []
         for (n,i) in self._outputs.items():
             output_names.extend(i.full_sized_name_list(n))
             pass
 
-        inst = Instance()
-        inst.options["clock"]   = " ".join(list(self._clocks.keys()))
-        inst.options["inputs"]  = " ".join(input_names)
-        inst.options["outputs"] = " ".join(output_names)
-        inst.options["object"]  = self.exec_file_object
-        inst.module_type = "se_test_harness"
+        options : OptionsDict = {}
+        options["clock"]   = " ".join(list(self._clocks.keys()))
+        options["inputs"]  = " ".join(input_names)
+        options["outputs"] = " ".join(output_names)
+        options["object"]  = self.exec_file_object
+        inst = Instance( module_type="se_test_harness", force_options={}, options=options)
         return inst
 
     #f All done
