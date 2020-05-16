@@ -86,7 +86,6 @@ class Hierarchy(object):
         """
         Add an element
         """
-        print("hierarchy_add_element",name,element_args)
         (root, rest) = split_name(name)
         if root is None: # Leaf element
             if name in self.elements:
