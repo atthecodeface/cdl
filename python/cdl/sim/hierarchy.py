@@ -15,8 +15,7 @@
 
 """
 """
-from .types     import *
-from .base import split_name, join_name
+from .base import Prefix, split_name, join_name
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar, Iterable
 
 #a Hierarchy

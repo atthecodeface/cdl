@@ -2,7 +2,6 @@
 import sys, os, unittest
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import HardwareThDut, OptionsDict
-from cdl.sim import Wire, Clock
 from cdl.sim import load_mif
 
 import inspect
@@ -49,7 +48,8 @@ class vector_test_harness_exec_file(ThExecFile):
 #c vector_hw
 class vector_hw(HardwareThDut):
     # dut has an io_clock pin which we want to toggle on every cycle
-    clocks = {"io_clock":(0,1,1)}
+    clock_desc = [("io_clock",(0,1,1)),
+    ]
     # dut has an io_reset pin which we want to be high for 5 global ticks and go low - on negedge of clock so posedge clock logic has no races
     reset_desc = {"name":"io_reset", "init_value":1, "wait":5}
     def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:OptionsDict={} ):

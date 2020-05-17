@@ -28,7 +28,7 @@ import traceback
 from .base import BaseExecFile
 from .engine    import SlMessage, Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
-from .waves     import Waves
+# from .waves     import Waves
 from .exceptions import *
 class _thfile(SimulationExecFile):
     pass
@@ -41,10 +41,15 @@ from typing_extensions import Protocol
 #a Test harness for now
 #c ThExecFile
 class ThExecFile(SimulationExecFile):
+    th_name : str
     def exec_init(self) -> None:
         SimulationExecFile.exec_init(self)
         # Would auto-create input / output bundles here
         pass
+
+    def th_get_name(self) -> str:
+        if hasattr(self, "th_name"): return self.th_name
+        return self.__class__.__name__
 
     def run(self) -> None: ...
     def exec_run(self) -> None:
@@ -53,24 +58,10 @@ class ThExecFile(SimulationExecFile):
         except:
             self.failtest(0, "Exception raised in run method!"+traceback.format_exc())
             raise
+
+    #f exec_reset
     def exec_reset(self) -> None:
         SimulationExecFile.exec_reset(self)
-        # _set_up_reset_values
-        pass
-
-    #f _set_up_reset_values
-    def _set_up_reset_values(self)->None:
-        """
-        If we were to support input/outputs etc as auto-includes (for bundles etc) then this
-        is supposed to auto-drive outputs (if they are that) from this test harness
-        to the reset values
-        """
-        # And set up the reset values.
-        # if not hasattr(self, "_connectedwires"):
-        #     return
-        # for i in self._connectedwires:
-        #     if hasattr(i, "_reset_value") and i._reset_value:
-        #         i._reset(i._reset_value)
         pass
 
     #f sim_message
