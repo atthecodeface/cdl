@@ -14,6 +14,19 @@
 #  for more details.
 
 # The structure of the module is:
+# base
+# exceptions
+# exec_file
+# engine
+# th_exec_file: exec_file, engine
+# instantiable
+# hierarchy: base
+# types: hierarchy
+# wires: types, hierarchy, instantiable
+# modules: types, wires, instantiable, th_exec_file
+# connectivity: types, wires, instantiable, modules
+# hardware:
+#
 # Hardware
 # Connecivity
 # Module
@@ -39,7 +52,7 @@ def hexversion() -> int:
 
 from .mif import load_mif, save_mif
 from .th_exec_file import ThExecFile
-from .modules  import BaseTestHarnessModule
+from .modules  import TestHarnessModule
 from .modules  import OptionsDict
 from .wires    import Wire as Wire
 from .wires    import Clock as Clock
@@ -47,4 +60,3 @@ from .wires    import TimedAssign as TimedAssign
 from .modules  import Module as Module
 from .hardware import Hardware
 from .extensions import HardwareThDut
-from .extensions import HardwareDut

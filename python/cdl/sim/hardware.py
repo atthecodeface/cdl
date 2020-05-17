@@ -26,21 +26,17 @@ import sys, os
 import itertools, collections
 import traceback
 from .base import BaseExecFile
-from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
+from .exceptions    import *
+from .verbose import Verbose
 from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
+from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .waves     import Waves
 from .wires     import Wire
 from .instantiable     import Instantiable
-from .modules import Module
-from .connectivity import Connectivity
-from .exceptions import *
-from .bit_vector import Value, bv, bvbundle
-from .th_exec_file import ThExecFile
+from .modules       import Module
+from .connectivity  import Connectivity
 
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
-from typing import TypeVar
-T = TypeVar('T')
-from typing_extensions import Protocol
 
 #a Hardware module description
 #c HardwareDescription
@@ -55,18 +51,19 @@ class HardwareDescription(HardwareExecFile):
         self._running = False
         HardwareExecFile.__init__(self)
         self.error_count = 0
+        Module.clear_instances()
         pass
 
     #f report_error
     def report_error(self, msg:str) -> None:
-        print(msg)
+        self._hw.verbose.error("ERROR (in hardware description):%s"%msg)
         self.error_count = self.error_count + 1
         pass
 
     #f check_errors
     def check_errors(self, stage:str) -> None:
         if self.error_count>0:
-            raise Exception("Hardware had errors during %s")
+            raise Exception("Hardware had errors during %s"%stage)
         return None
 
     #f instantiate_modules
@@ -74,9 +71,9 @@ class HardwareDescription(HardwareExecFile):
         for i in self._hw._children:
             i.instantiate(self, self._hw)
             pass
-        for i in self._hw._children:
-            i.debug()
-            pass
+        # for i in self._hw._children:
+        #     i.debug()
+        #     pass
         self.check_errors("module instantiation")
         pass
 
@@ -84,7 +81,6 @@ class HardwareDescription(HardwareExecFile):
     def get_connectivity(self)->None:
         self.connectivity = Connectivity(self, self._hw)
         for i in self._hw._children:
-            print(i)
             i.add_connectivity(self, self.connectivity)
             pass
         self.check_errors("creating wiring")
@@ -131,8 +127,8 @@ class Hardware(object):
 
     @classmethod
     def get_engine(cls) -> None:
-        if hasattr(cls, "_engine"): return
-        cls._engine = Engine()
+        if hasattr(Hardware, "_engine"): return
+        Hardware._engine = Engine()
         pass
 
     #f __init__
@@ -142,6 +138,7 @@ class Hardware(object):
         self.get_engine()
         self._name = "hardware"
         self._children = children
+        self.verbose = Verbose(file=sys.stderr)
 
         if thread_mapping is not None:
             self._engine.thread_pool_init()
@@ -156,11 +153,11 @@ class Hardware(object):
                 pass
             pass
 
-        print("Prepare to build")
+        self.verbose.info("Prepare to build")
         self.display_all_errors()
         self._engine.describe_hw(HardwareDescription(self))
         self.display_all_errors()
-        print("Built")
+        self.verbose.info("Built")
         pass
 
     #f get_module_ios
@@ -177,21 +174,21 @@ class Hardware(object):
             passed = passed and i.passed()
             pass
         if not passed:
-            print("Not all tests passed")
+            self.verbose.error("Not all tests passed")
             return False
-        print("ALL TEST HARNESSES PASSED")
+        self.verbose.message("All tests passed")
         return True
 
     #f display_all_errors
     def display_all_errors( self, max:int=10000 )->None:
         passed = self._engine.get_error_level() < 2
-        print("Max error level %d"%(self._engine.get_error_level()))
         for i in range(max):
             x = self._engine.get_error(i)
             if x==None: break
-            print("CDL SIM ERROR %2d %s"%(i+1,x), file=sys.stderr)
+            self.verbose.error("%s"x)
             pass
-        if not passed: raise Exception("simulation engine error")
+        if not passed:
+            raise Exception("simulation engine error")
         self._engine.reset_errors()
         pass
 

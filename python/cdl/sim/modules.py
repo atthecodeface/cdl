@@ -21,8 +21,9 @@ code to CDL's py_engine interface.
 from .exceptions import *
 from .th_exec_file import ThExecFile
 from .instantiable import Instantiable
-from .types import ClockDict, WiringDict
-from .wires import WireType, Wire, WiringHierarchy
+from .types import WireType
+from .wires import Wire, WiringHierarchy, ClockDict, WiringDict
+
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
 
 from typing import TYPE_CHECKING
@@ -78,7 +79,7 @@ class Instance(object):
                 hwex.cdlsim_instantiation.option_object(ok, o)
                 pass
             pass
-        print("Instantiated %s as %s options %s"%(self.module_type, instance_name, self.options))
+        # print("Instantiated %s as %s options %s"%(self.module_type, instance_name, self.options))
         hwex.cdlsim_instantiation.module(self.module_type, instance_name)
         pass
     #f debug
@@ -102,9 +103,9 @@ class Ports(object):
     outputs : WireType
     def __init__(self, hardware:Hardware, instance_name:str):
         (clocks, inputs, outputs) = hardware.get_module_ios(instance_name)
-        print("Hardware Clocks: %s"%(str(clocks)))
-        print("Hardware Inputs: %s"%(str(inputs)))
-        print("Hardware Outputs: %s"%(str(outputs)))
+        # print("Hardware Clocks: %s"%(str(clocks)))
+        # print("Hardware Inputs: %s"%(str(inputs)))
+        # print("Hardware Outputs: %s"%(str(outputs)))
         self.clocks  = set()
         for (ck,_) in clocks: self.clocks.add(ck)
         self.inputs  = WireType()
@@ -134,8 +135,8 @@ class Module(Instantiable):
     test harness.
     """
     #v Class properties
-
     module_names : ClassVar[Dict[str,Set[str]]] = {}
+
     #t Instance property types
     _ports : Ports
     _clocks:  ClockDict
@@ -143,29 +144,36 @@ class Module(Instantiable):
     _outputs: Dict[str,WiringHierarchy]
 
     #f create_name - class method - create name of module
-    @classmethod
-    def create_name(cls, module_type:str, hint:str="")->str:
-        if hint=="": hint=module_type
-        if module_type not in cls.module_names:
-            cls.module_names[module_type] = set()
+    @staticmethod
+    def create_name(module_type:str, hint:Optional[str]=None)->str:
+        if module_type not in Module.module_names:
+            Module.module_names[module_type] = set()
             pass
-        mnd = cls.module_names[module_type]
-        n = hint
+        mnd = Module.module_names[module_type]
+
+        base_name = module_type
+        if hint is not None: base_name=hint
+        n = base_name
         i=0
         while n in mnd:
-            n = "%s_i%d"%(hint,i)
+            n = "%s_i%d"%(base_name,i)
             i+=1
             pass
         mnd.add(n)
         return n
+    #f clear_instances
+    @staticmethod
+    def clear_instances() -> None:
+        Module.module_names = {}
+        pass
 
     #f passed
     def passed(self) -> bool: return True
 
     #f __init__
-    def __init__(self, module_type:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
+    def __init__(self, module_type:str, module_name:Optional[str]=None, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
         self._type = module_type
-        self.set_instance_name(self.create_name(module_type, hint=""))
+        self.set_instance_name(self.create_name(module_type, module_name))
         self._clocks = {}
         for (c, ck) in clocks.items():
             self._clocks[c] = ck
@@ -204,7 +212,6 @@ class Module(Instantiable):
     def add_connectivity(self, hwex:HardwareDescription, connectivity:Connectivity) -> None:
         for (c, ck) in self._clocks.items(): # Explicit wiring
             if self._ports.has_clock(c):
-                print(c,type(ck))
                 connectivity.add_clock_sink(self, c, ck)
                 pass
             else:
@@ -233,19 +240,20 @@ class Module(Instantiable):
             pass
     pass
 
-#c BaseTestHarnessModule
+#c TestHarnessModule
 EFGenerator = Callable[...,ThExecFile]
-class BaseTestHarnessModule(Module):
+class TestHarnessModule(Module):
     """
     The object that represents a test harness.
     """
     exec_file_object_fn : EFGenerator
     exec_file_object    : ThExecFile
+
     #f passed
     def passed(self) -> bool:
         if hasattr(self, "exec_file_object"):
             if not self.exec_file_object.passed():
-                print("Test harness %s : %s not PASSED" % (self.get_instance_name(),str(th)))
+                print("Test harness %s : %s not PASSED" % (self.get_instance_name(),str(self.exec_file_object.th_get_name())))
                 return False
                 pass
             pass
@@ -279,9 +287,5 @@ class BaseTestHarnessModule(Module):
         return inst
 
     #f All done
-    pass
-
-#c th - Standard test harness module used externally
-class th(BaseTestHarnessModule):
     pass
 

@@ -18,11 +18,11 @@
 This file implements PyCDL, which is the human-friendly interface from Python
 code to CDL's py_engine interface.
 """
-from .base import BaseExecFile
+from .base import BaseExecFile, Prefix
 from .exceptions import *
 from .instantiable import Instantiable
-from .types import *
-from .wires import WireType, WireTypeElement, Wire, Clock, WiringHierarchy
+from .types import WireType, WireTypeElement
+from .wires import Wire, Clock, WiringHierarchy
 from .modules import Module
 
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
@@ -109,8 +109,8 @@ class WireMapping(object):
             instance_name = connection.instance.get_instance_name()
             port_name     = connection.port_wire.get_name()
             size          = self.wire.get_size()
-            print("create wire %s[%d]"%(driver_name, size))
-            print("driven by %s.%s"%(instance_name, port_name))
+            # print("create wire %s[%d]"%(driver_name, size))
+            # print("driven by %s.%s"%(instance_name, port_name))
             hwex.cdlsim_instantiation.wire("%s[%d]"%(driver_name, size))
             hwex.cdlsim_instantiation.drive(driver_name, "%s.%s"%(instance_name, port_name))
             pass
@@ -118,7 +118,7 @@ class WireMapping(object):
         for connection in self.drives:
             instance_name = connection.instance.get_instance_name()
             port_name     = connection.port_wire.get_name()
-            print("drives %s.%s"%(instance_name, port_name))
+            # print("drives %s.%s"%(instance_name, port_name))
             hwex.cdlsim_instantiation.drive("%s.%s"%(instance_name, port_name), driver_name)
             pass
         pass
@@ -183,7 +183,7 @@ class Connectivity(object):
     #f map_port
     def map_port(self, instance:Instantiable, port_name:str, ports:WireType, wiring:WiringHierarchy, reason:str, mapping_fn:Callable[[WireMapping,'HardwareDescription',Connection],None]) -> None:
 
-        if True:
+        if False:
             print("Port %s"%port_name)
             print("Input ports:%s"%str(ports.get_element(port_name)))
             print("Wiring: '%s'"%str(wiring))
@@ -225,14 +225,16 @@ class Connectivity(object):
         pass
     #f connect_wires
     def connect_wires(self) -> None:
-        print("Connect wires")
+        # print("Connect wires")
         for (c,cm) in self.clocks.items():
-            print(c)
+            # print(c)
             cm.instantiate(self.hwex, self.hw)
             pass
         for (s,sm) in self.signals.items():
-            print(s)
+            # print(s)
             sm.instantiate(self.hwex)
             pass
-        print("Done")
+        #print("Done")
+        pass
+    pass
 

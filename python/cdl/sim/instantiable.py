@@ -50,5 +50,6 @@ class Instantiable(object):
     #f debug
     def debug(self) -> None:
         print("Instantiable '%s':"%(self.get_instance_name()))
+
     #f All done
     pass

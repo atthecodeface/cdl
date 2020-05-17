@@ -1,5 +1,4 @@
 import sys, os
-from .types import *
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar, Iterable
 from typing import TYPE_CHECKING
 
@@ -41,6 +40,7 @@ class BaseExecFile(py_engine.exec_file):
     pass
 
 #a Useful functions
+Prefix       = List[str]
 def split_name(name:str, sep:str="__") -> Tuple[Optional[str],str]:
     name_split = name.split(sep, 1)
     if len(name_split)<2: return (None, name)
