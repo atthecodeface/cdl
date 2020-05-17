@@ -23,7 +23,6 @@ from .base      import BaseExecFile, split_name, join_name
 from .engine    import Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .instantiable import Instantiable
 from .exceptions import *
-from .bit_vector import Value, bv, bvbundle
 from .hierarchy import Hierarchy, HierarchyElement
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar, Iterable
 from typing import TYPE_CHECKING
@@ -33,14 +32,134 @@ if TYPE_CHECKING:
     from .connectivity import Connectivity
     pass
 
+#a Wire types
+#c WireTypeElement - an endpoint in a Wiring hierarchy
+class WireTypeElement(HierarchyElement):
+    """
+    The object that represents a wire[size] in a wire type
+    This is akin to a bit[n] - and as such it does not have a name
+    """
+    _size : int
+
+    #f __init__
+    def __init__(self, size:int=1):
+        self._size = size
+        pass
+
+    #f __str__
+    def __str__(self) -> str:
+        return "bit[%d]"%(self._size)
+
+    #f get_size
+    def get_size(self) -> int:
+        return self._size
+
+    #f All done
+    pass
+
+#c WireType
+class WireType(Hierarchy):
+    """
+    This class describes a struct wire type or element; it is a hierarchy of itself or WireTypeElements
+    Each element has a name given by its parent.
+
+    As a Hierarchy subclass, an instance may be an 'endpoint' which will be a WireTypeElement.
+    If this is the case, then the *parent* of that instance will have the name of the element
+    """
+    #f __init__
+    def __init__(self, size:Optional[int]=None) -> None:
+        """
+        Create - if given a size, then this is explicitly a bit[n]
+        """
+        Hierarchy.__init__(self)
+        if size is not None:
+            self.set_endpoint(WireTypeElement(size=size))
+            pass
+        pass
+
+    #f create_subhierarchy
+    def create_subhierarchy(self, name:str) -> Hierarchy:
+        return self.set_subhierarchy(name, WireType())
+
+    #f create_hierarchy_element
+    def create_hierarchy_element(self, name:str, element_args:Any) -> None:
+        (size) = element_args
+        elt = WireTypeElement(size=size)
+        self.create_subhierarchy(name).set_endpoint(elt)
+        return
+
+    #f get_endpoint
+    def get_endpoint(self) -> WireTypeElement:
+        assert self.is_endpoint
+        return cast(WireTypeElement, self.endpoint)
+
+    #f get_size - get bit width, only valid if an endpoint
+    def get_size(self) -> int:
+        return self.get_endpoint().get_size()
+
+    #f get_element
+    def get_element(self, name:str) -> Optional['WireType']:
+        x = Hierarchy.get_element(self, name)
+        return cast(Optional['WireType'], x)
+
+    #f add_element
+    def add_element(self, hierarchical_name:str, size:int) -> None:
+        """
+        Add a wire of the bit size with full hierarchical name in to the dictionary hierarchy
+        """
+        return self.hierarchy_add_element(name=hierarchical_name, element_args=(size))
+
+    #f iter_element
+    def iter_element(self, name:str, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,WireTypeElement]]:
+        for (pfx, n, elt) in self.hierarchy_iter(name=name, prefix=prefix):
+            wire = cast(WireTypeElement, elt)
+            yield (pfx, n, wire)
+            pass
+        pass
+
+    #f get_wiring - is this used?
+    def get_wiring(self, name:str) -> Optional['WireType']:
+        opt_h = self.hierarchy_get_element(name)
+        return cast(Optional[WireType],opt_h)
+
+    #f flatten_element
+    def flatten_element(self, name:str, prefix:Prefix=[]) -> List[Tuple[str,'WireTypeElement']]:
+        result = []
+        for (p,k,w) in self.iter_element(name=name, prefix=prefix):
+            result.append((join_name(prefix=p, name=k), w))
+            pass
+        return result
+
+    #f as_string
+    def as_string(self, name:str="<wire_struct>") -> str:
+        r = ""
+        for (pfx,n,w) in self.iter_element(name=name):
+            r+=" %s[%d]"%(join_name(pfx,n,"."),w.get_size())
+            pass
+        return r
+
+    #f __str__
+    def __str__(self) -> str:
+        return self.as_string()
+
+    #f All done
+    pass
+
 #a Wires
-#c WireBase
-class WireBase(object):
-    full_name: str
-    given_name : str
+#c Wire
+class Wire(object):
+    """
+    This is an instance of a WireType - so conceptually an actual bunch of wires
+    Potentially this is just a port, or all the inputs, etc of a module
+
+    If this is a real set of wires in a design then it should have a name.
+    The name may be explicit (the 'given_name') or it may be derived eventually by the wiring
+    when instantiation occurs
+    """
+    given_name   : str
     derived_name : str
+    wire_type : WireType
     _anonid: ClassVar[int] = 0
-    def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,'Wire']]: ...
 
     #f get_name_from_class
     @classmethod
@@ -50,9 +169,13 @@ class WireBase(object):
         return name
 
     #f __init__
-    def __init__(self, name:str="", full_name:str=""):
+    def __init__(self, wire_type:Optional[WireType]=None, size:Optional[int]=None, name:str=""):
+        if size is not None:
+            wire_type=WireType(size)
+            pass
+        assert wire_type is not None
+        self.wire_type = wire_type
         self.given_name = name
-        self.full_name  = full_name
         self.derived_name = ""
         pass
 
@@ -65,6 +188,11 @@ class WireBase(object):
     def has_name(self) -> bool:
         return self.get_name()==""
 
+    #f get_size
+    def get_size(self) -> int:
+        assert self.wire_type.is_endpoint()
+        return self.wire_type.get_size()
+
     #f get_or_create_name
     def get_or_create_name(self, hint:str="") -> str:
         name = self.get_name()
@@ -72,153 +200,35 @@ class WireBase(object):
         self.derived_name = self.get_name_from_class(hint=hint)
         return self.derived_name
 
+    #f iter
+    def iter(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,WireTypeElement]]:
+        if name is None: name=self.get_name()
+        return self.wire_type.iter_element(name=name, prefix=prefix)
+
     #f flatten
-    def flatten(self, name:str) -> List[Tuple[str, 'WireBase']]:
-        return [(name, self)]
-
-    #f passed - for wires that are childen of hardware
-    def passed(self) -> bool: return True
-
-    #f __str__
-    def __str__(self) -> str:
-        n = self.get_name()
-        if n=="": n="<unnamed>"
-        return n
-
-    #f full_name_list
-    def full_name_list(self, name:str, prefix:Prefix=[]) -> Prefix:
-        """
-        Return list of names for a wire called 'name' within this prefix
-        If this were a bundle, the list would be longer
-        """
-        return ["__".join(prefix) + self.get_name()]
-
-    #f flatten_element
-    def flatten_element(self, name:str) -> Dict[str,'Wire']:
-        result = {}
-        for (p,k,w) in self.iter_element(name=name, prefix=[]):
-            result[join_name(prefix=p, name=k)] = w
+    def flatten(self, name:Optional[str]=None, prefix:Prefix=[]) -> List[Tuple[str, 'WireTypeElement']]:
+        result = []
+        for (p,k,w) in self.iter(name=name, prefix=[]):
+            result.append( (join_name(prefix=p, name=k), w) )
             pass
         return result
 
-    #f All done
-    pass
-
-#c Wire - an endpoint in a Wiring hierarchy
-class Wire(WireBase, HierarchyElement):
-    """
-    The object that represents a wire.
-    """
-    _size : int
-
-    #f __init__
-    def __init__(self, name:str="", size:int=1, full_name:Optional[str]=None):
-        if full_name is None:
-            full_name_nn = name
-            pass
-        else:
-            full_name_nn = full_name
-            pass
-        WireBase.__init__(self, name=name, full_name=full_name_nn)
-        self._size = size
-        pass
-
-    #f str_short
-    def str_short(self) -> str:
-        return "%s[%d]"%(WireBase.__str__(self), self._size)
-
     #f __str__
     def __str__(self) -> str:
-        return self.str_short()
-
-    #f get_size
-    def get_size(self) -> int:
-        return self._size
-
-    #f iter_element
-    def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,'Wire']]:
-        if name is None:
-            yield(prefix, self.get_name(), self)
-            pass
-        else:
-            yield(prefix,name,self)
-            pass
-        pass
-
-    #f All done
-    pass
-
-#c WireHierarchy
-class WireHierarchy(WireBase, Hierarchy):
-    """
-    Fully flattened hierarchy
-    This is a dictionary of dictionaries of ... of Wires
-    """
-    #f __init__
-    def __init__(self) -> None:
-        Hierarchy.__init__(self)
-        pass
-
-    #f create_subhierarchy
-    def create_subhierarchy(self, name:str) -> Hierarchy:
-        return self.set_subhierarchy(name, WireHierarchy())
-
-    #f create_hierarchy_element
-    def create_hierarchy_element(self, name:str, element_args:Any) -> None:
-        (full_name,size) = element_args
-        x = self.create_subhierarchy(name)
-        elt = Wire(name=name, size=size, full_name=full_name)
-        x.set_endpoint(elt)
-        return
-
-    #f get_element
-    def get_element(self, name:str) -> Optional['WireHierarchy']:
-        x = Hierarchy.get_element(self, name)
-        return cast(Optional['WireHierarchy'], x)
-
-    #f add_wire
-    def add_wire(self, hierarchical_name:str, size:int) -> None:
-        """
-        Add a wire of the bit size with full hierarchical name in to the dictionary hierarchy
-        """
-        return self.hierarchy_add_element(name=hierarchical_name, element_args=(hierarchical_name,size))
-
-    #f iter_element
-    def iter_element(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,Wire]]:
-        for (pfx, n, elt) in self.hierarchy_iter(name=name, prefix=prefix):
-            wire = cast(Wire, elt)
-            yield (pfx, n, wire)
-            pass
-        pass
-
-    #f get_wiring - is this used?
-    def get_wiring(self, name:str) -> Optional[Wiring]:
-        opt_h = self.get_hierarchical_element(name)
-        return cast(Optional[Wiring],opt_h)
-
-    #f str_short
-    def str_short(self) -> str:
-        r = ""
-        for (pfx,k,w) in self.iter_element():
-            r+=" %s"%(join_name(pfx,k,".")) # ,str(w))
-            pass
-        return r
-
-    #f __str__
-    def __str__(self) -> str:
-        return self.str_short()
+        name = self.get_name()
+        return self.wire_type.as_string(name=name)
 
     #f All done
     pass
 
 #c Clock - special type of wire that corresponds to a simulation clock - it can be a child of hardware, and so is instantiable
-class Clock(WireBase, Instantiable):
+class Clock(Wire, Instantiable):
     init_delay: int
     cycles_high : int
     cycles_low : int
     def __init__(self, name:str="", init_delay:int=0, cycles_high:int=1, cycles_low:int=1):
         Instantiable.__init__(self)
-        WireBase.__init__(self, name=name)
+        Wire.__init__(self, name=name, size=1)
         self.init_delay = init_delay
         self.cycles_high = cycles_high
         self.cycles_low = cycles_low
@@ -239,7 +249,7 @@ class Clock(WireBase, Instantiable):
 
     #f __str__
     def __str__(self) -> str:
-        return "Clock '%s'"%(WireBase.__str__(self))
+        return "Clock '%s'"%(Wire.__str__(self))
     pass
 
 #c TimedAssign
@@ -281,34 +291,30 @@ class TimedAssign(Wire, Instantiable):
 
     #f str_short
     def str_short(self)->str:
-        return "timed_assign[%d](%d,%d,%d)"%(self.get_size(),self.firstval,self.wait,self.afterval)
+        return "timed_assign[%d](%d,%d,%d)"%(self.get_size(), self.firstval, self.wait, self.afterval)
     pass
 
-#c WiringHierarchy
-#c WiringHierarchyElement - element for the hierarchy, and it is a Wiring
+#a Wiring - mapping something to wire instances
+#c WiringHierarchyElement - element for the hierarchy, and it is a Wire
 class WiringHierarchyElement(HierarchyElement):
-    wired_to : Wiring
-    def __init__(self, wired_to:Wiring):
+    wired_to : Wire
+    def __init__(self, wired_to:Wire):
         self.wired_to = wired_to
         return
     pass
 
+#c WiringHierarchy
 class WiringHierarchy(Hierarchy):
     """
-    Not flattened hierarchy - endpoints may be WireHierarchy's
-    This is either an endpoint or a dictionary str -> WiringHierarchy (i.e. recursive)
+    This is a hierarchical mapping to Wires
 
-    The input is:
-    Wiring     = Union['Wire','WiringHierarchy',Dict[str,Wiring]]
+    It is constructed by adding elements of 'hierachical_name' -> Union[Wire, Dict['subhierarchical_name',Wire]]
 
     Used in module instantiations
       What a port (somewhere in a WaveHierarchy eventually) maps to
       So this may be a wire or WireHierarchy, or a dictionary of str:...
 
     Requires a full_name_list method that returns a list of all its elements
-
-    Endpoint : Union[Wire, WireHierarchy]
-    wiring : Dict[str,Union[Endpoint,'WiringHierarchy']]
 
     """
     #f __init__
@@ -321,27 +327,25 @@ class WiringHierarchy(Hierarchy):
         return self.set_subhierarchy(name, WiringHierarchy())
 
     #f create_hierarchy_element
-    def create_hierarchy_element(self, name:str, element_args:WiringDict) -> None:
-        x = WiringHierarchy()
-        x.set_wired_to(wired_to=element_args)
+    def create_hierarchy_element(self, name:str, element_args:WiringOrDict) -> None:
+        WiringHierarchy().set_wired_to(wired_to=element_args)
         pass
 
     #f set_wired_to
-    def set_wired_to(self, wired_to:WiringDict) -> None:
+    def set_wired_to(self, wired_to:WiringOrDict) -> None:
         if type(wired_to)==dict:
             wired_to_dict = cast(Dict[str,WiringDict], wired_to)
             for (sn, sig) in wired_to_dict.items():
                 self.add_wiring(wired_to=sig, name=sn)
                 return
             pass
-        wired_to_wiring = cast(Wiring, wired_to)
+        wired_to_wire = cast(Wire, wired_to)
         if self.is_defined(): raise Exception("Doubly wired")
-        elt = WiringHierarchyElement(wired_to_wiring)
-        self.set_endpoint(elt)
+        self.set_endpoint(WiringHierarchyElement(wired_to_wire))
         pass
 
     #f add_wiring
-    def add_wiring(self, wired_to:WiringDict, name:Optional[str]=None) -> None:
+    def add_wiring(self, wired_to:WiringOrDict, name:Optional[str]=None) -> None:
         """
         name may be none if the wiring dictionary should be added directly
           This happens, for example, at an input or output
@@ -357,56 +361,49 @@ class WiringHierarchy(Hierarchy):
         pass
 
     #f iter_wiring
-    def iter_wiring(self,prefix:Prefix,name:str) -> Iterable[Tuple[Prefix,str,Wiring]]:
+    def iter_wiring(self,prefix:Prefix,name:str) -> Iterable[Tuple[Prefix,str,Wire]]:
         for (pfx, n, elt) in self.hierarchy_iter(name=name, prefix=prefix):
             assert isinstance(elt,WiringHierarchyElement)
             #  elt must be a WiringHierarchyElement
             yield (pfx, n, elt.wired_to)
         pass
 
-    #f full_name_list - not used?
-    def full_name_list(self, name:str) -> List[str]:
-        result = []
-        for (pfx, wn, _) in self.iter_wiring(prefix=[], name=name):
-            result.append(join_name(pfx,wn))
+    #f iter_fully - called by connectivity
+    def iter_fully(self, name:str) -> Iterable[Tuple[str, Wire, Prefix, WireTypeElement]]:
+        for (wire_prefix, wire_name, wire) in self.iter_wiring(prefix=[], name=name):
+            for (elt_prefix, elt_name, elt) in wire.iter(name=wire_name, prefix=[]):
+                full_name = join_name(prefix=wire_prefix+elt_prefix, name=elt_name)
+                yield (full_name, wire, elt_prefix, elt)
+                pass
             pass
-        return result
+        pass
 
     #f full_sized_name_list
     def full_sized_name_list(self, name:str) -> List[str]:
         result = []
-        for (pfx, wn, w) in self.iter_wiring(prefix=[], name=name):
-            ws = join_name(pfx,wn)
-            print("fsnl %s '%s' %s '%s'"%(str(pfx),wn,str(w),ws))
-            # Does not work if w is a WireHierarchy
-            assert isinstance(w,Wire)
-            if w._size>1:
-                ws += "[%d]"%w._size
-                pass
-            result.append(ws)
+        for (full_name, _, _, elt) in self.iter_fully(name):
+            result.append("%s[%d]"%(full_name,elt.get_size()))
             pass
         return result
 
-    #f flatten - called by connectivity
-    def flatten(self, name:str) -> Dict[str, Wire]:
-        d={}
-        for (pfx, wn, w) in self.iter_wiring(prefix=[], name=name):
-            name = join_name(prefix=pfx[:-1],name=pfx[-1])
-            for (k,v) in w.flatten(name): # Currently w is a Wire so this is trivial
-                d[k] = cast(Wire,v)
-                pass
+    #f flatten - unused at present
+    def flatten(self, name:str) -> List[Tuple[str, Wire, Prefix, WireTypeElement]]:
+        result = []
+        for t in self.iter_fully(name):
+            result.append(t)
             pass
-        print("Flattened to ",d)
-        return d
+        return result
 
-    #f __str__
-    def __str__(self) -> str:
-        r = "WiringHierarchy "
-        for (pfx, wn, w) in self.iter_wiring(prefix=[], name=""):
-            r += "%s '%s' : %s\n"%(str(pfx), wn, w.str_short())
-            # r += "%s : %s\n"%(join_name(pfx,wn), w.str_short())
+    #f as_string
+    def as_string(self, name:str="<wiring>") -> str:
+        r="{"
+        for (full_name, wire, elt_prefix, elt) in self.iter_fully(name):
+            r += "%s[%d]:%s:%s"%(full_name,elt.get_size(),wire.get_name(),join_name(elt_prefix,name=""))
             pass
+        r+="}"
         return r
+    def __str__(self) -> str:
+        return self.as_string()
 
     #f all done
     pass
