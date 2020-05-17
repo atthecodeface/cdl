@@ -82,7 +82,7 @@ class HardwareDescription(HardwareExecFile):
 
     #f get_connectivity
     def get_connectivity(self)->None:
-        self.connectivity = Connectivity()
+        self.connectivity = Connectivity(self, self._hw)
         for i in self._hw._children:
             print(i)
             i.add_connectivity(self, self.connectivity)
@@ -92,13 +92,13 @@ class HardwareDescription(HardwareExecFile):
 
     #f check_connectivity
     def check_connectivity(self)->None:
-        self.connectivity.check(self, self._hw)
+        self.connectivity.check()
         self.check_errors("checking connectivity")
         pass
 
     #f connect_wires
     def connect_wires(self)->None:
-        self.connectivity.connect_wires(self, self._hw)
+        self.connectivity.connect_wires()
         self.check_errors("wiring module instances")
         pass
 
@@ -229,4 +229,5 @@ class Hardware(object):
     #     console_server.serve()
     #     pass
     pass
+
 

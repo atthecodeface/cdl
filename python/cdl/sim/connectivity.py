@@ -136,9 +136,11 @@ class Connectivity(object):
     signals: Dict[Wire,WireMapping]
 
     #f __init__
-    def __init__(self) -> None:
+    def __init__(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
         self.clocks = {}
         self.signals = {}
+        self.hwex = hwex
+        self.hw = hw
         pass
 
     #f add_clock_driver
@@ -160,12 +162,13 @@ class Connectivity(object):
             pass
         port_hierarchy : Optional[WireHierarchy] = ports.get_element(port_name)
         if port_hierarchy is None:
-            raise Exception("Could not find port '%s' on instance '%s'"%(port_name, instance.get_instance_name()))
+            self.hwex.report_error("Could not find input port '%s' on instance '%s'"%(port_name, instance.get_instance_name()))
+            return
         port_elements = port_hierarchy.flatten_element(name=port_name)
         wired_to_elements = wiring.flatten(port_name)
         for (n,w) in wired_to_elements.items():
             if n not in port_elements:
-                hwex.report_error("Element '%s' not part of port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
+                self.hwex.report_error("Element '%s' not part of input port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
                 pass
             else:
                 if w not in self.signals: self.signals[w] = WireMapping(w)
@@ -190,14 +193,16 @@ class Connectivity(object):
             print("Wiring: '%s'"%str(wiring))
             pass
         port_hierarchy : Optional[WireHierarchy] = ports.get_element(port_name)
-        if port_hierarchy is None: raise Exception("Bad wiring")
+        if port_hierarchy is None:
+            self.hwex.report_error("Could not find output port '%s' on instance '%s'"%(port_name, instance.get_instance_name()))
+            return
         port_elements = port_hierarchy.flatten_element(name=port_name)
         wired_to_elements = wiring.flatten(port_name)
         print(str(port_elements))
         print(wired_to_elements)
         for (n,w) in wired_to_elements.items():
             if n not in port_elements:
-                hwex.report_error("Element '%s' not part of port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
+                self.hwex.report_error("Element '%s' not part of output port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
                 pass
             else:
                 if w not in self.signals: self.signals[w] = WireMapping(w)
@@ -206,18 +211,18 @@ class Connectivity(object):
             pass
         pass
     #f check
-    def check(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
+    def check(self) -> None:
         pass
     #f connect_wires
-    def connect_wires(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
+    def connect_wires(self) -> None:
         print("Connect wires")
         for (c,cm) in self.clocks.items():
             print(c)
-            cm.instantiate(hwex,hw)
+            cm.instantiate(self.hwex, self.hw)
             pass
         for (s,sm) in self.signals.items():
             print(s)
-            sm.instantiate(hwex,hw)
+            sm.instantiate(self.hwex, self.hw)
             pass
         print("Done")
 
