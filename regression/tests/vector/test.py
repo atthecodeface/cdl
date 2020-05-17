@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import sys, os, unittest
 from cdl.sim import ThExecFile            as ThExecFile
-from cdl.sim import BaseTestHarnessModule as ThModule
-from cdl.sim import Hardware              as Hardware
-from cdl.sim import OptionsDict
-from cdl.sim import Wire, Clock, Module, TimedAssign
+from cdl.sim import HardwareThDut, OptionsDict
+from cdl.sim import Wire, Clock
 from cdl.sim import load_mif
 
 import inspect
@@ -48,45 +46,20 @@ class vector_test_harness_exec_file(ThExecFile):
         self.passtest(self.global_cycle(), "Test succeeded")
         pass
 
-class vector_test_harness(ThModule):
-    def __init__(self, vectors_filename:str, **kwargs):
-        x = lambda hw, th_module:vector_test_harness_exec_file(vectors_filename,hw,th_module)
-        ThModule.__init__(self, exec_file_object=x, **kwargs)
-        pass
-    pass
-
 #c vector_hw
-class vector_hw(Hardware):
+class vector_hw(HardwareThDut):
+    # dut has an io_clock pin which we want to toggle on every cycle
+    clocks = {"io_clock":(0,1,1)}
+    # dut has an io_reset pin which we want to be high for 5 global ticks and go low - on negedge of clock so posedge clock logic has no races
+    reset_desc = {"name":"io_reset", "init_value":1, "wait":5}
     def __init__(self, width:int, module_name:str, module_mif_filename:str, inst_forces:OptionsDict={} ):
         print("Running vector test on module %s with mif file %s" % (module_name, module_mif_filename))
-
-        self.test_reset = TimedAssign(init_value=1, wait=5, later_value=0)
-        self.vector_input_0  = Wire(size=width)
-        self.vector_input_1  = Wire(size=width)
-        self.vector_output_0 = Wire(size=width)
-        self.vector_output_1 = Wire(size=width)
-        self.system_clock    = Clock(init_delay=0, cycles_high=1, cycles_low=1)
-
-        dut_forces = dict( list(inst_forces.items()) +
-                           list({}.items())
-                           )
-
-        self.dut_0 = Module(module_name,
-                                  clocks={ "io_clock": self.system_clock },
-                                  inputs={ "io_reset": self.test_reset,
-                                           "vector_input_0": self.vector_input_0,
-                                           "vector_input_1": self.vector_input_1 },
-                                  outputs={ "vector_output_0": self.vector_output_0,
-                                            "vector_output_1": self.vector_output_1 },
-                                  forces = dut_forces
-                                  )
-        self.test_harness_0 = vector_test_harness(clocks={ "clock": self.system_clock },
-                                                  inputs={ "vector_output_0": self.vector_output_0,
-                                                           "vector_output_1": self.vector_output_1 },
-                                                  outputs={ "vector_input_0": self.vector_input_0,
-                                                            "vector_input_1": self.vector_input_1 },
-                                                  vectors_filename=module_mif_filename)
-        Hardware.__init__(self, children=[self.dut_0, self.test_harness_0, self.system_clock, self.test_reset])
+        self.module_name = module_name
+        self.dut_outputs = {"vector_output_0":width,"vector_output_1":width}
+        self.dut_inputs  = {"vector_input_0":width, "vector_input_1":width}
+        self.th_forces = inst_forces
+        self.th_exec_file_object_fn = lambda hw, th_module:vector_test_harness_exec_file(module_mif_filename,hw,th_module)
+        HardwareThDut.__init__(self)
         pass
     pass
 

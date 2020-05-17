@@ -46,3 +46,5 @@ from .wires    import Clock as Clock
 from .wires    import TimedAssign as TimedAssign
 from .modules  import Module as Module
 from .hardware import Hardware
+from .extensions import HardwareThDut
+from .extensions import HardwareDut

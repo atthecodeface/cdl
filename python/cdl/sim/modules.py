@@ -163,9 +163,9 @@ class Module(Instantiable):
     def passed(self) -> bool: return True
 
     #f __init__
-    def __init__(self, moduletype:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
-        self._type = moduletype
-        self.set_instance_name(self.create_name(moduletype, hint=""))
+    def __init__(self, module_type:str, clocks:ClockDict={}, inputs:WiringDict={}, outputs:WiringDict={}, forces:OptionsDict={}, options:OptionsDict={}):
+        self._type = module_type
+        self.set_instance_name(self.create_name(module_type, hint=""))
         self._clocks = {}
         for (c, ck) in clocks.items():
             self._clocks[c] = ck
@@ -253,7 +253,7 @@ class BaseTestHarnessModule(Module):
 
     #f __init__
     def __init__(self, clocks:ClockDict, inputs:WiringDict, outputs:WiringDict, exec_file_object:EFGenerator):
-        Module.__init__(self, moduletype="se_test_harness", clocks=clocks, inputs=inputs, outputs=outputs, options={}, forces={})
+        Module.__init__(self, module_type="se_test_harness", clocks=clocks, inputs=inputs, outputs=outputs, options={}, forces={})
         self.exec_file_object_fn = exec_file_object # type: ignore
         pass
 
