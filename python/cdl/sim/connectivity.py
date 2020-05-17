@@ -22,7 +22,7 @@ from .base import BaseExecFile
 from .exceptions import *
 from .instantiable import Instantiable
 from .types import *
-from .wires import WireBase, Wire, Clock, WireHierarchy, WiringHierarchy
+from .wires import WireType, WireTypeElement, Wire, Clock, WiringHierarchy
 from .modules import Module
 
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
@@ -34,8 +34,21 @@ if TYPE_CHECKING:
 
 #a Connectivity
 #t Driver
-Connection = Tuple[Instantiable,str,Wire]
+
 ClockPort  = Tuple[Instantiable, str]
+#c Connection
+class Connection(object):
+    def __init__(self, instance:Instantiable, port_element_name:str, full_name:str, port_wire:Wire, elt_prefix:Prefix, elt_type:WireTypeElement):
+        self.instance=instance
+        self.port_element_name = port_element_name
+        self.full_name = full_name
+        self.port_wire = port_wire
+        self.elt_prefix = elt_prefix
+        self.elt_type = elt_type
+        pass
+    def str_source(self) -> str:
+        return "%s.%s"%(self.instance.get_instance_name(),self.port_element_name)
+    pass
 
 #c WireMapping
 class WireMapping(object):
@@ -51,49 +64,62 @@ class WireMapping(object):
         self.drives = []
         pass
 
-    #f add_source
-    def add_source(self, instance:Instantiable, port_element_name:str, port_wire:Wire)->None:
-        if self.driven_by is not None: raise Exception("argh")
-        if self.is_global_wire: raise Exception("argh")
-        self.driven_by = (instance, port_element_name, port_wire)
-        pass
-
     #f set_is_global_wire
-    def set_is_global_wire(self) -> None:
-        if self.driven_by is not None: raise Exception("argh")
-        if self.is_global_wire: raise Exception("argh")
+    def set_is_global_wire(self, hwex:'HardwareDescription') -> None:
+        if self.driven_by is not None:
+            hwex.report_error("Multiply driven signal '%s'- trying to make it a global wire as well as driven by an output pin"%(self.wire.get_or_create_name()))
+            return
+        if self.is_global_wire:
+            hwex.report_error("Multiply driven signal '%s'- trying to make it a global wire *twice*"%(self.wire.get_or_create_name()))
+            return
         self.is_global_wire = True
         pass
 
+    #f add_source
+    def add_source(self, hwex:'HardwareDescription', connection:Connection) -> None:
+        if self.driven_by is not None:
+            hwex.report_error("Multiply driven signal - trying to drive it from '%s' and '%s'"%(self.driven_by.str_source(), connection.str_source()))
+            return
+        if self.is_global_wire:
+            hwex.report_error("Multiply driven signal - trying to drive it from '%s' when it is already a global signal '%s'"%(connection.str_source(), self.wire.get_or_create_name()))
+            return
+        self.driven_by = connection
+        pass
+
     #f add_sink
-    def add_sink(self, instance:Instantiable, port_element_name:str, port_wire:Wire)->None:
-        self.drives.append((instance, port_element_name, port_wire))
+    def add_sink(self, hwex:'HardwareDescription', connection:Connection) -> None:
+        self.drives.append(connection)
         pass
 
     #f instantiate
-    def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
-        if (self.driven_by is None) and (not self.is_global_wire):
-            print("undriven signal")
-            return
-            raise Exception("undriven signal")
-
+    def instantiate(self, hwex:'HardwareDescription') -> None:
         if self.driven_by is not None:
-            (instance, port_element_name, port_wire) = self.driven_by
-            port_name = port_wire.get_name()
-            driver_name = self.wire.get_or_create_name(port_element_name)
-            size = self.wire.get_size()
-            print("create wire %s[%d]"%(driver_name, size))
-            print("driven by %s.%s"%(instance.get_instance_name(), port_name))
-            hwex.cdlsim_instantiation.wire("%s[%d]"%(driver_name, size))
-            hwex.cdlsim_instantiation.drive(driver_name, "%s.%s"%(instance.get_instance_name(), port_name))
+            driver_name   = self.wire.get_or_create_name(self.driven_by.port_element_name)
             pass
         else:
             driver_name = self.wire.get_or_create_name()
             pass
-        for (instance,port_element_name, port_wire) in self.drives:
-            port_name = port_wire.get_name()
-            print("drives %s.%s"%(instance.get_instance_name(), port_name))
-            hwex.cdlsim_instantiation.drive("%s.%s"%(instance.get_instance_name(), port_name), driver_name)
+
+        if (self.driven_by is None) and (not self.is_global_wire):
+            hwex.report_error("Undriven signal '%s'"%(self.wire.get_or_create_name()))
+            return
+
+        if self.driven_by is not None:
+            connection    = self.driven_by
+            instance_name = connection.instance.get_instance_name()
+            port_name     = connection.port_wire.get_name()
+            size          = self.wire.get_size()
+            print("create wire %s[%d]"%(driver_name, size))
+            print("driven by %s.%s"%(instance_name, port_name))
+            hwex.cdlsim_instantiation.wire("%s[%d]"%(driver_name, size))
+            hwex.cdlsim_instantiation.drive(driver_name, "%s.%s"%(instance_name, port_name))
+            pass
+
+        for connection in self.drives:
+            instance_name = connection.instance.get_instance_name()
+            port_name     = connection.port_wire.get_name()
+            print("drives %s.%s"%(instance_name, port_name))
+            hwex.cdlsim_instantiation.drive("%s.%s"%(instance_name, port_name), driver_name)
             pass
         pass
     pass
@@ -132,7 +158,7 @@ class ClockMapping(object):
 
 #c Connectivity
 class Connectivity(object):
-    clocks : Dict['Clock',ClockMapping]
+    clocks : Dict[Clock,ClockMapping]
     signals: Dict[Wire,WireMapping]
 
     #f __init__
@@ -153,63 +179,47 @@ class Connectivity(object):
         if clock not in self.clocks: self.clocks[clock] = ClockMapping(clock)
         self.clocks[clock].add_target(instance, port_name)
         pass
-    #f add_wiring_sink
-    def add_wiring_sink(self, instance:Instantiable, port_name:str, ports:WireHierarchy, wiring:WiringHierarchy) -> None:
+
+    #f map_port
+    def map_port(self, instance:Instantiable, port_name:str, ports:WireType, wiring:WiringHierarchy, reason:str, mapping_fn:Callable[[WireMapping,'HardwareDescription',Connection],None]) -> None:
+
         if True:
             print("Port %s"%port_name)
             print("Input ports:%s"%str(ports.get_element(port_name)))
             print("Wiring: '%s'"%str(wiring))
             pass
-        port_hierarchy : Optional[WireHierarchy] = ports.get_element(port_name)
+        port_hierarchy : Optional[WireType] = ports.get_element(port_name)
         if port_hierarchy is None:
             self.hwex.report_error("Could not find input port '%s' on instance '%s'"%(port_name, instance.get_instance_name()))
             return
-        port_elements = port_hierarchy.flatten_element(name=port_name)
-        wired_to_elements = wiring.flatten(port_name)
-        for (n,w) in wired_to_elements.items():
-            if n not in port_elements:
-                self.hwex.report_error("Element '%s' not part of input port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
+        port_elements     = dict(port_hierarchy.flatten_element(name=port_name))
+        for (full_name, wire, prefix, endpoint_type) in wiring.iter_fully(port_name):
+            if full_name not in port_elements:
+                self.hwex.report_error("Element '%s' not part of input port '%s' on instance '%s'"%(full_name, port_name, instance.get_instance_name()))
                 pass
             else:
-                if w not in self.signals: self.signals[w] = WireMapping(w)
-                self.signals[w].add_sink(instance,n,port_elements[n])
+                if wire not in self.signals: self.signals[wire] = WireMapping(wire)
+                connection = Connection(instance, port_name, full_name, wire, prefix, endpoint_type)
+                mapping_fn(self.signals[wire], self.hwex, connection)
                 pass
             pass
         pass
+
     #f add_wiring_source_driver
     def add_wiring_source_driver(self, instance:Instantiable, wire:Wire) -> None:
         """
         Invoked by TimedAssign
         """
         if wire not in self.signals: self.signals[wire] = WireMapping(wire)
-        self.signals[wire].set_is_global_wire()
+        self.signals[wire].set_is_global_wire(self.hwex)
         pass
 
+    #f add_wiring_sink
+    def add_wiring_sink(self, instance:Instantiable, port_name:str, ports:WireType, wiring:WiringHierarchy) -> None:
+        self.map_port(instance, port_name, ports, wiring, "input port", WireMapping.add_sink)
     #f add_wiring_source_driver
-    def add_wiring_source(self, instance:Instantiable, port_name:str, ports:WireHierarchy, wiring:WiringHierarchy) -> None:
-        if True:
-            print("Port %s"%port_name)
-            print("Output ports:%s"%str(ports.get_element(port_name)))
-            print("Wiring: '%s'"%str(wiring))
-            pass
-        port_hierarchy : Optional[WireHierarchy] = ports.get_element(port_name)
-        if port_hierarchy is None:
-            self.hwex.report_error("Could not find output port '%s' on instance '%s'"%(port_name, instance.get_instance_name()))
-            return
-        port_elements = port_hierarchy.flatten_element(name=port_name)
-        wired_to_elements = wiring.flatten(port_name)
-        print(str(port_elements))
-        print(wired_to_elements)
-        for (n,w) in wired_to_elements.items():
-            if n not in port_elements:
-                self.hwex.report_error("Element '%s' not part of output port '%s' on instance '%s'"%(n, port_name, instance.get_instance_name()))
-                pass
-            else:
-                if w not in self.signals: self.signals[w] = WireMapping(w)
-                self.signals[w].add_source(instance,n,port_elements[n])
-                pass
-            pass
-        pass
+    def add_wiring_source(self, instance:Instantiable, port_name:str, ports:WireType, wiring:WiringHierarchy) -> None:
+        self.map_port(instance, port_name, ports, wiring, "output port", WireMapping.add_source)
     #f check
     def check(self) -> None:
         pass
@@ -222,7 +232,7 @@ class Connectivity(object):
             pass
         for (s,sm) in self.signals.items():
             print(s)
-            sm.instantiate(self.hwex, self.hw)
+            sm.instantiate(self.hwex)
             pass
         print("Done")
 

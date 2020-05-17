@@ -21,8 +21,8 @@ code to CDL's py_engine interface.
 from .exceptions import *
 from .th_exec_file import ThExecFile
 from .instantiable import Instantiable
-from .types import *
-from .wires import Clock, Wire, WireHierarchy, WiringHierarchy
+from .types import ClockDict, WiringDict
+from .wires import WireType, Wire, WiringHierarchy
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
 
 from typing import TYPE_CHECKING
@@ -98,8 +98,8 @@ class Ports(object):
     This object represents the ports *as seen by the engine*
     """
     clocks  : Set[str]
-    inputs  : WireHierarchy
-    outputs : WireHierarchy
+    inputs  : WireType
+    outputs : WireType
     def __init__(self, hardware:Hardware, instance_name:str):
         (clocks, inputs, outputs) = hardware.get_module_ios(instance_name)
         print("Hardware Clocks: %s"%(str(clocks)))
@@ -107,13 +107,13 @@ class Ports(object):
         print("Hardware Outputs: %s"%(str(outputs)))
         self.clocks  = set()
         for (ck,_) in clocks: self.clocks.add(ck)
-        self.inputs  = WireHierarchy()
+        self.inputs  = WireType()
         for (full_name, size) in inputs:
-            self.inputs.add_wire(full_name, size)
+            self.inputs.add_element(full_name, size)
             pass
-        self.outputs  = WireHierarchy()
+        self.outputs  = WireType()
         for (full_name, size) in outputs:
-            self.outputs.add_wire(full_name, size)
+            self.outputs.add_element(full_name, size)
             pass
         pass
     def has_clock(self, name:str) -> bool:
@@ -123,8 +123,8 @@ class Ports(object):
         for c in self.clocks:
             print("  Clock '%s'"%(c))
             pass
-        print("  Inputs: '%s'"%(self.inputs.str_short()))
-        print("  Outputs: '%s'"%(self.outputs.str_short()))
+        print("  Inputs: '%s'"%(str(self.inputs)))
+        print("  Outputs: '%s'"%(str(self.outputs)))
         pass
 
 #c Module

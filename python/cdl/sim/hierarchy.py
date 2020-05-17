@@ -99,14 +99,13 @@ class Hierarchy(object):
         pass
 
     #f hierarchy_iter
-    def hierarchy_iter(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,HierarchyElement]]:
+    def hierarchy_iter(self, name:str, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,HierarchyElement]]:
         if not self.is_defined(): return
-        subprefix = prefix
-        if name is not None: subprefix=prefix+[name]
         if self._is_endpoint:
-            yield (subprefix, "", self.endpoint)
+            yield (prefix, name, self.endpoint)
             pass
         else:
+            subprefix = prefix+[name]
             for (n,e) in self.elements.items():
                 for x in e.hierarchy_iter(name=n, prefix=subprefix): yield x
                 pass
@@ -114,17 +113,17 @@ class Hierarchy(object):
         pass
 
     #f hierarchy_list
-    def hierarchy_list(self, name:Optional[str]=None, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,HierarchyElement]]:
+    def hierarchy_list(self, name:str, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,str,HierarchyElement]]:
         return list(self.hierarchy_iter(name, prefix))
 
-    #f get_hierarchical_element - is this used?
-    def get_hierarchical_element(self, remaining_name:str) -> Optional['Hierarchy']:
+    #f hierarchy_get_element - is this used?
+    def hierarchy_get_element(self, remaining_name:str) -> Optional['Hierarchy']:
         (root, rest) = split_name(remaining_name)
         if root is None:
             if rest in self.elements: return self.elements[rest]
             return None
         if root not in self.elements: return None
-        return self.elements[root].get_hierarchical_element(remaining_name=rest)
+        return self.elements[root].hierarchy_get_element(remaining_name=rest)
 
     #f All done
     pass
