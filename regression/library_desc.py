@@ -26,6 +26,12 @@ class SimpleModules(cdl_desc.Modules):
     modules += [ CdlModule("mux_array") ]
     pass
 
+class LogModules(cdl_desc.Modules):
+    name = "log"
+    src_dir = "tests/log"
+    modules = []
+    modules += [ CdlModule("lfsr_log_tracker") ]
+
 class VectorModules(cdl_desc.Modules):
     name = "vector"
     src_dir = "tests/vector"

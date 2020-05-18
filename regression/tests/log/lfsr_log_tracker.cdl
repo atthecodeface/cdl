@@ -1,0 +1,43 @@
+/*a Copyright
+
+  This file 'toggle.cdl' copyright Gavin J Stark 2003, 2004
+
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+module lfsr_log_tracker( clock io_clock,
+                         input bit io_reset,
+                         output bit toggle )
+{
+    default clock io_clock;
+    default reset io_reset;
+    clocked bit[31] lfsr = 1;
+    clocked bit toggle=0;
+    toggle_code:
+    {
+        lfsr <= lfsr<<1;
+        if (lfsr[22]) {
+            lfsr[0]  <= 1;
+            lfsr[18] <= !lfsr[17];
+        }
+        if (!io_reset) {
+            if (lfsr[5;0]==0x1f) {log("has11111",    "lfsr", lfsr );}
+            if (lfsr[8;0]==0x55) {log("has01010101", "lfsr_low", lfsr[4;0], "lfsr_high", lfsr[4;4] );}
+        }
+        toggle <= lfsr[0];
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

@@ -200,7 +200,7 @@ class Hardware(object):
             if level>=2: passed=False
             self.verbose.error("%s"%err)
             pass
-        # self._engine.reset_errors()
+        self._engine.reset_errors()
         if force_exception and not passed:
             raise Exception("simulation engine error")
         pass
@@ -228,6 +228,7 @@ class Hardware(object):
         Reset the hardware running in the engine.
         """
         Engine.reset(self._engine)
+        self.display_all_errors()
         pass
 
     def step(self, cycles:int=1)->None:
@@ -235,6 +236,7 @@ class Hardware(object):
         Step for n cycles.
         """
         Engine.step(self._engine, cycles, 1)
+        self.display_all_errors()
         pass
 
     #f set_run_time

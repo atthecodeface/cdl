@@ -55,6 +55,22 @@ class PyEngSimCDLSimReg(object):
         pass
     pass
 
+#c PyEngSimCDLSimLog - from c_se_engine__log enhancements
+class SlLogEvent:
+    def occurred(self, *values:Any) -> int : ...# Event occurrence
+    pass
+class SlLogRecorder:
+    def num_events(self) -> int: ... # Get number of events that are pending
+    def event_peek(self, n:int) -> str : ... # Peek at nth pending event
+    def event_pop(self) -> str : ... # Pop first event
+    pass
+class PyEngSimCDLSimLog(object):
+    if TYPE_CHECKING:
+        def log_event(self, object_name:str, *names:Any) -> None : ... # Create a new 'SlLogEvent' attribute of this name & args
+        def log_recorder(self, object_name:str, *names:Any) -> None : ... # Create a new 'SlLogRecorder' attribute of this name & modules
+        pass
+    pass
+
 #c PyEngSimCDLSimWave - from c_se_engine__waveform enhancements
 class PyEngSimCDLSimWave(object):
     if TYPE_CHECKING:
@@ -122,6 +138,7 @@ class PyBfmExecFile(ExecFile):
         cdlsim_sim  : PyEngSimCDLSimSim
         cdlsim_reg  : PyEngSimCDLSimReg
         cdlsim_wave : PyEngSimCDLSimWave
+        cdlsim_log  : PyEngSimCDLSimLog
         pass
     _waves : VcdFile
     def create_waves(self) -> VcdFile:
