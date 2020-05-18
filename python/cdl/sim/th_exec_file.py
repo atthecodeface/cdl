@@ -144,6 +144,10 @@ class ThExecFile(SimulationExecFile):
         self.py.pyspawn(boundfn, args)
         pass
 
+    #f bfm_cycle
+    def bfm_cycle(self) -> int:
+        return self.cdlsim_sim.bfm_cycle()
+
     #f global_cycle
     def global_cycle(self) -> int:
         return self.cdlsim_sim.global_cycle()

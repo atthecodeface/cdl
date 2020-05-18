@@ -130,19 +130,9 @@ class HardwareThDut(Hardware):
             children.append(log_module)
             pass
 
-        self.children = children
         Hardware.__init__(self,
                           thread_mapping=self.thread_mapping,
                           children=children,
                           **kwargs
                           )
         pass
-    #f set_run_time
-    def set_run_time(self, num_cycles:int) -> None:
-        for c in self.children:
-            if hasattr(c,"set_global_run_time"):
-                c.set_global_run_time(num_cycles)
-                pass
-            pass
-        pass
-

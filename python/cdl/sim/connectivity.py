@@ -107,17 +107,19 @@ class WireMapping(object):
         if self.driven_by is not None:
             connection    = self.driven_by
             instance_name = connection.instance.get_instance_name()
-            port_name     = connection.port_wire.get_name()
+            port_name     = connection.port_element_name
             size          = self.wire.get_size()
-            # print("create wire %s[%d]"%(driver_name, size))
+            driver_sized = "%s[%d]"%(driver_name, size)
+            if size==1: driver_sized = driver_name
+            # print("create wire %s"%(driver_sized))
             # print("driven by %s.%s"%(instance_name, port_name))
-            hwex.cdlsim_instantiation.wire("%s[%d]"%(driver_name, size))
+            hwex.cdlsim_instantiation.wire(driver_sized)
             hwex.cdlsim_instantiation.drive(driver_name, "%s.%s"%(instance_name, port_name))
             pass
 
         for connection in self.drives:
             instance_name = connection.instance.get_instance_name()
-            port_name     = connection.port_wire.get_name()
+            port_name     = connection.port_element_name
             # print("drives %s.%s"%(instance_name, port_name))
             hwex.cdlsim_instantiation.drive("%s.%s"%(instance_name, port_name), driver_name)
             pass

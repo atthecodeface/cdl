@@ -156,8 +156,13 @@ class Hardware(object):
 
         self.verbose.info("Prepare to build")
         self.display_all_errors()
-        self.hw_desc_th = HardwareDescription(self)
-        self._engine.describe_hw(self.hw_desc_th)
+        try:
+            self.hw_desc_th = HardwareDescription(self)
+            self._engine.describe_hw(self.hw_desc_th)
+            pass
+        except e:
+            self.verbose.error("Failed to build - exception %s"%str(e))
+            pass
         self.display_all_errors()
         self.verbose.info("Built")
         pass
@@ -186,12 +191,14 @@ class Hardware(object):
 
     #f display_all_errors
     def display_all_errors( self, max:int=10000, force_exception=True )->None:
+        # self.verbose.error("Check errors")
         passed = True
         for i in range(max):
             x = self._engine.get_error(i)
             if x==None: break
-            passed = self._engine.get_error_level() < 2
-            self.verbose.error("%s"%x)
+            (level,err) = x
+            if level>=2: passed=False
+            self.verbose.error("%s"%err)
             pass
         # self._engine.reset_errors()
         if force_exception and not passed:
@@ -228,6 +235,15 @@ class Hardware(object):
         Step for n cycles.
         """
         Engine.step(self._engine, cycles, 1)
+        pass
+
+    #f set_run_time
+    def set_run_time(self, num_cycles:int) -> None:
+        for c in self._children:
+            if hasattr(c,"set_global_run_time"):
+                c.set_global_run_time(num_cycles)
+                pass
+            pass
         pass
 
     # def run_console( self, port:int=8745, locals:Dict[str,str]={} ) -> None:

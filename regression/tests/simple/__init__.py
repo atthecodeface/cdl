@@ -1,2 +1,2 @@
-# from .test import TestVector
-test_suite = []
+from .test import TestVector
+test_suite = [TestVector]
