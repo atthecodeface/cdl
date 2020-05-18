@@ -51,7 +51,7 @@ def hexversion() -> int:
     return v
 
 from .mif import load_mif, save_mif
-from .th_exec_file import ThExecFile
+from .th_exec_file import ThExecFile, LogEvent, LogEventParser
 from .modules  import TestHarnessModule
 from .modules  import OptionsDict
 from .wires    import Wire as Wire

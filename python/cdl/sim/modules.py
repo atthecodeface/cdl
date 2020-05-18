@@ -286,6 +286,15 @@ class TestHarnessModule(Module):
         inst = Instance( module_type="se_test_harness", force_options=self._forces, options=options)
         return inst
 
+    #f set_global_run_time - in global cycles
+    def set_global_run_time(self, num_cycles:int) -> None:
+        if hasattr(self, "exec_file_object"):
+            if hasattr(self.exec_file_object, "set_global_run_time"):
+                self.exec_file_object.set_global_run_time(num_cycles)
+                pass
+            pass
+        pass
+
     #f All done
     pass
 

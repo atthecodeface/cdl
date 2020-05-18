@@ -27,7 +27,7 @@ import itertools, collections
 import traceback
 from .base import BaseExecFile
 from .verbose import Verbose
-from .engine    import SlMessage, Engine, SimulationExecFile, HardwareExecFile, VcdFile
+from .engine    import SlMessage, SlLogEvent, SlLogRecorder, Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
 # from .waves     import Waves
 from .exceptions import *
@@ -42,6 +42,35 @@ if TYPE_CHECKING:
     from .hardware import Hardware, HardwareDescription
 
 #a Test harness for now
+class LogEvent(object):
+    def __init__(self, log_type:str, global_cycle:str, data:List[str], attr_map:Dict[str,int]):
+        self.log_type = log_type
+        self.global_cycle = int(global_cycle)
+        self.data = data
+        self.attr_map = attr_map
+        for (k,n) in attr_map.items():
+            setattr(self, k, int(data[n],16))
+            pass
+        pass
+    def __str__(self) -> str:
+        r = ""
+        r += "log_event[%s]"%self.log_type
+        r += ":%d:"%self.global_cycle
+        r += "["+",".join(["%s:%x"%(n,getattr(self,n)) for n in self.attr_map.keys()])+"]"
+        return r
+    pass
+class LogEventParser(object):
+    def filter_module(self, module_name:str) -> bool : return True
+    def map_log_type(self, log_type:str) -> Optional[str]: return log_type
+    attr_map = {"args":{"arg0":0, "arg1":1, "arg2":2, "arg3":3}}
+    def parse_log_event(self, l) -> None:
+        l = l.split(",")
+        if not self.filter_module(l[0]): return None
+        log_type = self.map_log_type(l[1])
+        if log_type is None: return None
+        return LogEvent(log_type=l[1], global_cycle=l[2], data=l[3:], attr_map=self.attr_map[log_type])
+    pass
+
 #c ThExecFile
 class ThExecFile(SimulationExecFile):
     """
@@ -72,6 +101,8 @@ class ThExecFile(SimulationExecFile):
         # Would auto-create input / output bundles here
         self.__failures = 0
         self.__ticks_per_cycle = 0
+        self.__subthread_count = 0
+        self.__subthread_count_completed = 0
         pass
 
     def th_get_name(self) -> str:
@@ -112,15 +143,42 @@ class ThExecFile(SimulationExecFile):
         del self._temporary_object
         return x
 
+    #f sim_fifo
+    def sim_fifo(self, size:int, ne_wm:int=0, nf_wm:int=0) -> SlFifo:
+        self.sys_fifo.fifo( "_temporary_object", size, ne_wm, nf_wm )
+        x = cast(SlFifo,self._temporary_object)
+        del self._temporary_object
+        return x
+
+    #f log_event
+    def log_event(self, name:str, *args:Any) -> SlLogEvent:
+        object_needs_replacement = hasattr(self,name)
+        if object_needs_replacement: oldx=getattr(self,name)
+        self.cdlsim_log.log_event( name, *args )
+        x = cast(SlLogEvent,getattr(self, name))
+        if object_needs_replacement: setattr(self,name,oldx)
+        return x
+
+    #f log_recorder
+    def log_recorder(self, *args:Any) -> SlLogRecorder:
+        self.cdlsim_log.log_recorder( "_temporary_object", *args )
+        x = cast(SlLogRecorder,self._temporary_object)
+        del self._temporary_object
+        return x
+
     #f set_global_run_time - in global cycles
     def set_global_run_time(self, num_cycles: int):
         self.__run_time = num_cycles
         pass
 
+    #f ticks_per_cycle
+    def ticks_per_cycle(self) -> int:
+        if self.__ticks_per_cycle==0: return 1
+        return self.__ticks_per_cycle
+
     #f run_time_remaining - in bfm cycles
     def run_time_remaining(self) -> int:
-        if self.__ticks_per_cycle==0: return self.__run_time
-        return (self.__run_time-self.global_cycle()) // self.__ticks_per_cycle
+        return (self.__run_time-self.global_cycle()) // self.ticks_per_cycle()
 
     #f bfm_wait
     def bfm_wait(self, cycles:int) -> None:
@@ -136,12 +194,17 @@ class ThExecFile(SimulationExecFile):
         """
         self.bfm_wait(1)
         self.bfm_wait(1)
-        self.bfm_wait(self.run_time_remaining-margin)
+        self.bfm_wait(self.run_time_remaining()-margin)
         pass
 
     #f spawn
-    def spawn(self, boundfn:ExecFileThreadFn, *args:Any) -> None:
-        self.py.pyspawn(boundfn, args)
+    def spawn(self, boundfn:ExecFileThreadFn, *args:Any, **kwargs:Any) -> None: # boundfn(a,b,c) where args=a,b,c
+        self.__subthread_count = self.__subthread_count + 1
+        def invoke_boundfn(*x):
+            boundfn(*args, **kwargs)
+            self.__subthread_count_completed = self.__subthread_count_completed + 1
+            pass
+        self.py.pyspawn(invoke_boundfn,tuple())
         pass
 
     #f bfm_cycle
@@ -163,6 +226,9 @@ class ThExecFile(SimulationExecFile):
 
     #f passed
     def passed(self) -> int:
+        if (self.__subthread_count != self.__subthread_count_completed):
+            self.verbose.error("Some subthreads have not completed: spawned %d, only %d finished"%(self.__subthread_count, self.__subthread_count_completed))
+            return False
         if self.__failures>0: return False
         return self.py.pypassed()
 

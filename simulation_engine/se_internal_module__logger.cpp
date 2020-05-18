@@ -1,11 +1,11 @@
 /*a Copyright
-  
+
   This file 'se_internal_module__sram_mrw.cpp' copyright Gavin J Stark 2007
-  
+
   This is free software; you can redistribute it and/or modify it under
   the terms of the GNU Lesser General Public License as published by the Free Software
   Foundation, version 2.1.
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
@@ -74,27 +74,6 @@ private:
 
 /*a Static wrapper functions for SRAM module
  */
-/*f logger_delete - simple callback wrapper for the main method
-*/
-static t_sl_error_level logger_delete( void *handle )
-{
-    c_logger *mod;
-    t_sl_error_level result;
-    mod = (c_logger *)handle;
-    result = mod->delete_instance();
-    delete( mod );
-    return result;
-}
-
-/*f logger_reset
- */
-static t_sl_error_level logger_reset( void *handle, int pass )
-{
-    c_logger *sram;
-    sram = ((c_logger *)handle);
-    return sram->reset( pass );
-}
-
 /*f logger_log_callback
  */
 static t_sl_error_level logger_log_callback( void *eng_handle, int cycle, struct t_engine_log_interest *log_interest, void *handle, int event_number, struct t_engine_log_event_array_entry *log_event_interest )
@@ -136,8 +115,8 @@ c_logger::c_logger( class c_engine *eng, void *eng_handle )
     filename = engine->get_option_string( engine_handle, "filename", "" );
     verbose = engine->get_option_int( engine_handle, "verbose", 0 );
 
-    engine->register_delete_function( engine_handle, (void *)this, logger_delete );
-    engine->register_reset_function( engine_handle, (void *)this, logger_reset );
+    engine->register_delete_function( engine_handle, [this](){delete(this);} );
+    engine->register_reset_function( engine_handle,  [this](int pass){this->reset(pass);});
 
     if (filename && filename[0])
     {
