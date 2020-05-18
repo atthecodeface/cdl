@@ -132,13 +132,14 @@ class Hardware(object):
         pass
 
     #f __init__
-    def __init__(self, children:List[Instantiable]=[], thread_mapping:Optional[Dict[str,Any]]=None):
+    def __init__(self, verbosity:int=2, children:List[Instantiable]=[], thread_mapping:Optional[Dict[str,Any]]=None):
         # Engine.__init__(self)
         # self._engine = self
         self.get_engine()
+        self._engine.reset_errors()
         self._name = "hardware"
         self._children = children
-        self.verbose = Verbose(file=sys.stderr)
+        self.verbose = Verbose(verbosity,file=sys.stdout)
 
         if thread_mapping is not None:
             self._engine.thread_pool_init()
@@ -155,7 +156,8 @@ class Hardware(object):
 
         self.verbose.info("Prepare to build")
         self.display_all_errors()
-        self._engine.describe_hw(HardwareDescription(self))
+        self.hw_desc_th = HardwareDescription(self)
+        self._engine.describe_hw(self.hw_desc_th)
         self.display_all_errors()
         self.verbose.info("Built")
         pass
@@ -167,6 +169,9 @@ class Hardware(object):
             raise WireError("Failed to get ports on module instance '%s' - perhaps the module type could not be found"%(instance_name))
         return (io_list[0], io_list[1], io_list[2])
 
+    #f get_test_verbose
+    def get_test_verbose(self)->Verbose:
+        return self.verbose
     #f passed
     def passed(self) -> bool:
         passed = True
@@ -180,16 +185,22 @@ class Hardware(object):
         return True
 
     #f display_all_errors
-    def display_all_errors( self, max:int=10000 )->None:
-        passed = self._engine.get_error_level() < 2
+    def display_all_errors( self, max:int=10000, force_exception=True )->None:
+        passed = True
         for i in range(max):
             x = self._engine.get_error(i)
             if x==None: break
-            self.verbose.error("%s"x)
+            passed = self._engine.get_error_level() < 2
+            self.verbose.error("%s"%x)
             pass
-        if not passed:
+        # self._engine.reset_errors()
+        if force_exception and not passed:
             raise Exception("simulation engine error")
-        self._engine.reset_errors()
+        pass
+
+    #f ensure_waves
+    def ensure_waves(self, x):
+        self._engine.create_vcd_file(x)
         pass
 
     #f connect_waves
@@ -207,7 +218,7 @@ class Hardware(object):
 
     def reset(self)->None:
         """
-        Reset the engine.
+        Reset the hardware running in the engine.
         """
         Engine.reset(self._engine)
         pass
@@ -216,8 +227,7 @@ class Hardware(object):
         """
         Step for n cycles.
         """
-        Engine.step(self._engine, cycles)
-        self.display_all_errors()
+        Engine.step(self._engine, cycles, 1)
         pass
 
     # def run_console( self, port:int=8745, locals:Dict[str,str]={} ) -> None:

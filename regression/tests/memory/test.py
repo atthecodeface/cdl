@@ -1,20 +1,21 @@
 #a Imports
-import sys, os, unittest
+import sys, os
 
 import inspect
-class x: pass
-module_root = os.path.dirname(inspect.getfile(x))
+class xxx: pass
+module_root = os.path.dirname(inspect.getfile(xxx))
 
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import HardwareThDut, OptionsDict
+from cdl.sim import TestCase
 from cdl.sim import load_mif
 
-from typing import Optional, Type
+from typing import Optional, Type, Any
 
 #a Test harness classes
 #c single_port_memory_th
 class single_port_memory_th(ThExecFile):
-    def __init__(self, test_vector_mif:str, is_mrw:bool, hw, th_module, **kwargs):
+    def __init__(self, test_vector_mif:str, is_mrw:bool, **kwargs):
         ThExecFile.__init__(self, **kwargs)
         self.test_vector_mif = test_vector_mif
         self.is_mrw = is_mrw
@@ -61,7 +62,7 @@ class single_port_memory_th(ThExecFile):
                 self.write_data_0.drive(data_0)
             self.bfm_wait(1)
             if last_rnw_0 != 0 and last_data_0 != self.data_out_0.value():
-                print("Got %x expected %x on read port 0 vector %d" % (self.data_out_0.value(), last_data_0, tv_addr/4))
+                self.verbose.info("Got %x expected %x on read port 0 vector %d" % (self.data_out_0.value(), last_data_0, tv_addr/4))
                 failure = 1
             last_rnw_0 = rnw_0
             last_data_0 = data_0
@@ -69,14 +70,16 @@ class single_port_memory_th(ThExecFile):
         self.read_not_write_0.reset(1)
         self.write_enable_0.reset(0)
         if failure != 0:
-            self.failtest(self.global_cycle(), "**************************************************************************** Test failed")
+            self.failtest("Test failed")
         else:
-            self.passtest(self.global_cycle(), "Test succeeded")
+            self.passtest("Test succeeded")
+            pass
+        pass
 
 #c dual_port_memory_th
 class dual_port_memory_th(ThExecFile):
     # sim_msg : cdl.sim.PyEngSimCDLSimReg.SlMessage
-    def __init__(self, test_vector_mif:str, hw, th_module, **kwargs):
+    def __init__(self, test_vector_mif:str, **kwargs):
         ThExecFile.__init__(self, **kwargs)
         self.test_vector_mif = test_vector_mif
         pass
@@ -156,9 +159,9 @@ class dual_port_memory_th(ThExecFile):
         self.write_enable_0.reset(0)
         self.write_enable_1.reset(0)
         if failure != 0:
-            self.failtest(self.global_cycle(), "**************************************************************************** Test failed")
+            self.failtest("Test failed")
         else:
-            self.passtest(self.global_cycle(), "Test succeeded")
+            pass
         if False:
             for i in range(64):
                 print("%3d %016x"%(i,self.read_sram_location(i)))
@@ -170,7 +173,11 @@ class dual_port_memory_th(ThExecFile):
             self.write_sram_location(i,d)
         for i in range(64):
             if self.read_sram_location(i)!=expected_data[i]:
-                self.failtest(self.global_cycle(), "Misread of sram written by message got %016x expected %016x"%(self.read_sram_location(i),expected_data[i]))
+                self.failtest("Misread of sram written by message got %016x expected %016x"%(self.read_sram_location(i),expected_data[i]))
+                pass
+            pass
+        self.passtest("Test completed")
+        pass
 
 #a Hardware classes
 #c single_port_memory_srw_hw
@@ -191,7 +198,7 @@ class single_port_memory_srw_hw(HardwareThDut):
     # SRAM has no reset
     reset_desc = {}
 
-    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str, **kwargs:Any):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -204,8 +211,9 @@ class single_port_memory_srw_hw(HardwareThDut):
             self.dut_inputs["write_enable"] = 16 // bits_per_enable
             pass
         # self.th_forces = inst_forces
-        self.th_exec_file_object_fn = lambda hw, th_module:single_port_memory_th(test_vector_mif=tv_filename, is_mrw=False, hw=hw, th_module=th_module)
-        HardwareThDut.__init__(self)
+        def fn(**kwargs): return single_port_memory_th(test_vector_mif=tv_filename, is_mrw=False, **kwargs)
+        self.th_exec_file_object_fn = fn
+        HardwareThDut.__init__(self, **kwargs)
         pass
     pass
 
@@ -227,7 +235,7 @@ class single_port_memory_hw(HardwareThDut):
     # SRAM has no reset
     reset_desc = {}
 
-    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str, **kwargs:Any):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -240,8 +248,9 @@ class single_port_memory_hw(HardwareThDut):
             self.dut_inputs["write_enable_0"] = 16 // bits_per_enable
             pass
         # self.th_forces = inst_forces
-        self.th_exec_file_object_fn = lambda hw, th_module:single_port_memory_th(test_vector_mif=tv_filename, is_mrw=True, hw=hw, th_module=th_module)
-        HardwareThDut.__init__(self)
+        def fn(**kwargs): return single_port_memory_th(test_vector_mif=tv_filename, is_mrw=True, **kwargs)
+        self.th_exec_file_object_fn = fn
+        HardwareThDut.__init__(self, **kwargs)
         pass
     pass
 
@@ -268,7 +277,7 @@ class dual_port_memory_hw(HardwareThDut):
     # SRAM has no reset
     reset_desc = {}
 
-    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str):
+    def __init__(self, bits_per_enable:int, mif_filename:str, tv_filename:str, **kwargs):
         print("Regression batch arg mif:%s" % mif_filename)
         print("Regression batch arg bits_per_enable:%d" % bits_per_enable)
         print("Regression batch arg tv_file:%s" % tv_filename)
@@ -282,20 +291,22 @@ class dual_port_memory_hw(HardwareThDut):
             self.dut_inputs["write_enable_1"] = 16 // bits_per_enable
             pass
         # self.th_forces = inst_forces
-        self.th_exec_file_object_fn = lambda hw, th_module:dual_port_memory_th(test_vector_mif=tv_filename, hw=hw, th_module=th_module)
-        HardwareThDut.__init__(self)
+        def fn(**kwargs): return dual_port_memory_th(test_vector_mif=tv_filename, **kwargs)
+        self.th_exec_file_object_fn = fn
+        HardwareThDut.__init__(self, **kwargs)
         pass
     pass
 
 #a Tests
 #c TestMemory
-class TestMemory(unittest.TestCase):
-    def do_memory_test(self, memory_type:HardwareThDut, bits_per_enable:int, mif_filename:str, tv_filename:str)->None:
-        hw = memory_type(bits_per_enable, os.path.join(module_root,mif_filename), os.path.join(module_root,tv_filename))
-        hw.reset()
-        hw.step(1000)
-        hw.step(1000)
-        self.assertTrue(hw.passed())
+class TestMemory(TestCase):
+    def do_memory_test(self, memory_type:HardwareThDut, bits_per_enable:int, mif_filename:str, tv_filename:str, waves=[])->None:
+        self.hw = memory_type
+        mif_filename = os.path.join(module_root,mif_filename)
+        tv_filename = os.path.join(module_root,tv_filename)
+        hw_args = {"bits_per_enable":bits_per_enable, "mif_filename":mif_filename, "tv_filename":tv_filename}
+        self.run_test(hw_args=hw_args, waves=waves, run_time=2000)
+        pass
 
     # This is the first single-port test: 1024x16, rnw, no additional enables
     def test_1024x16_srw_rnw_no_enables(self)->None:

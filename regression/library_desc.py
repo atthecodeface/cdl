@@ -24,6 +24,7 @@ class SimpleModules(cdl_desc.Modules):
     modules += [ CdlModule("mux") ]
     modules += [ CdlModule("alu") ]
     modules += [ CdlModule("mux_array") ]
+    pass
 
 class VectorModules(cdl_desc.Modules):
     name = "vector"
@@ -31,7 +32,8 @@ class VectorModules(cdl_desc.Modules):
     modules = []
     modules += [ CdlModule("vector_toggle__width_16", constants={"width":16}, cdl_filename="vector_toggle", cdl_module_name="vector_toggle") ]
     modules += [ CdlModule("vector_toggle__width_18", constants={"width":18}, cdl_filename="vector_toggle", cdl_module_name="vector_toggle") ]
-    # modules += [ CdlModule("vector_toggle_complex dc:width=18 model:vector_toggle_complex__width_18 rmn:vector_toggle_complex=vector_toggle_complex__width_18 rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model") ]
+    modules += [ CdlModule("vector_toggle_complex__width_18",    constants={"width":18},  cdl_filename="vector_toggle_complex", cdl_module_name="vector_toggle_complex") ] #
+    # , rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model") ]
     modules += [ CdlModule("vector_add__width_4", constants={"width":4}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
     modules += [ CdlModule("vector_add__width_8", constants={"width":8}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
     modules += [ CdlModule("vector_mult_by_11__width_8", constants={"width":8}, cdl_filename="vector_mult_by_11", cdl_module_name="vector_mult_by_11") ]
@@ -43,8 +45,26 @@ class VectorModules(cdl_desc.Modules):
     modules += [ CdlModule("vector_op_1") ]
     modules += [ CdlModule("vector_op_2") ]
     modules += [ CdlModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
+    pass
+
+class StructModules(cdl_desc.Modules):
+    name = "struct"
+    src_dir = "tests/struct"
+    modules = []
+    modules += [ CdlModule("generic_fifo_word",      cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_word"}) ] # force_includes=["dprintf.h"]
+    modules += [ CdlModule("generic_fifo_struct",    cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_struct"}) ] # force_includes=["dprintf.h"]
+    modules += [ CdlModule("generic_fifo_hierarchy", cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_hierarchy"}) ] # force_includes=["dprintf.h"]
+    #cdl struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
+
+class StructModules(cdl_desc.Modules):
+    name = "struct"
+    src_dir = "tests/clock_gate"
+    modules = []
+    modules += [ CdlModule("gc_simple") ]
 
     """
+
+
 
 modules += [ CdlModule("copy_bits vabi:copy_bits_body_feedthrus vapi:copy_bits_port_feedthrus") ]
 #cdl struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color=t_color_lg
@@ -52,11 +72,6 @@ modules += [ CdlModule("nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg
 #cdl struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
 modules += [ CdlModule("nested_structures_3 inc:struct finc:point.h finc:color.h") ]
 modules += [ CdlModule("nested_structures_4") ]
-
-modules += [ CdlModule("generic_fifo rmn:generic_fifo=generic_fifo_word         rmt:gt_fifo_content=t_fifo_content_word         model:generic_fifo_word") ]
-modules += [ CdlModule("generic_fifo rmn:generic_fifo=generic_fifo_struct       rmt:gt_fifo_content=t_fifo_content_struct       model:generic_fifo_struct") ]
-#cdl struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
-modules += [ CdlModule("generic_fifo rmn:generic_fifo=generic_fifo_hierarchy    rmt:gt_fifo_content=t_fifo_content_hierarchy    model:generic_fifo_hierarchy") ]
 
 modules += [ CdlModule("enum_cycle") ]
 
@@ -101,6 +116,5 @@ modules += [ CdlModule("reg") ]
 modules += [ CdlModule("adder") ]
 modules += [ CdlModule("clocked_adder") ]
 
-modules += [ CdlModule("gc_simple") ]
 
 """

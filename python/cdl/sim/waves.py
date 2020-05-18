@@ -92,7 +92,7 @@ class Waves(object):
                 self._add_hierarchy([x[i] for i in list(x.keys())])
                 pass
             else:
-                self._waves.add_hierarchy(x._name)
+                self._waves.add_hierarchy(x)
                 pass
             pass
         pass
