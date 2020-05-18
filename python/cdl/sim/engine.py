@@ -155,7 +155,7 @@ class PyEngine(BaseEngine):
         def read_gui_file(self, filename:str) -> None : ... # Read a GUI file description (not used any more)
         def reset_errors(self) -> None : ... # Reset the errors
         def get_error_level(self) -> int : ... # Get the current highest error level
-        def get_error(self, error:int) -> str : ... # Get the nth error
+        def get_error(self, error:int, error_level:Optional[int]) -> Optional[Tuple[int,str]] : ... # Get the nth error
         def cycle(self) -> int : ... # Get current simulation cycle number (as seen in a module with global_cycle())
         def reset(self) -> None : ... # Reset the simulation
         def step(self, cycles:int) -> None : ... # Step for cycles

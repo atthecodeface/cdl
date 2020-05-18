@@ -630,24 +630,26 @@ static PyObject *py_engine_method_get_error_level( t_py_engine_PyObject *py_eng,
  */
 static PyObject *py_engine_method_get_error( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-     int n;
-     char er[] = "error";
-     char *kwdlist[] = { er, NULL };
-     char error_buffer[1024];
-     void *handle;
+    int n;
+    t_sl_error_level level;
+    char *kwdlist[] = { "error", "level", NULL };
+    char error_buffer[1024];
+    void *handle;
 
-     py_engine_method_enter( py_eng, "get_error", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "i", kwdlist, &n ))
-     {
-          handle = py_eng->error->get_nth_error( n, error_level_okay ); // get nth error of any level
-          if (!py_eng->error->generate_error_message( handle, error_buffer, 1024, 1, NULL ))
-          {
-               return py_engine_method_return( py_eng, NULL );
-          }
-          py_engine_method_result_add_string( NULL, error_buffer );
-          return py_engine_method_return( py_eng, NULL );
-     }
-     return NULL;
+    py_engine_method_enter( py_eng, "get_error", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "i|i", (char **)kwdlist, &n, &level ))
+    {
+        handle = py_eng->error->get_nth_error( n, level ); // get nth error of any level
+        if (!handle) {
+            return py_engine_method_return( py_eng, NULL );
+        }
+        if (!py_eng->error->generate_error_message( handle, error_buffer, sizeof(error_buffer), 1, NULL )) {
+            fprintf(stderr, "Bad error message generation - '%s'\n", error_buffer);
+        }
+        result = PyTuple_Pack(2, PyLong_FromLong(py_eng->error->get_error_level(handle)), PyString_FromString(error_buffer));
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
 }
 
 /*f py_engine_method_cycle

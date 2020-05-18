@@ -39,7 +39,7 @@ def add_test_suite(module_name:str)->None:
 #test_dirs = [ "simple", "vector", "instantiation", "memory"]
 
 add_test_suite(".tests.vector")
-# add_test_suite(".tests.simple")
+add_test_suite(".tests.simple")
 add_test_suite(".tests.memory")
 add_test_suite(".tests.clock_gate")
 # add_test_suite(".tests.instantiation")
