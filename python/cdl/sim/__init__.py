@@ -60,3 +60,4 @@ from .wires    import TimedAssign as TimedAssign
 from .modules  import Module as Module
 from .hardware import Hardware
 from .extensions import HardwareThDut
+from .unittest import TestCase

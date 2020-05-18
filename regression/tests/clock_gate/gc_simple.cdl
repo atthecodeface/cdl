@@ -1,4 +1,4 @@
-typedef struct 
+typedef struct
 {
     bit [8] byte;
     // bit valid;
@@ -14,11 +14,12 @@ module gc_simple__sub( clock clk,
     default clock clk;
     gated_clock active_high clock_enable clk_enabled "Gate the clock";
     clocked clock clk_enabled bit data_out = 0;
+
     data_reg "":
         {
             data_out <= data_in;
         }
-    
+
 }
 
 module gc_simple( clock clk,
@@ -83,17 +84,16 @@ default clock clk;// "Default clock signal - handy!";
             data_in_16 <= data_in "On every fourth cycle of sixteen";
             gc_simple__sub gc_sub( clk<-clk, reset_in<=reset_in, clock_enable<=div16, data_in<=data_in, data_out=>data_sub_out );
 
-            if (div2) "Only do this if div2 is asserted"
-            {
-                print("Div2 was asserted");
-            }
-
-            data_out <= clock_divider[4] ^ data_in_2 ^ data_in_4 ^ data_in_8 ^ data_in_16; 
+            data_out <= clock_divider[4] ^ data_in_2 ^ data_in_4 ^ data_in_8 ^ data_in_16;
             assert
             {
                 asrt_data <= 1;
             }
-            assert (clock_divider, "Message %d0% %d1% %d0% %x0%", clock_divider, div2) (1,2,3,10); // Output an assertion for fun if clock_divider is not 1, 2, 3 or 10
-            print("Message %d0%",clock_divider);
+            // assert (clock_divider, "Message %d0% %d1% %d0% %x0%", clock_divider, div2) (1,2,3,10); // Output an assertion for fun if clock_divider is not 1, 2, 3 or 10
+            // print("Message %d0%",clock_divider);
         }
+    default clock clk_div16;
+    do_print_div16:{
+        print("Div16 was asserted");
+    }
 }

@@ -1,11 +1,11 @@
 /*a Copyright
-  
+
   This file 'md_target_c.cpp' copyright Gavin J Stark 2003, 2004, 2007
-  
+
   This program is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free Software
   Foundation, version 2.0.
-  
+
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
@@ -146,7 +146,7 @@ cp osx/mu_internal_dc.v /Users/gstark/Desktop/Development/Mercurial/me_island.hg
 real    7m38.912s
 user    7m5.664s
 sys     0m3.591s
-13:37:49:~/Desktop/Development/Mercurial/me_island.hg:748$ 
+13:37:49:~/Desktop/Development/Mercurial/me_island.hg:748$
 
  */
 
@@ -187,18 +187,18 @@ static const char *bit_mask[] = {
      "0xfULL", "0x1fULL", "0x3fULL", "0x7fULL",
      "0xffULL", "0x1ffULL", "0x3ffULL", "0x7ffULL",
      "0xfffULL", "0x1fffULL", "0x3fffULL", "0x7fffULL",
-     "((1ULL<<16)-1)", "((1ULL<<17)-1)", "((1ULL<<18)-1)", "((1ULL<<19)-1)", 
-     "((1ULL<<20)-1)", "((1ULL<<21)-1)", "((1ULL<<22)-1)", "((1ULL<<23)-1)", 
-     "((1ULL<<24)-1)", "((1ULL<<25)-1)", "((1ULL<<26)-1)", "((1ULL<<27)-1)", 
-     "((1ULL<<28)-1)", "((1ULL<<29)-1)", "((1ULL<<30)-1)", "((1ULL<<31)-1)", 
-     "((1ULL<<32)-1)", "((1ULL<<33)-1)", "((1ULL<<34)-1)", "((1ULL<<35)-1)", 
-     "((1ULL<<36)-1)", "((1ULL<<37)-1)", "((1ULL<<38)-1)", "((1ULL<<39)-1)", 
-     "((1ULL<<40)-1)", "((1ULL<<41)-1)", "((1ULL<<42)-1)", "((1ULL<<43)-1)", 
-     "((1ULL<<44)-1)", "((1ULL<<45)-1)", "((1ULL<<46)-1)", "((1ULL<<47)-1)", 
-     "((1ULL<<48)-1)", "((1ULL<<49)-1)", "((1ULL<<50)-1)", "((1ULL<<51)-1)", 
-     "((1ULL<<52)-1)", "((1ULL<<53)-1)", "((1ULL<<54)-1)", "((1ULL<<55)-1)", 
-     "((1ULL<<56)-1)", "((1ULL<<57)-1)", "((1ULL<<58)-1)", "((1ULL<<59)-1)", 
-     "((1ULL<<60)-1)", "((1ULL<<61)-1)", "((1ULL<<62)-1)", "((1ULL<<63)-1)", 
+     "((1ULL<<16)-1)", "((1ULL<<17)-1)", "((1ULL<<18)-1)", "((1ULL<<19)-1)",
+     "((1ULL<<20)-1)", "((1ULL<<21)-1)", "((1ULL<<22)-1)", "((1ULL<<23)-1)",
+     "((1ULL<<24)-1)", "((1ULL<<25)-1)", "((1ULL<<26)-1)", "((1ULL<<27)-1)",
+     "((1ULL<<28)-1)", "((1ULL<<29)-1)", "((1ULL<<30)-1)", "((1ULL<<31)-1)",
+     "((1ULL<<32)-1)", "((1ULL<<33)-1)", "((1ULL<<34)-1)", "((1ULL<<35)-1)",
+     "((1ULL<<36)-1)", "((1ULL<<37)-1)", "((1ULL<<38)-1)", "((1ULL<<39)-1)",
+     "((1ULL<<40)-1)", "((1ULL<<41)-1)", "((1ULL<<42)-1)", "((1ULL<<43)-1)",
+     "((1ULL<<44)-1)", "((1ULL<<45)-1)", "((1ULL<<46)-1)", "((1ULL<<47)-1)",
+     "((1ULL<<48)-1)", "((1ULL<<49)-1)", "((1ULL<<50)-1)", "((1ULL<<51)-1)",
+     "((1ULL<<52)-1)", "((1ULL<<53)-1)", "((1ULL<<54)-1)", "((1ULL<<55)-1)",
+     "((1ULL<<56)-1)", "((1ULL<<57)-1)", "((1ULL<<58)-1)", "((1ULL<<59)-1)",
+     "((1ULL<<60)-1)", "((1ULL<<61)-1)", "((1ULL<<62)-1)", "((1ULL<<63)-1)",
      "(-1LL)"
 };
 static char type_buffer[64];
@@ -329,7 +329,7 @@ void c_md_target_c::output_type(t_md_type_instance *instance, int indent, int in
 void c_md_target_c::output_clocked_storage_types(void)
 {
     /*b Output clocked storage types
-     */ 
+     */
     for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
         for (auto edge=0; edge<2; edge++) {
             if (clk->data.clock.edges_used[edge]) {
@@ -357,7 +357,7 @@ void c_md_target_c::output_clocked_storage_types(void)
 void c_md_target_c::output_input_types(void)
 {
     /*b Output input pointer type
-     */ 
+     */
     output( 0, "/*t t_%s_inputs\n", module->output_name);
     output( 0, "*/\n");
     output( 0, "typedef struct t_%s_inputs\n", module->output_name);
@@ -409,7 +409,7 @@ void c_md_target_c::output_output_types(void)
 void c_md_target_c::output_combinatorial_types(void)
 {
     /*b Output combinatorials storage type
-     */ 
+     */
     output( 0, "/*t t_%s_combinatorials\n", module->output_name );
     output( 0, "*/\n");
     output( 0, "typedef struct t_%s_combinatorials\n", module->output_name );
@@ -430,7 +430,7 @@ void c_md_target_c::output_combinatorial_types(void)
 void c_md_target_c::output_net_types(void)
 {
     /*b Output nets storage type
-     */ 
+     */
     output( 0, "/*t t_%s_nets\n", module->output_name );
     output( 0, "*/\n");
     output( 0, "typedef struct t_%s_nets\n", module->output_name );
@@ -466,7 +466,7 @@ void c_md_target_c::output_instance_types(t_md_module_instance *module_instance)
         output( 1, "{\n" );
         for (auto input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list) {
             output_type(input_port->module_port_instance, 2, 0);
-        }        
+        }
         output( 1, "} inputs;\n" );
         output( 1, "struct\n" );
         output( 1, "{\n" );
@@ -533,7 +533,7 @@ void c_md_target_c::output_types(void)
     output_all_signals_type();
 
     /*b Output coverage storage types - if we include coverage
-     */ 
+     */
     if (options->cpp.include_coverage)
     {
         output( 0, "/*t t_%s_code_coverage\n", module->output_name );
@@ -556,7 +556,7 @@ void c_md_target_c::output_types(void)
     }
 
     /*b Output C++ class for the module
-     */ 
+     */
     output( 0, "/*t c_%s\n", module->output_name );
     output( 0, "*/\n");
     output( 0, "class c_%s;\n", module->output_name );
@@ -637,14 +637,14 @@ void c_md_target_c::output_types(void)
     output( 0, "\n");
 
     /*b All done
-     */ 
+     */
 }
 
 /*f c_md_target_c::output_static_variables
  */
 void c_md_target_c::output_static_variables(void)
 {
-    /*b Output header with 
+    /*b Output header with
      */
     output( 0, "/*a Static variables for %s */\n", module->output_name);
 
@@ -714,7 +714,7 @@ void c_md_target_c::output_static_variables(void)
             for (auto output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list) {
                 char driven_net[1024];
                 char output_port_name[1024];
-                if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) { // If the submodule directly drives an output wholly 
+                if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) { // If the submodule directly drives an output wholly
                     snprintf( output_port_name, sizeof(output_port_name), "\"%s\"", output_port->lvar->instance->output_name );
                 } else {
                     sprintf( output_port_name, "NULL" );
@@ -723,12 +723,12 @@ void c_md_target_c::output_static_variables(void)
                     sprintf(driven_net,"-1");
                 } else if (output_port->lvar->instance->array_driven_in_parts) {
                     snprintf( driven_net, sizeof(driven_net), "all_signals_offsetof(%s, nets.%s[%lld] )",
-                              module->output_name, 
+                              module->output_name,
                               output_port->lvar->instance->output_name,
                               output_port->lvar->index.data.integer );
                 } else {
                     snprintf( driven_net, sizeof(driven_net), "all_signals_offsetof(%s, nets.%s )",
-                              module->output_name, 
+                              module->output_name,
                               output_port->lvar->instance->output_name );
                 }
                 output( 1, "{ \"%s\", %s, all_signals_offsetof(%s, instance_%s.outputs.%s), %s, %d, 0, %d },\n",
@@ -845,7 +845,7 @@ void c_md_target_c::output_static_variables(void)
                                 auto instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                                 t_md_reference_iter iter;
                                 t_md_reference *reference;
-                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
                                 int derived_from_clock_edge=0;
                                 while ((reference = model->reference_set_iterate(&iter))!=NULL) {
@@ -865,7 +865,7 @@ void c_md_target_c::output_static_variables(void)
                                 auto instance = signal->data.output.net_ref->instance_iter->children[i];
                                 t_md_reference_iter iter;
                                 t_md_reference *reference;
-                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
                                 derived_from_clock_edge=0;
                                 while ((reference = model->reference_set_iterate(&iter))!=NULL) {
@@ -1128,8 +1128,8 @@ void c_md_target_c::output_constructors_destructors(void)
 
     /*b Clear all state and combinatorial data in case of use of unused data elsewhere
      */
-    output( 1, "memset(&all_signals,    0, sizeof(all_signals));\n" ); 
-    output( 1, "propagating_in_reset=0;\n" ); 
+    output( 1, "memset(&all_signals,    0, sizeof(all_signals));\n" );
+    output( 1, "propagating_in_reset=0;\n" );
     output( 1, "engine->register_delete_function( engine_handle, [this](){delete(this);} );\n" );
     output( 1, "engine->register_reset_function( engine_handle, [this](int pass){this->reset(pass);} );\n" );
     output( 1, "engine->register_propagate_fn( engine_handle, [this](){this->capture_inputs();this->propagate_all();} );\n");
@@ -1169,7 +1169,9 @@ void c_md_target_c::output_constructors_destructors(void)
             output( 1, "engine->instantiate( engine_handle, \"%s\", \"%s\", NULL );\n", module_instance->output_type, module_instance->name );
             output( 1, "all_signals.instance_%s.handle = engine->submodule_get_handle( engine_handle, \"%s\" );\n", module_instance->name, module_instance->name);
             for (auto clk=module_instance->module_definition->clocks; clk; clk=clk->next_in_list) {
-                output( 1, "all_signals.instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( all_signals.instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
+                if (!clk->data.clock.clock_ref) {
+                    output( 1, "all_signals.instance_%s.%s__clock_handle = engine->submodule_get_clock_handle( all_signals.instance_%s.handle, \"%s\" );\n", module_instance->name, clk->name, module_instance->name, clk->name );
+                }
             }
         }
     }
@@ -1192,7 +1194,7 @@ void c_md_target_c::output_constructors_destructors(void)
                                         output( 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, all_signals.instance_%s.handle );\n", worklist_item, module_instance->name );
                                         output_markers_mask(module_instance,om_valid,0);
                                     }
-                                    // Do not use a gate for the enable, as the parent will enable iter                                    
+                                    // Do not use a gate for the enable, as the parent will enable iter
                                     output( 1, "engine->submodule_set_clock_worklist_clock( engine_handle, all_signals.instance_%s.handle, %d, all_signals.instance_%s.%s__clock_handle, %d );\n",
                                             module_instance->name,
                                             worklist_item,
@@ -1308,7 +1310,7 @@ void c_md_target_c::output_static_functions(void)
     output( 0, "}\n");
     output( 0, "\n");
 }
- 
+
 /*a CWV model output functions */
 /*f c_md_target_c::cwv_output_header */
 void c_md_target_c::cwv_output_header(void)
@@ -1339,14 +1341,14 @@ void c_md_target_c::cwv_output_types(void)
     output_all_signals_type();
 
     /*b All done
-     */ 
+     */
 }
 
 /*f c_md_target_c::cwv_output_static_variables for a module
  */
 void c_md_target_c::cwv_output_static_variables(void)
 {
-    /*b Output header with 
+    /*b Output header with
      */
     output( 0, "/*a Static variables for %s */\n", module->output_name);
 
@@ -1447,7 +1449,7 @@ void c_md_target_c::cwv_output_static_variables(void)
                                 auto instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                                 t_md_reference_iter iter;
                                 t_md_reference *reference;
-                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
                                 int derived_from_clock_edge=0;
                                 while ((reference = model->reference_set_iterate(&iter))!=NULL) {
@@ -1467,7 +1469,7 @@ void c_md_target_c::cwv_output_static_variables(void)
                                 auto instance = signal->data.output.net_ref->instance_iter->children[i];
                                 t_md_reference_iter iter;
                                 t_md_reference *reference;
-                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it                                
+                                // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter );
                                 derived_from_clock_edge=0;
                                 while ((reference = model->reference_set_iterate(&iter))!=NULL) {
@@ -1531,11 +1533,11 @@ void c_md_target_c::cwv_output_static_variables(void)
 
     /*b Output descriptor for c_se_wrapped_verilator */
     output( 0, "/*v cv_desc_%s */\n", module->output_name );
-    output( 0, "static t_cdl_verilator_desc cv_desc_%s = {\n", module->output_name ); 
-    output( 1, "sizeof(t_%s_all_signals),\n", module->output_name ); 
-    output( 1, "static_eval_%s,\n", module->output_name ); 
-    output( 1, "static_delete_%s,\n", module->output_name ); 
-    output( 1, "&module_desc_%s\n", module->output_name ); 
+    output( 0, "static t_cdl_verilator_desc cv_desc_%s = {\n", module->output_name );
+    output( 1, "sizeof(t_%s_all_signals),\n", module->output_name );
+    output( 1, "static_eval_%s,\n", module->output_name );
+    output( 1, "static_delete_%s,\n", module->output_name );
+    output( 1, "&module_desc_%s\n", module->output_name );
     output( 0, "};\n");
 
 
@@ -1643,7 +1645,7 @@ void c_md_target_c::cwv_output_static_functions(void)
     }
     output( 0, "}\n" );
 }
- 
+
 /*a Output simulation methods functions (to convert CDL model to C)
  */
 /*f c_md_target_c::output_simulation_methods_lvar
@@ -2280,7 +2282,7 @@ void c_md_target_c::output_simulation_methods_statement_log(t_md_statement *stat
             output( -1, ";\n" );
         }
     }
-    output( indent+1, "engine->log_event_occurred( engine_handle, log_event_array, %d );\n", statement->data.log.id_within_module ); 
+    output( indent+1, "engine->log_event_occurred( engine_handle, log_event_array, %d );\n", statement->data.log.id_within_module );
 }
 
 /*f c_md_target_c::output_simulation_methods_statement - clocked or combinatorial, depending on this->clock
@@ -2562,7 +2564,7 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
                 output( 1, "//   Not outputting module %s as dependencies are not all valid\n", module_instance->name );
                 continue;
             }
-        
+
             /*b Dependencies are all done; output the code, and mark output nets as done if not driven in parts
              */
             did_output=1;
@@ -2674,7 +2676,7 @@ void c_md_target_c::output_simulation_code_to_make_combinatorial_signals_valid(v
 //            output( handle, 1, "//Module instance %s is comb %d\n", module_instance->name, module_instance->module_definition->combinatorial_component );
 //            output( handle, 1, "//Module instance %s has been output %d\n", module_instance->name, module_instance->output_args[0] );
             if ( (!module_instance->module_definition) ||
-                 (!module_instance->module_definition->combinatorial_component) || 
+                 (!module_instance->module_definition->combinatorial_component) ||
                  (output_markers_value(module_instance, om_valid_mask)==om_valid) ||
                  (output_markers_value(module_instance, om_make_valid_mask)!=om_must_be_valid) )
             {
@@ -2714,7 +2716,7 @@ void c_md_target_c::output_simulation_methods(void)
     clock = NULL;
     edge = 0;
     instance = NULL;
-    
+
     /*b Output the main reset function
      */
     output( 0, "/*a Class reset/preclock/clock methods for %s */\n", module->output_name );
@@ -3355,7 +3357,7 @@ void c_md_target_c::output_cpp_model(void)
                     output_markers_mask( clock_port, 0, -1 );
                 }
             }
-            for (auto clk=module->clocks; clk; clk=clk->next_in_list) 
+            for (auto clk=module->clocks; clk; clk=clk->next_in_list)
                 for (auto edge=0; edge<2; edge++)
                     if (clk->data.clock.edges_used[edge])
                         for (auto module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)

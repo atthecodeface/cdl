@@ -54,7 +54,8 @@ class HardwareThDut(Hardware):
     dut_options    : OptionsDict = {}
     thread_mapping = None
     th_exec_file_object_fn : Optional[EFGenerator] = None
-    th_forces              : OptionsDict = {}
+    hw_forces              : OptionsDict = {}
+    th_options             : OptionsDict = {}
 
     #f test_harness_module_fn - the default
     def test_harness_module_fn(self, **kwargs:Any) -> TestHarnessModule:
@@ -62,7 +63,7 @@ class HardwareThDut(Hardware):
         return TestHarnessModule(exec_file_object=self.th_exec_file_object_fn, **kwargs)
 
     #f __init__
-    def __init__(self) -> None: #, test_dict:Dict[str,object]):
+    def __init__(self, **kwargs) -> None: #, test_dict:Dict[str,object]):
         self.wave_file = self.__class__.__module__+".vcd"
 
         children :List[Instantiable] = []
@@ -104,7 +105,7 @@ class HardwareThDut(Hardware):
             th_inputs[n] = cdl_wire
             pass
 
-        hw_forces = dict(self.th_forces.items())
+        hw_forces = dict(self.hw_forces.items())
         self.dut = Module( module_type=self.module_name,
                            module_name="dut",
                            clocks  = clocks,
@@ -116,9 +117,11 @@ class HardwareThDut(Hardware):
         children.append(self.dut)
 
         if self.th_exec_file_object_fn is not None:
-            self.test_harness_0 = self.test_harness_module_fn(clocks=th_clocks,
+            self.test_harness_0 = self.test_harness_module_fn(module_name="th",
+                                                              clocks=th_clocks,
                                                               inputs=th_inputs,
-                                                              outputs=th_outputs)
+                                                              outputs=th_outputs,
+                                                              options=self.th_options)
             children.append(self.test_harness_0)
             pass
 
@@ -126,14 +129,20 @@ class HardwareThDut(Hardware):
             log_module = Module("se_logger", options=self.loggers[l] )
             children.append(log_module)
             pass
+
+        self.children = children
         Hardware.__init__(self,
                           thread_mapping=self.thread_mapping,
                           children=children,
+                          **kwargs
                           )
-        self.wave_hierarchies = [self.dut]
         pass
     #f set_run_time
     def set_run_time(self, num_cycles:int) -> None:
-        self.test.set_run_time(num_cycles/2/self.clock_half_period)
+        for c in self.children:
+            if hasattr(c,"set_global_run_time"):
+                c.set_global_run_time(num_cycles)
+                pass
+            pass
         pass
 

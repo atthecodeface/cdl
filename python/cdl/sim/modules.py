@@ -260,14 +260,14 @@ class TestHarnessModule(Module):
         return True
 
     #f __init__
-    def __init__(self, clocks:ClockDict, inputs:WiringDict, outputs:WiringDict, exec_file_object:EFGenerator):
-        Module.__init__(self, module_type="se_test_harness", clocks=clocks, inputs=inputs, outputs=outputs, options={}, forces={})
+    def __init__(self, exec_file_object:EFGenerator, **kwargs:Any):
+        Module.__init__(self, module_type="se_test_harness", **kwargs )
         self.exec_file_object_fn = exec_file_object # type: ignore
         pass
 
     #f get_instance
     def get_instance(self, hwex:HardwareDescription, hw:Hardware) -> Instance:
-        self.exec_file_object = self.exec_file_object_fn(hw,self)
+        self.exec_file_object = self.exec_file_object_fn(hardware=hw, th_module=self)
 
         input_names = []
         for (n,i) in self._inputs.items():
@@ -278,12 +278,12 @@ class TestHarnessModule(Module):
             output_names.extend(i.full_sized_name_list(n))
             pass
 
-        options : OptionsDict = {}
+        options = dict(self._options.items())
         options["clock"]   = " ".join(list(self._clocks.keys()))
         options["inputs"]  = " ".join(input_names)
         options["outputs"] = " ".join(output_names)
         options["object"]  = self.exec_file_object
-        inst = Instance( module_type="se_test_harness", force_options={}, options=options)
+        inst = Instance( module_type="se_test_harness", force_options=self._forces, options=options)
         return inst
 
     #f All done
