@@ -1,5 +1,6 @@
 *~
 *.pyc
+*.mypy_cac*
 *.orig
 *.bak
 .DS_Store
