@@ -64,6 +64,7 @@ class SlLogRecorder:
     def event_peek(self, n:int) -> str : ... # Peek at nth pending event
     def event_pop(self) -> str : ... # Pop first event
     pass
+SlLogEventOccurrence = str
 class PyEngSimCDLSimLog(object):
     if TYPE_CHECKING:
         def log_event(self, object_name:str, *names:Any) -> None : ... # Create a new 'SlLogEvent' attribute of this name & args
@@ -172,7 +173,7 @@ class PyEngine(BaseEngine):
         def read_gui_file(self, filename:str) -> None : ... # Read a GUI file description (not used any more)
         def reset_errors(self) -> None : ... # Reset the errors
         def get_error_level(self) -> int : ... # Get the current highest error level
-        def get_error(self, error:int, error_level:Optional[int]) -> Optional[Tuple[int,str]] : ... # Get the nth error
+        def get_error(self, error:int, error_level:int=0) -> Optional[Tuple[int,str]] : ... # Get the nth error
         def cycle(self) -> int : ... # Get current simulation cycle number (as seen in a module with global_cycle())
         def reset(self) -> None : ... # Reset the simulation
         def step(self, cycles:int) -> None : ... # Step for cycles

@@ -1,247 +1,30 @@
-#!/usr/bin/env python
-import sys, copy
-
-#a Parameter and module classes
-#c parameter
-class parameter:
-    name = None
-    options = None
-    prange = None
-    pdefault = None
-    def __init__(self, name, values, description):
-        self.name = name
-        if type(values)==list:
-            self.pdefault = values[0]
-            self.options = values
-            pass
-        elif type(values)==tuple:
-            self.pdefault = values[0]
-            self.prange    = values
-            pass
-        else:
-            self.pdefault = values
-            pass
-        self.description = description
-        pass
-    def is_value_permissible(self, value):
-        if type(value)==float:
-            if type(self.pdefault)!=float: return False
-            if self.prange is not None:
-                if (value<self.prange[0]) or (value>self.prange[1]): return False
-                pass
-            return True
-        if type(value)==int:
-            if type(self.pdefault)!=int: return False
-            if self.prange is not None:
-                if (value<self.prange[0]) or (value>self.prange[1]): return False
-                pass
-            if self.options is not None:
-                if value not in self.options: return False
-                pass
-            return True
-        if type(value)==str:
-            if type(self.pdefault)!=str: return False
-            if self.options is not None:
-                if value not in self.options: return False
-                pass
-            return True
-        return False
-    def instance(self, parameter_dict):
-        if self.name not in parameter_dict: return None
-        value = parameter_dict[self.name]
-        if not self.is_value_permissible(value):
-            raise Exception("Value '%s' not permissible for parameter '%s' (options '%s')"%(str(value), self.name, self.options))
-        return parameter_instance(self, value)
-    def verilog_string(self, value):
-        if type(value)==str: return '"%s"'%value
-        return str(value)
-
-#c parameter_instance
-class parameter_instance:
-    def __init__(self, parameter, value):
-        self.parameter = parameter
-        self.value = value
-        pass
-    def verilog_string(self, comma=","):
-        return ".%s(%s)%s // %s"%(self.parameter.name, self.parameter.verilog_string(self.value), comma, self.parameter.description)
-
-#c module
-def comma_if_not_last(i,n):
-    if i>=n-1: return ""
-    return ","
-class module:
-    clocks = []
-    input_ports = {}
-    output_ports = {}
-    wires = {}
-    submodules = []
-    assignments = {}
-    parameter_ports = {}
-    default_parameters = {}
-    default_attributes = {}
-    default_signals    = {}
-    signals = {} # mapping for an instance
-    parameters = {} # mappings for an instance
-    #f __init__
-    def __init__(self, instance_name, parameters={}, signals={}, attributes={}):
-        self.signal_names = [x for (x,_) in self.signals]
-        self.instance_name = instance_name
-        self.parameter_values = []
-        self.submodules = self.submodules[:]
-        for p in self.parameters:
-            pv = p.instance(parameters)
-            if pv is None:
-                pv = p.instance(self.default_parameters)
-                pass
-            if pv is not None:
-                self.parameter_values.append(pv)
-                pass
-            pass
-        self.signal_assignments = {}
-        for (sn, sv) in self.default_signals.iteritems():
-            self.signal_assignments[sn] = sv
-            pass
-        for (sn, sv) in signals.iteritems():
-            self.signal_assignments[sn] = sv
-            pass
-        for sn in self.signal_assignments:
-            if sn not in self.signal_names:
-                raise Exception("Unexpected signal %s"%sn)
-            pass
-        self.attributes = {}
-        for (an, av) in self.default_attributes.iteritems():
-            self.attributes[an] = av
-            pass
-        for (an, av) in attributes.iteritems():
-            self.attributes[an] = av
-            pass
-        pass
-    #f output_verilog
-    def output_verilog(self, f, include_clk_enables=True):
-        module_start = "module %s ( "%(self.name)
-        indent = " "*len(module_start)
-        i = module_start
-        for c in self.clocks:
-            print >>f, "%sinput          %s,"%(i,c)
-            i = indent
-            if include_clk_enables:
-                print >>f, "%sinput          %s__enable,"%(i,c)
-                pass
-            pass
-        for (s,w) in self.input_ports.iteritems():
-            bw = "[%2d:0] "%(w-1)
-            if w==0: bw = " "*7
-            print >>f, "%sinput  %s %s,"%(i,bw,s)
-            i = indent
-            pass
-        for (s,w) in self.output_ports.iteritems():
-            bw = "[%2d:0] "%(w-1)
-            if w==0: bw = " "*7
-            print >>f, "%soutput %s %s,"%(i,bw,s)
-            i = indent
-            pass
-        print >>f, ");"
-        indent = "    "
-        for (p,v) in self.parameter_ports.iteritems():
-            if type(v)==str:
-                print >>f, "%sparameter %s=\"%s\";"%(indent,p,v)
-                pass
-            else:
-                print >>f, "%sparameter %s=%s;"%(indent,p,v)
-                pass
-            pass
-        for (s,(w,e)) in self.wires.iteritems():
-            if type(w) == tuple:
-                bw = "[%2d:0] "%(w[1]-1)
-                print >>f, "%swire %s %s[%d:0];"%(indent,bw,s,w[0]-1)
-                pass
-            else:
-                bw = "[%2d:0] "%(w-1)
-                if w==0: bw = " "*7
-                if e is None:
-                    print >>f, "%swire %s %s;"%(indent,bw,s)
-                    pass
-                else:
-                    print >>f, "%swire %s %s = %s;"%(indent,bw,s,e)
-                    pass
-                pass
-            pass
-        for (a,e) in self.assignments.iteritems():
-            print >>f, "%sassign %s = %s;"%(indent,a,e)
-            pass
-        for i in self.submodules:
-            i.output_instance_verilog(f, indent)
-            pass
-        print >>f, "endmodule"
-        pass
-    #f output_instance_verilog
-    def output_instance_verilog(self, f, indent="    "):
-        n = len(self.attributes)
-        if n>0:
-            print >>f, "%s(* "%(indent),
-            i=0
-            for (an, av) in self.attributes.iteritems():
-                print >>f, '%s = "%s"%s '%(an,av,comma_if_not_last(i,n)),
-                i += 1
-                pass
-            print >>f, " *)"
-            pass
-        print >>f, "%s%s"%(indent, self.name),
-        
-        n = len(self.parameter_values)
-        if n>0:
-            print >>f, " #("
-            i=0
-            for pv in self.parameter_values:
-                print >>f, "%s%s%s"%(indent, indent, pv.verilog_string(comma_if_not_last(i,n)))
-                i += 1
-                pass
-            print >>f, "%s) %s ("%(indent, self.instance_name)
-            pass
-        else:
-            print >>f, " %s ("%(self.instance_name)
-            pass
-        n = 0
-        for (sn, sv) in self.signals:
-            if sn in self.signal_assignments: sv=self.signal_assignments[sn]
-            if sv is not None: n += 1
-            pass
-        i = 0
-        for (sn, sv) in self.signals:
-            if sn in self.signal_assignments: sv=self.signal_assignments[sn]
-            if sv is not None:
-                print >>f, "%s%s.%s (%s)%s"%(indent, indent, sn, sv, comma_if_not_last(i,n) )
-                i += 1
-                pass
-            pass
-        print >>f, "%s);"%(indent)
-        pass
-    #f All done
+#a Imports
+from .verilog import Paramter, ParamterI, Module
 
 #a Xilinx primitives
 #c mmcme3_base
 class mmcme3_base(module):
     name ="MMCME3_BASE"
     parameters = [
-        parameter("BANDWIDTH",           ["OPTIMIZED","LOW","HIGH"], "Jitter programming"),
-        parameter("STARTUP_WAIT",        ["FALSE", "TRUE"], "Delays DONE until MMCM is locked"),
-        parameter("CLKIN1_PERIOD",       10.,     "Input clock period in ns units, ps resolution (i.e. 33.333 is 30 MHz)."),
-        parameter("IS_CLKIN1_INVERTED",  [0,1],   "Optional inversion for CLKIN1"),
-        parameter("REF_JITTER",          0.,      "Reference input jitter in UI (0.000-0.999)."),
-        parameter("DIVCLK_DIVIDE",       (1,106), "Master division value"),
-        parameter("CLKFBOUT_MULT_F",     (2,64),  "Multiply value for VCO"), # possibly a float?
-        parameter("CLKFBOUT_PHASE",      0.,      "Phase offset in degrees of CLKFB"),
-        parameter("CLKOUT0_DIVIDE_F",    (1,128), "Divide amount for CLKOUT0"), # possibly a float?
-        parameter("CLKOUT0_DUTY_CYCLE",  0.5,     "Duty cycle"),
-        parameter("CLKOUT1_DIVIDE",      (1,128), "Divide amount for CLKOUT1"),
-        parameter("CLKOUT2_DIVIDE",      (1,128), "Divide amount for CLKOUT21"),
-        parameter("CLKOUT3_DIVIDE",      (1,128), "Divide amount for CLKOUT3"),
-        parameter("CLKOUT4_DIVIDE",      (1,128), "Divide amount for CLKOUT4"),
-        parameter("CLKOUT5_DIVIDE",      (1,128), "Divide amount for CLKOUT5"),
-        parameter("CLKOUT6_DIVIDE",      (1,128), "Divide amount for CLKOUT6"),
-        parameter("IS_CLKFBIN_INVERTED", [0,1],   "Optional inversion for CLKFBIN"),
-        parameter("IS_PWRDWN_INVERTED",  [0,1],   "Optional inversion for PWRDWN"),
-        parameter("IS_RST_INVERTED",     [0,1],   "Optional inversion for RST"),
+        Parameter("BANDWIDTH",           ["OPTIMIZED","LOW","HIGH"], "Jitter programming"),
+        Parameter("STARTUP_WAIT",        ["FALSE", "TRUE"], "Delays DONE until MMCM is locked"),
+        Parameter("CLKIN1_PERIOD",       10.,     "Input clock period in ns units, ps resolution (i.e. 33.333 is 30 MHz)."),
+        Parameter("IS_CLKIN1_INVERTED",  [0,1],   "Optional inversion for CLKIN1"),
+        Parameter("REF_JITTER",          0.,      "Reference input jitter in UI (0.000-0.999)."),
+        Parameter("DIVCLK_DIVIDE",       (1,106), "Master division value"),
+        Parameter("CLKFBOUT_MULT_F",     (2,64),  "Multiply value for VCO"), # possibly a float?
+        Parameter("CLKFBOUT_PHASE",      0.,      "Phase offset in degrees of CLKFB"),
+        Parameter("CLKOUT0_DIVIDE_F",    (1,128), "Divide amount for CLKOUT0"), # possibly a float?
+        Parameter("CLKOUT0_DUTY_CYCLE",  0.5,     "Duty cycle"),
+        Parameter("CLKOUT1_DIVIDE",      (1,128), "Divide amount for CLKOUT1"),
+        Parameter("CLKOUT2_DIVIDE",      (1,128), "Divide amount for CLKOUT21"),
+        Parameter("CLKOUT3_DIVIDE",      (1,128), "Divide amount for CLKOUT3"),
+        Parameter("CLKOUT4_DIVIDE",      (1,128), "Divide amount for CLKOUT4"),
+        Parameter("CLKOUT5_DIVIDE",      (1,128), "Divide amount for CLKOUT5"),
+        Parameter("CLKOUT6_DIVIDE",      (1,128), "Divide amount for CLKOUT6"),
+        Parameter("IS_CLKFBIN_INVERTED", [0,1],   "Optional inversion for CLKFBIN"),
+        Parameter("IS_PWRDWN_INVERTED",  [0,1],   "Optional inversion for PWRDWN"),
+        Parameter("IS_RST_INVERTED",     [0,1],   "Optional inversion for RST"),
         ]
     signals = [("RST", None),
                ("PWRDWN", 0),
@@ -266,12 +49,12 @@ class Xdelaye3(module):
     """
     name = None
     parameters = [
-        parameter("DELAY_TYPE",        ["FIXED", "VAR_LOAD", "VARIABLE"], "Delay to use - if variable then CE, LOAD and INC are used"),
-        parameter("DELAY_VALUE",       (0,1250), "Delay if fixed (in psec if DELAY_FORMAT is TIME else taps). Up to 512 if taps."),
-        parameter("DELAY_FORMAT",      ["TIME", "COUNT"], "If TIME then REFCLK_FREQUENCY is used to determine initial taps; if COUNT then DELAY_VALUE is in taps"),
-        parameter("REFCLK_FREQUENCY",  (200., 800.), "Reference clock frequency if DELAY_FORMAT is TIME - else unused"),
-        parameter("UPDATE_MODE",       ["ASYNC", "SYNC", "MANUAL"], "ASYNC is preferred - MANUAL requires two toggles of load (one to capture the value, one to make it happen)"),
-        parameter("CASCADE",           ["NONE", "MASTER", "SLAVE_MIDDLE", "SLAVE_END"], "Cascading - and where in the chain it is"),
+        Parameter("DELAY_TYPE",        ["FIXED", "VAR_LOAD", "VARIABLE"], "Delay to use - if variable then CE, LOAD and INC are used"),
+        Parameter("DELAY_VALUE",       (0,1250), "Delay if fixed (in psec if DELAY_FORMAT is TIME else taps). Up to 512 if taps."),
+        Parameter("DELAY_FORMAT",      ["TIME", "COUNT"], "If TIME then REFCLK_FREQUENCY is used to determine initial taps; if COUNT then DELAY_VALUE is in taps"),
+        Parameter("REFCLK_FREQUENCY",  (200., 800.), "Reference clock frequency if DELAY_FORMAT is TIME - else unused"),
+        Parameter("UPDATE_MODE",       ["ASYNC", "SYNC", "MANUAL"], "ASYNC is preferred - MANUAL requires two toggles of load (one to capture the value, one to make it happen)"),
+        Parameter("CASCADE",           ["NONE", "MASTER", "SLAVE_MIDDLE", "SLAVE_END"], "Cascading - and where in the chain it is"),
         ]
     signals = [("RST", None), # Deassert synchronously to CLK
                ("CLK", None),
@@ -296,7 +79,7 @@ class idelaye3(Xdelaye3):
     parameters = copy.copy(Xdelaye3.parameters)
     signals    = copy.copy(Xdelaye3.signals)
     parameters += [
-        parameter("DELAY_SRC",         ["IDATAIN", "DATAIN"], "Source of data - IOB or internal signal"),
+        Parameter("DELAY_SRC",         ["IDATAIN", "DATAIN"], "Source of data - IOB or internal signal"),
         ]
     signals += [ ("DATAIN", 0),
                  ("IDATAIN", 0),    # Tie to IOB input pin or 0
@@ -322,11 +105,11 @@ class oserdese3(module):
     """
     name ="OSERDESE3"
     parameters = [
-        parameter("DATA_WIDTH",         [4, 8], "Width of parallel data"),
-        parameter("INIT",               [0, 1], "Reset value of serial output"),
-        parameter("IS_CLKDIV_INVERTED", [0, 1], "Optional inversion for CLKDIV"),
-        parameter("IS_CLK_INVERTED",    [0, 1], "Optional inversion for CLK"),
-        parameter("IS_RST_INVERTED",    [0, 1], "Optional inversion for RST"),
+        Parameter("DATA_WIDTH",         [4, 8], "Width of parallel data"),
+        Parameter("INIT",               [0, 1], "Reset value of serial output"),
+        Parameter("IS_CLKDIV_INVERTED", [0, 1], "Optional inversion for CLKDIV"),
+        Parameter("IS_CLK_INVERTED",    [0, 1], "Optional inversion for CLK"),
+        Parameter("IS_RST_INVERTED",    [0, 1], "Optional inversion for RST"),
         ]
     signals = [("RST", None), # Deassert synchronously to ?
                ("CLK", None),
@@ -344,17 +127,17 @@ class iserdese3(module):
     CLKDIV is CLK divided by (DATA_WIDTH/2)
     Basically it runs in DDR mode (input captured on every edge of CLK)
     To use in SDR mode, use alternate data output bits.
-    In FIFO mode 
+    In FIFO mode
     """
     name ="ISERDESE3"
     parameters = [
-        parameter("DATA_WIDTH",         [4, 8], "Width of parallel data"),
-        parameter("FIFO_ENABLE",        ["FALSE", "TRUE"], "FIFO enable option - if true tie FIFO_RD_EN to !FIFO_EMPTY and FIFO_RD_CLK to CLKDIV"),
-        # parameter("FIFO_SYNC_MODE",   ["FALSE", "TRUE"], "True is reserved"),
-        parameter("IS_CLKDIV_INVERTED", [0, 1], "Optional inversion for CLKDIV"),
-        parameter("IS_CLK_INVERTED",    [0, 1], "Optional inversion for CLK"),
-        parameter("IS_CLK_B_INVERTED",  [0, 1], "Optional inversion for CLK_B"),
-        parameter("IS_RST_INVERTED",    [0, 1], "Optional inversion for RST"),
+        Parameter("DATA_WIDTH",         [4, 8], "Width of parallel data"),
+        Parameter("FIFO_ENABLE",        ["FALSE", "TRUE"], "FIFO enable option - if true tie FIFO_RD_EN to !FIFO_EMPTY and FIFO_RD_CLK to CLKDIV"),
+        # Parameter("FIFO_SYNC_MODE",   ["FALSE", "TRUE"], "True is reserved"),
+        Parameter("IS_CLKDIV_INVERTED", [0, 1], "Optional inversion for CLKDIV"),
+        Parameter("IS_CLK_INVERTED",    [0, 1], "Optional inversion for CLK"),
+        Parameter("IS_CLK_B_INVERTED",  [0, 1], "Optional inversion for CLK_B"),
+        Parameter("IS_RST_INVERTED",    [0, 1], "Optional inversion for RST"),
         ]
     signals = [("RST", None), # Deassert synchronously to ? CLK
                ("CLK", None),
@@ -418,10 +201,10 @@ class fdpe(module):
     """
     name ="FDPE"
     parameters = [
-        parameter("INIT",               [1, 0], "Reset value of serial output"),
-        parameter("IS_C_INVERTED",      [0, 1], "Optional inversion for C"),
-        # parameter("IS_D_INVERTED",    [0, 1], "Optional inversion for D - only valid in IOB registers"),
-        parameter("IS_PRE_INVERTED",    [0, 1], "Optional inversion for PRE"),
+        Parameter("INIT",               [1, 0], "Reset value of serial output"),
+        Parameter("IS_C_INVERTED",      [0, 1], "Optional inversion for C"),
+        # Parameter("IS_D_INVERTED",    [0, 1], "Optional inversion for D - only valid in IOB registers"),
+        Parameter("IS_PRE_INVERTED",    [0, 1], "Optional inversion for PRE"),
         ]
     signals = [("PRE", None),
                ("C",   None),
@@ -446,36 +229,36 @@ class ramb36e2(module):
     """
     name ="RAMB36E2"
     parameters = [
-        parameter("CASCADE_ORDER_A",           ["NONE", "FIRST", "MIDDLE", "LAST"], "Order of cascade - first is bottom"),
-        parameter("CASCADE_ORDER_B",           ["NONE", "FIRST", "MIDDLE", "LAST"], "Order of cascade - first is bottom"),
-        parameter("CLOCK_DOMAINS",        ["INDEPENDENT", "COMMON"], "Whether A and B are the same clock"),
+        Parameter("CASCADE_ORDER_A",           ["NONE", "FIRST", "MIDDLE", "LAST"], "Order of cascade - first is bottom"),
+        Parameter("CASCADE_ORDER_B",           ["NONE", "FIRST", "MIDDLE", "LAST"], "Order of cascade - first is bottom"),
+        Parameter("CLOCK_DOMAINS",        ["INDEPENDENT", "COMMON"], "Whether A and B are the same clock"),
 
-        parameter("DOA_REG",             [1,0],   "Output register for port A"),
-        parameter("ENADDRENA",           ["FALSE", "TRUE"],   "Address enable pin for port A"),
-        parameter("RDADDRCHANGEA",       [0,1],   "Enable read address change feature port A"),
-        parameter("READ_WIDTH_A",        [0,1,2,4,9,16,36,72],   "Read width for port A"),
-        parameter("WRITE_WIDTH_A",       [0,1,2,4,9,16,36,72],   "Write width for port A"),
+        Parameter("DOA_REG",             [1,0],   "Output register for port A"),
+        Parameter("ENADDRENA",           ["FALSE", "TRUE"],   "Address enable pin for port A"),
+        Parameter("RDADDRCHANGEA",       [0,1],   "Enable read address change feature port A"),
+        Parameter("READ_WIDTH_A",        [0,1,2,4,9,16,36,72],   "Read width for port A"),
+        Parameter("WRITE_WIDTH_A",       [0,1,2,4,9,16,36,72],   "Write width for port A"),
 
-        parameter("DOB_REG",             [1,0],   "Output register for port B"),
-        parameter("ENADDRENB",           ["FALSE", "TRUE"],   "Address enable pin for port B"),
-        parameter("RDADDRCHANGEB",       [0,1],   "Enable read address change feature port B"),
-        parameter("READ_WIDTH_B",        [0,1,2,4,9,16,36,72],   "Read width for port B"),
-        parameter("WRITE_WIDTH_B",       [0,1,2,4,9,16,36,72],   "Write width for port B"),
+        Parameter("DOB_REG",             [1,0],   "Output register for port B"),
+        Parameter("ENADDRENB",           ["FALSE", "TRUE"],   "Address enable pin for port B"),
+        Parameter("RDADDRCHANGEB",       [0,1],   "Enable read address change feature port B"),
+        Parameter("READ_WIDTH_B",        [0,1,2,4,9,16,36,72],   "Read width for port B"),
+        Parameter("WRITE_WIDTH_B",       [0,1,2,4,9,16,36,72],   "Write width for port B"),
 
-        parameter("EN_ECC_PIPE",         ("FALSE","TRUE"),   "Enable ECC pipeline stage"),
-        parameter("EN_ECC_READ",         ("FALSE","TRUE"),   "Enable ECC for reads - read width must be 72"),
-        parameter("EN_ECC_WRITE",        ("FALSE","TRUE"),   "Enable ECC for writes - write width must be 72"),
+        Parameter("EN_ECC_PIPE",         ("FALSE","TRUE"),   "Enable ECC pipeline stage"),
+        Parameter("EN_ECC_READ",         ("FALSE","TRUE"),   "Enable ECC for reads - read width must be 72"),
+        Parameter("EN_ECC_WRITE",        ("FALSE","TRUE"),   "Enable ECC for writes - write width must be 72"),
 
-        parameter("IS_CLKARDCLK_INVERTED",  [0,1],   "Optional inversion for read clock for port A"),
-        parameter("IS_ENARDEN_INVERTED",    [0,1],   "Optional inversion for enarden for port A"),
-        parameter("IS_ENBWREN_INVERTED",    [0,1],   "Optional inversion for enbwren for port A"),
-        parameter("IS_RSTRAMARSTRAM_INVERTED",    [0,1],   "Optional inversion for rstramarstram for port A"),
-        parameter("IS_RSTREGARSTREG_INVERTED",    [0,1],   "Optional inversion for rstregarstreg for port A"),
-        parameter("IS_RSTRAMB_INVERTED",    [0,1],   "Optional inversion for rstramb for port B"),
-        parameter("IS_RSTREGB_INVERTED",    [0,1],   "Optional inversion for rstregb for port A"),
-        parameter("IS_CLKBWRCLK_INVERTED",  [0,1],   "Optional inversion for write clock for port B"),
+        Parameter("IS_CLKARDCLK_INVERTED",  [0,1],   "Optional inversion for read clock for port A"),
+        Parameter("IS_ENARDEN_INVERTED",    [0,1],   "Optional inversion for enarden for port A"),
+        Parameter("IS_ENBWREN_INVERTED",    [0,1],   "Optional inversion for enbwren for port A"),
+        Parameter("IS_RSTRAMARSTRAM_INVERTED",    [0,1],   "Optional inversion for rstramarstram for port A"),
+        Parameter("IS_RSTREGARSTREG_INVERTED",    [0,1],   "Optional inversion for rstregarstreg for port A"),
+        Parameter("IS_RSTRAMB_INVERTED",    [0,1],   "Optional inversion for rstramb for port B"),
+        Parameter("IS_RSTREGB_INVERTED",    [0,1],   "Optional inversion for rstregb for port A"),
+        Parameter("IS_CLKBWRCLK_INVERTED",  [0,1],   "Optional inversion for write clock for port B"),
 
-        parameter("SLEEP_ASYNC",  [0,1],   "Is sleep async to clkardclk"),
+        Parameter("SLEEP_ASYNC",  [0,1],   "Is sleep async to clkardclk"),
         ]
     signals = [("SLEEP", 0),
                ("RSTRAMARSTRAM", 0),    # reset
@@ -483,7 +266,7 @@ class ramb36e2(module):
 
                ("RSTRAMB", 0),          # reset
                ("RSTREGB", None),       # reset
-               
+
                ("CLKARDCLK", None),     # Clock for reading or for port A
                ("ADDRARDADDR", None),   # Read address or address for port A (15 bits if 32kx1)
                ("ADDRENA", None),       # Address enable for port A if configured
@@ -494,7 +277,7 @@ class ramb36e2(module):
                ("WEA", None),           # Four byte-write enables for port A
                ("DOUTADOUT", None),     # 32-bit data out for port A or read data
                ("DOUTPADOUTP", None),   # 4-bit data out for port A or read
-               
+
                ("CLKBWRCLK", None),     # Clock for writing or for port B
                ("ADDRBWRADDR", None),   # Write address port B (15 bits if 32kx1)
                ("ADDRENB", None),       # Address enable for port B if configured
@@ -556,7 +339,7 @@ class idelaye3_count_load(idelaye3):
                           "CASC_IN":0,
                           "CASC_RETURN":0,
     }
-    
+
 #c odelaye3_count_load - default of not cascaded
 class odelaye3_count_load(odelaye3):
     default_parameters={ "DELAY_TYPE":"VAR_LOAD",
@@ -571,7 +354,7 @@ class odelaye3_count_load(odelaye3):
                           "CASC_IN":0,
                           "CASC_RETURN":0,
     }
-    
+
 #a Toplevel
 #f PLL 300 in to 225/150/100/50
 p = mmcme3_base("pll_i",
@@ -654,7 +437,7 @@ class bram__se_sram_srw_4096x32_we8(module):
                            "WEA":"{3'b0,write_enable[%d] && !read_not_write}"%byte,
                            "DINADIN":"{24'b0,write_data[%d:%d]}"%((byte*8+7),(byte*8)),
                            "DOUTADOUT":"read_data_mem[%d]"%byte,
-                           "CLKBWRCLK":"0",                           
+                           "CLKBWRCLK":"0",
                            "WEBWE":"0",
                        },
                  attributes = {"ram_addr_begin":0,
@@ -664,7 +447,7 @@ class bram__se_sram_srw_4096x32_we8(module):
                            },
              ) for byte in range(4)]
     pass
-print "*"*80
+print("*"*80)
 bram__se_sram_srw_4096x32_we8("").output_verilog(sys.stdout)
 
 #f Sixteen BSRAMs as 16kx32 (64kB) with byte write enables - by using one RAM per byte
@@ -736,7 +519,7 @@ WARNING: [DRC REQP-1902] RAMB36E2_AB_cascade_out_must_use_parity: The RAMB36E2 c
                                    "WEA":"{3'b0,write_enable[%d] && !read_not_write && word_sel[%d]}"%(byte,word),
                                    "DINADIN":"{24'b0,write_data[%d:%d]}"%((byte*8+7),(byte*8)),
                                    "DOUTADOUT":"read_data_mem[%d]"%ram_n,
-                                   "CLKBWRCLK":"0",                           
+                                   "CLKBWRCLK":"0",
                                    "WEBWE":"0",
                                    "CASDINA"    :"casc_data_out[%d]"%next_ram_n,
                                    "CASDINPA"   :"casc_data_out_p[%d]"%next_ram_n,
@@ -757,7 +540,7 @@ WARNING: [DRC REQP-1902] RAMB36E2_AB_cascade_out_must_use_parity: The RAMB36E2 c
         pass
     pass
 
-print "*"*80
+print("*"*80)
 bram__se_sram_srw_16384x32_we8("").output_verilog(sys.stdout)
 
 #f Output differential DDR serializer of 4 bits (CLK runs at 2x CLK_DIV2)
@@ -789,7 +572,7 @@ class diff_ddr_serializer4(module):
                },
     ),
     ]
-print "*"*80
+print("*"*80)
 diff_ddr_serializer4("").output_verilog(sys.stdout)
 
 #f Input differential DDR deserializer, with configurable delay, of 4 bits (CLK runs at 2x CLK_DIV2)
@@ -879,7 +662,7 @@ for m in diff_ddr_deserializer4:
 #  state find_initial_stable_value : if delay maxes out -> abort
 #  state present_result : -> idle
 #  state abort : -> idle
-# 
+#
 # The lower FSM has to idle, handle load of delay, wait some cycles for stable, clear shift register, shift in all bits, then wait
 cascaded_delay_pair  = [
     idelaye3_count_load("idelay",

@@ -27,7 +27,7 @@ import itertools, collections
 import traceback
 from .base import BaseExecFile
 from .verbose import Verbose
-from .engine    import SlMessage, SlLogEvent, SlLogRecorder, Engine, SimulationExecFile, HardwareExecFile, VcdFile
+from .engine    import SlMessage, SlLogEvent, SlLogRecorder, SlLogEventOccurrence, Engine, SimulationExecFile, HardwareExecFile, VcdFile
 from .exec_file import SlMemory, SlEvent, SlFifo, SlRandom, ExecFile, ExecFileThreadFn
 # from .waves     import Waves
 from .exceptions import *
@@ -63,8 +63,8 @@ class LogEventParser(object):
     def filter_module(self, module_name:str) -> bool : return True
     def map_log_type(self, log_type:str) -> Optional[str]: return log_type
     attr_map = {"args":{"arg0":0, "arg1":1, "arg2":2, "arg3":3}}
-    def parse_log_event(self, l) -> None:
-        l = l.split(",")
+    def parse_log_event(self, log_occurrence:SlLogEventOccurrence) -> Optional[LogEvent]:
+        l = log_occurrence.split(",")
         if not self.filter_module(l[0]): return None
         log_type = self.map_log_type(l[1])
         if log_type is None: return None

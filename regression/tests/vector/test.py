@@ -2,7 +2,7 @@
 import sys, os
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import HardwareThDut, OptionsDict
-from cdl.sim import load_mif
+from cdl.utils import Memory
 from cdl.sim import TestCase
 
 from typing import Any
@@ -19,17 +19,18 @@ class vector_test_harness_exec_file(ThExecFile):
 
     def test_values(self, vector_number:int) -> None:
         self.verbose.info("Cycle %d vector number %d, testing values" % (self.global_cycle(), vector_number))
-        self.vector_input_0.drive(self.test_vectors[vector_number*4])
-        self.vector_input_1.drive(self.test_vectors[vector_number*4+1])
-        tv_0 = self.test_vectors[vector_number*4+2]
-        tv_1 = self.test_vectors[vector_number*4+3]
+        self.vector_input_0.drive(self.test_vectors.get_exc(vector_number*4))
+        self.vector_input_1.drive(self.test_vectors.get_exc(vector_number*4+1))
+        tv_0 = self.test_vectors.get_exc(vector_number*4+2)
+        tv_1 = self.test_vectors.get_exc(vector_number*4+3)
         self.verbose.info("   info: expected %x %x got %x %x" % (tv_0, tv_1, self.vector_output_0.value(), self.vector_output_1.value()))
         if tv_0 != self.vector_output_0.value() or tv_1 != self.vector_output_1.value():
             self.verbose.error("Test failed, vector number %d" % vector_number)
             self.failtest("Test failed in vector %d"%vector_number)
 
     def run(self) -> None:
-        self.test_vectors = load_mif(self.vectors_filename, 2048, 64, acknowledge_deprecated=True)
+        self.test_vectors = Memory()
+        with open(self.vectors_filename) as f: self.test_vectors.load_legacy(f)
         self.bfm_wait(1)
         self.test_values(0)
         self.bfm_wait(1)

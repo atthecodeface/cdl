@@ -36,7 +36,7 @@ help:
 	@echo "Use 'make regress_batch' to run a batch simulation regression"
 
 regress_python: ${PYSIM}
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:$PYTHONPATH python3 -m regression.regress -v)
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
 
 # regress_batch:
 # 	CDL_ROOT=${CDL_ROOT} ./regress

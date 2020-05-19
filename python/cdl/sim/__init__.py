@@ -50,7 +50,6 @@ def hexversion() -> int:
           (version_info[4]<<0)  )
     return v
 
-from .mif import load_mif, save_mif
 from .th_exec_file import ThExecFile, LogEvent, LogEventParser
 from .modules  import TestHarnessModule
 from .modules  import OptionsDict

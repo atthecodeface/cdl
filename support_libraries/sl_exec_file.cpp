@@ -4345,7 +4345,7 @@ static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data,
     if (!file_data->py_object) return;
 
     WHERE_I_AM;
-    fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
+    // fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
     py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
     py_ef_obj->py_object = PyObj(file_data);
     py_ef_obj->file_data = file_data;
@@ -4507,8 +4507,8 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         }
     }
 
-    /*b Add in objects for each sl_exec_file object
-     */
+    /*b NOT Add in objects for each sl_exec_file object - GJS May 2020, removed
+      This used to add objects here; they have already been added, though
     {
         t_sl_exec_file_object_chain *chain;
         for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
@@ -4519,6 +4519,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             // sl_exec_file_py_add_object_instance( *file_data_ptr, chain );
         }
     }
+     */
 
     /*b Reset the file
      */
