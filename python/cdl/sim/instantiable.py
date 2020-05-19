@@ -36,8 +36,8 @@ class Instantiable(object):
     def add_connectivity(self, hwex:'HardwareDescription', connectivity:'Connectivity') -> None:
         pass
 
-    #f set_run_time - may not be provided
-    def set_run_time(self, num_cycles:int) -> None: ...
+    #f set_global_run_time - may not be provided
+    def set_global_run_time(self, num_cycles:int) -> None: ...
 
     #f passed
     def passed(self) -> bool:

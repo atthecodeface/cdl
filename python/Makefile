@@ -37,13 +37,6 @@ PYTHON_CDL_SIM_FILES_TYPE_CLEAN = \
 	cdl/sim/wires.py \
 	cdl/sim/waves.py
 
-PYTHON_CDL_UTILS_FILES_TYPE_CLEAN = \
-	cdl/utils/__init__.py \
-	cdl/utils/memory.py
-
-PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN = \
-	cdl/tools/parametrize_verilog.py
-
 PYTHON_CDL_SIM_FILES= \
 	${PYTHON_CDL_SIM_FILES_TYPE_CLEAN} \
 	cdl/sim/c_httpd.py \
@@ -53,14 +46,22 @@ PYTHON_CDL_SIM_FILES= \
 	cdl/sim/doc-wiki.txt \
 	cdl/sim/log_server.py
 
-PYTHON_CDL_TOOLS_FILES= \
-	${PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN} \
-	cdl/tools/cdl_mem_convert.py
+PYTHON_CDL_UTILS_FILES_TYPE_CLEAN = \
+	cdl/utils/__init__.py \
+	cdl/utils/memory.py
 
 PYTHON_CDL_UTILS_FILES= \
 	${PYTHON_CDL_UTILS_FILES_TYPE_CLEAN} \
 	cdl/utils/verilog.py \
 	cdl/utils/xilinx.py
+
+PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN = \
+	cdl/tools/parametrize_verilog.py
+
+PYTHON_CDL_TOOLS_FILES= \
+	${PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN} \
+	cdl/tools/cdl_mem_convert.py
+
 
 #a Add python files
 $(eval $(call add_python_files,cdl,${PYTHON_CDL_FILES}))

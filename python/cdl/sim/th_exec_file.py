@@ -34,7 +34,8 @@ from .exceptions import *
 class _thfile(SimulationExecFile):
     pass
 
-from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
+from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar, TypeVar
+T = TypeVar('T')
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -167,7 +168,7 @@ class ThExecFile(SimulationExecFile):
         return x
 
     #f set_global_run_time - in global cycles
-    def set_global_run_time(self, num_cycles: int):
+    def set_global_run_time(self, num_cycles: int) -> None:
         self.__run_time = num_cycles
         pass
 
@@ -200,7 +201,7 @@ class ThExecFile(SimulationExecFile):
     #f spawn
     def spawn(self, boundfn:ExecFileThreadFn, *args:Any, **kwargs:Any) -> None: # boundfn(a,b,c) where args=a,b,c
         self.__subthread_count = self.__subthread_count + 1
-        def invoke_boundfn(*x):
+        def invoke_boundfn(*x:Any) -> None: # Invoke the required spawn function
             boundfn(*args, **kwargs)
             self.__subthread_count_completed = self.__subthread_count_completed + 1
             pass
@@ -233,28 +234,26 @@ class ThExecFile(SimulationExecFile):
         return self.py.pypassed()
 
     #f compare_expected
-    def compare_expected(self, reason, expectation, actual):
+    def compare_expected(self, reason:str, expectation:T, actual:T) -> None:
         if actual!=expectation:
-            self.failtest("Mismatch in %s act/exp (%d/%d)"%(reason,actual,expectation))
+            self.failtest("Mismatch in %s act/exp (%s/%s)"%(reason,str(actual),str(expectation)))
             pass
         pass
 
     #f compare_expected_list
-    def compare_expected_list(self, reason, expectation, actual):
+    def compare_expected_list(self, reason:str, expectation:List[T], actual:List[T]) -> None:
         expectation = list(expectation[:])
         for t in actual:
             if len(expectation)>0:
                 et = expectation.pop(0)
-                if t!=et:
-                    self.failtest("Mismatch in %s (%d/%d)"%(reason,t,et))
-                    pass
+                self.compare_expected(reason,et,t)
                 pass
             else:
-                self.failtest("Unexpected %s (%d)"%(reason,t,))
+                self.failtest("Unexpected %s (%s)"%(reason,str(t)))
                 pass
             pass
         if len(expectation)>0:
-            self.failtest("Expected more %ss: %s"%(reason,str(expectation),))
+            self.failtest("Expected more %ss: %s"%(reason,str(expectation)))
             pass
         pass
 
