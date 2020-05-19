@@ -27,12 +27,18 @@ if TYPE_CHECKING:
 
 class Instantiable(object):
     instance_name : str
+
     #f instantiate
     def instantiate(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
         pass
+
     #f add_connectivity
     def add_connectivity(self, hwex:'HardwareDescription', connectivity:'Connectivity') -> None:
         pass
+
+    #f set_run_time - may not be provided
+    def set_run_time(self, num_cycles:int) -> None: ...
+
     #f passed
     def passed(self) -> bool:
         return True

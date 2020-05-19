@@ -160,7 +160,7 @@ class Hardware(object):
             self.hw_desc_th = HardwareDescription(self)
             self._engine.describe_hw(self.hw_desc_th)
             pass
-        except e:
+        except Exception as e:
             self.verbose.error("Failed to build - exception %s"%str(e))
             pass
         self.display_all_errors()
@@ -190,12 +190,12 @@ class Hardware(object):
         return True
 
     #f display_all_errors
-    def display_all_errors( self, max:int=10000, force_exception=True )->None:
+    def display_all_errors( self, max:int=10000, force_exception:bool=True )->None:
         # self.verbose.error("Check errors")
         passed = True
         for i in range(max):
             x = self._engine.get_error(i)
-            if x==None: break
+            if x is None: break
             (level,err) = x
             if level>=2: passed=False
             self.verbose.error("%s"%err)
@@ -206,7 +206,11 @@ class Hardware(object):
         pass
 
     #f ensure_waves
-    def ensure_waves(self, x):
+    def ensure_waves(self, x:SimulationExecFile) -> None:
+        """
+        Currently the engine module needs a SimulationExecFile that has reached exec_init to create the VCD file object
+        This is a flaw in the engine
+        """
         self._engine.create_vcd_file(x)
         pass
 

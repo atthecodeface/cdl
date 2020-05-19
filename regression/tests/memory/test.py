@@ -8,7 +8,7 @@ module_root = os.path.dirname(inspect.getfile(xxx))
 from cdl.sim import ThExecFile            as ThExecFile
 from cdl.sim import HardwareThDut, OptionsDict
 from cdl.sim import TestCase
-from cdl.sim import load_mif
+from cdl.utils import Memory
 
 from typing import Optional, Type, Any
 
@@ -40,17 +40,20 @@ class single_port_memory_th(ThExecFile):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = load_mif(self.test_vector_mif, acknowledge_deprecated=True)
+        self.test_vectors = Memory()
+        with open(self.test_vector_mif) as f:
+            self.test_vectors.load_legacy(f)
+            pass
         self.read_not_write_0.reset(1)
         self.write_enable_0.reset(0)
         self.bfm_wait(1)
         tv_addr = 0
         last_data_0 : int
         while True:
-            rnw_0 = self.test_vectors[tv_addr]
-            ben_0 = self.test_vectors[tv_addr+1]
-            addr_0 = self.test_vectors[tv_addr+2]
-            data_0 = self.test_vectors[tv_addr+3]
+            rnw_0  = self.test_vectors.get_exc(tv_addr)
+            ben_0  = self.test_vectors.get_exc(tv_addr+1)
+            addr_0 = self.test_vectors.get_exc(tv_addr+2)
+            data_0 = self.test_vectors.get_exc(tv_addr+3)
             tv_addr += 4
             if rnw_0 > 256:
                 break
@@ -108,7 +111,10 @@ class dual_port_memory_th(ThExecFile):
         last_rnw_0 = 0
         last_rnw_1 = 0
         failure = 0
-        self.test_vectors = load_mif(self.test_vector_mif, acknowledge_deprecated=True)
+        self.test_vectors = Memory()
+        with open(self.test_vector_mif) as f:
+            self.test_vectors.load_legacy(f)
+            pass
         self.read_not_write_0.reset(1)
         self.write_enable_0.reset(0)
         self.read_not_write_1.reset(1)
@@ -119,14 +125,14 @@ class dual_port_memory_th(ThExecFile):
         last_data_0 : int
         last_data_1 : int
         while True:
-            rnw_0  = self.test_vectors[tv_addr]
-            ben_0  = self.test_vectors[tv_addr+1]
-            addr_0 = self.test_vectors[tv_addr+2]
-            data_0 = self.test_vectors[tv_addr+3]
-            rnw_1  = self.test_vectors[tv_addr+4]
-            ben_1  = self.test_vectors[tv_addr+5]
-            addr_1 = self.test_vectors[tv_addr+6]
-            data_1 = self.test_vectors[tv_addr+7]
+            rnw_0  = self.test_vectors.get_exc(tv_addr)
+            ben_0  = self.test_vectors.get_exc(tv_addr+1)
+            addr_0 = self.test_vectors.get_exc(tv_addr+2)
+            data_0 = self.test_vectors.get_exc(tv_addr+3)
+            rnw_1  = self.test_vectors.get_exc(tv_addr+4)
+            ben_1  = self.test_vectors.get_exc(tv_addr+5)
+            addr_1 = self.test_vectors.get_exc(tv_addr+6)
+            data_1 = self.test_vectors.get_exc(tv_addr+7)
             tv_addr += 8
             if rnw_0 > 256:
                 break
