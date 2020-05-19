@@ -43,9 +43,9 @@ class HardwareThDut(Hardware):
     """
     Simple instantiation of a module with just clock and reset, and some specified th ports
     """
-    wave_hierarchies = []
+    wave_hierarchies : Dict[str,List[str]] = {} # user_key -> list of module names (with + for hierarchy)
     module_name = ""
-    loggers = []
+    loggers : Dict[str,OptionsDict] = {} # any key, then options for that se_logger module
     clock_half_period = 1
     clock_desc     = [ ("clk",(0,None,None)), ]
     reset_desc     : Dict[str,Any] = {"name":"reset_n", "init_value":0, "wait":7}
@@ -63,7 +63,7 @@ class HardwareThDut(Hardware):
         return TestHarnessModule(exec_file_object=self.th_exec_file_object_fn, **kwargs)
 
     #f __init__
-    def __init__(self, **kwargs) -> None: #, test_dict:Dict[str,object]):
+    def __init__(self, **kwargs:Any) -> None: #, test_dict:Dict[str,object]):
         self.wave_file = self.__class__.__module__+".vcd"
 
         children :List[Instantiable] = []

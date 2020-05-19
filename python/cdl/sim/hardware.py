@@ -239,7 +239,7 @@ class Hardware(object):
         """
         Step for n cycles.
         """
-        Engine.step(self._engine, cycles, 1)
+        Engine.step(self._engine, cycles)
         self.display_all_errors()
         pass
 

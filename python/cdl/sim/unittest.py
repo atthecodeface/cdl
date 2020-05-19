@@ -4,7 +4,7 @@ from .hardware import Hardware
 class TestCase(unittest.TestCase):
     hw: Type[Hardware]
     waves_filename = "waves"
-    def run_test(self, run_time=1000, waves=[], hw_args={}):
+    def run_test(self, run_time:int=1000, waves:List[str]=[], hw_args:Dict[str,Any]={}) -> None:
         hw = self.hw(**hw_args)
         hw.reset()
         hw.set_run_time(run_time)
