@@ -15,7 +15,7 @@
 
 import sys, os
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
-from typing_extensions import Protocol
+# from typing_extensions import Protocol
 
 #a Exceptions
 class PyCDLError(Exception):

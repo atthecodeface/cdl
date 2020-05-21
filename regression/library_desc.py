@@ -1,5 +1,5 @@
 import cdl_desc
-from cdl_desc import CdlModule, CModel, CSrc
+from cdl_desc import CdlModule, CModel, CSrc, CdlVerilatedModule
 
 class Library(cdl_desc.Library):
     name="cdl_regression"
@@ -60,6 +60,8 @@ class VectorModules(cdl_desc.Modules):
     modules += [ CdlModule("vector_op_1") ]
     modules += [ CdlModule("vector_op_2") ]
     modules += [ CdlModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
+
+    modules += [ CdlVerilatedModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
     pass
 
 class StructModules(cdl_desc.Modules):

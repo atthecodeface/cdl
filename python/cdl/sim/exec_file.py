@@ -14,7 +14,7 @@
 """
 from .base import BaseExecFile
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar
-from typing_extensions import Protocol
+# from typing_extensions import Protocol
 from typing import TYPE_CHECKING
 
 #a For exec_file
