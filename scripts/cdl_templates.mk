@@ -438,7 +438,7 @@ $2/V$3.cpp: ${BUILD_STAMPS}/verilog
 
 $2/V$3__ALL.a: $2/V$3.cpp
 	@echo "cpp for verilate $3"
-	(cd $2 && make CFLAGS=${VERILATOR_C_FLAGS} VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
+	(cd $2 && make CFLAGS="${VERILATOR_C_FLAGS}" VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
 
 LIB__$1__CLEAN_TARGETS += $2/V$3__ALL.a $2/V$3.h $2/V$3__Syms.h $${VLIB__$3__H} $${VLIB__$3__SYMS} $${VLIB__$3__LIB}
 
