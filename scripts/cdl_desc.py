@@ -397,7 +397,7 @@ class BuildableGroup(object):
 
     #f new_subclasses
     @classmethod
-    def new_subclasses(cls) -> List[Type[BuildableGroup]]:
+    def new_subclasses(cls) -> List[Type['BuildableGroup']]:
         l = []
         for m in cls.__subclasses__():
             if hasattr(m,"has_been_imported") and m.has_been_imported: continue
