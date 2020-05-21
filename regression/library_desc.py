@@ -1,5 +1,5 @@
 import cdl_desc
-from cdl_desc import CdlModule, CModel
+from cdl_desc import CdlModule, CModel, CSrc
 
 class Library(cdl_desc.Library):
     name="cdl_regression"
@@ -9,6 +9,15 @@ class CModels(cdl_desc.Modules):
     name = "cmodels"
     modules = []
     modules += [ CModel("c_log_toggle", src_dir="tests/log") ]
+    modules += [ CSrc("csrc_test", src_dir="tests/log") ]
+
+class Executable(cdl_desc.Executable):
+    name     = "exec_me"
+    src_dir  = "tests/csrc"
+    cpp_include_dirs = ["tests/csrc", "tests/log"]
+    srcs = []
+    srcs += [ CSrc("exec_me") ]
+    pass
 
 class SimpleModules(cdl_desc.Modules):
     name = "simple"
