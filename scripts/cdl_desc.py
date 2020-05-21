@@ -153,8 +153,14 @@ class Module(object):
     def validate(self) -> None:
         for k in self.inherit:
             if hasattr(self, k) and hasattr(self.parent,k):
-                if getattr(self, k) is None:
-                    setattr(self, k, getattr(self.parent,k))
+                self_value = getattr(self, k)
+                parent_value = getattr(self.parent,k)
+                if self_value is None:
+                    setattr(self, k, parent_value)
+                    pass
+                elif type(self_value) is list:
+                    self_value = self_value[:] + parent_value
+                    setattr(self, k, self_value)
                     pass
                 pass
             pass
@@ -320,7 +326,6 @@ class CModel(Module):
                  cpp_defines:Dict[str,str] = {},
                  **kwargs:Any):
         Module.__init__(self, model_name, **kwargs)
-        assert model_name is not ""
         self.cpp_filename     = self.value_or_default(cpp_filename, model_name)
         self.obj_filename     = self.value_or_default(obj_filename, self.cpp_filename)
         self.cpp_include_dirs = cpp_include_dirs + self.cpp_include_dirs
@@ -380,7 +385,7 @@ class CLibrary(Module):
     #libs["c"].append( object )
     pass
 
-#c BuildableGroup - parent class for Modules/Executables, which are subclassed in library_desc.py
+#c BuildableGroup - parent class for Modules/Executable, which are subclassed in library_desc.py
 class BuildableGroup(object):
     #t Instance types
     name    : str
@@ -454,8 +459,8 @@ class Modules(BuildableGroup):
     #f All done
     pass
 
-#c Executables - subclassed in library_desc.py files
-class Executables(BuildableGroup):
+#c Executable - subclassed in library_desc.py files
+class Executable(BuildableGroup):
     #t Instance types
     cpp_include_dirs : List[str]  = []
     srcs             : List[CSrc] = []
@@ -626,7 +631,7 @@ class Library:
     def __init__(self, library_path:Path):
         self.path = library_path
         self.modules          = Modules.new_subclasses()
-        self.executables      = Executables.new_subclasses()
+        self.executables      = Executable.new_subclasses()
         self.verilated_models = VerilatedModels.new_subclasses()
         self.buildables = []
         self.buildables += self.modules

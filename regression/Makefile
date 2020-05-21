@@ -40,8 +40,12 @@ help:
 regress_python: ${PYSIM}
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
 
+do_exec_me: all
+	(cd ${BUILD_ROOT} && ./cdl_regression_exec_me )
+
 local_cdl:
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && ./configure --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)
 
 # regress_batch:
 # 	CDL_ROOT=${CDL_ROOT} ./regress
