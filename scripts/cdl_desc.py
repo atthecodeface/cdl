@@ -140,7 +140,7 @@ class Module(object):
     cpp_include_dirs : List[str] = [] # so they can be inherited
     cdl_include_dirs : List[str] = [] # so they can be inherited
     parent           : 'BuildableGroup'
-    inherit          = ["src_dir", "include_dir"]
+    inherit          = ["src_dir"]
     def write_makefile(self, write:Writer, library_name:str) -> None: ...
     
     #f __init__
@@ -151,6 +151,7 @@ class Module(object):
 
     #f validate
     def validate(self) -> None:
+        assert not hasattr(self, "include_dir")
         for k in self.inherit:
             if hasattr(self, k) and hasattr(self.parent,k):
                 self_value = getattr(self, k)
@@ -287,7 +288,6 @@ class CdlModule(Module):
         """
         r = "$(eval $(call cdl_template,"
         cdl_include_dir_option = ""
-        assert not hasattr(self, "include_dir")
         for i in self.cdl_include_dirs:
             cdl_include_dir_option += "--include-dir "+self.parent.get_path_str(i)+" "
             pass
@@ -309,6 +309,111 @@ class CdlModule(Module):
         write(r)
         pass
 
+    #f All done
+    pass
+
+#c CdlVerilatedModule - subclassed in library_desc.py files
+class CdlVerilatedModule(CdlModule):
+    cdl_include_dirs : List[str]     = []
+    force_includes   : List[str]     = []
+    cdl_filename : str
+    model_name : str
+    cpp_filename : str
+    obj_filename : str
+    #f __init__
+    def __init__(self, model_name:str,
+                 cdl_filename :Optional[str]= None,
+                 cpp_filename :Optional[str]= None,
+                 obj_filename :Optional[str]= None,
+                 top_module   :Optional[str]= None,
+                 extra_cdlflags   :Dict[str,str] = {},
+                 options   :Dict[str,bool] = {},
+                 constants :Dict[str,object]   = {}, # dictionary of constant name => value for compilation
+                 types     :Dict[str,str]      = {}, # dictionary of source type => desired type for compilation
+                 instance_types :Dict[str,str] = {}, # dictionary of source module type => desired type for compilation
+                 cdl_module_name : Optional[str] =None, # Name of module in CDL file to be mapped to model_name if None
+                 **kwargs:Any):
+        Module.__init__(self, model_name, **kwargs)
+        self.top_module       = self.value_or_default(top_module, model_name)   # toplevel verilog module the CDL matches
+        self.cdl_filename     = self.value_or_default(cdl_filename, model_name) # To get the clocks, inputs and outputs
+        self.cpp_filename     = self.value_or_default(cpp_filename, "cwv__"+model_name)
+        self.obj_filename     = self.value_or_default(obj_filename, "cwv__"+model_name)
+        self.extra_cdlflags   = self.value_or_default(extra_cdlflags, self.extra_cdlflags)
+        self.cdl_module_name  = cdl_module_name
+        self.constants        = constants
+        self.types            = types
+        self.instance_types   = instance_types
+        self.cdl_options = self.CdlOptions()
+        self.set_attr_options(self.cdl_options, options)
+        pass
+
+    #f cdl_flags_string
+    def cdl_flags_string(self) -> str:
+        """
+        Return string of flags required from the properties
+        """
+        r = self.cdl_options.cdl_flags()
+        if self.cdl_module_name is not None:
+            r += ["--remap-module-name %s=%s"%(self.cdl_module_name, self.model_name)]
+            pass
+        for (n,v) in self.constants.items():
+            r += ["--constant %s=%s"%(n,str(v))]
+            pass
+        for (n,v) in self.types.items():
+            r += ["--type-remap %s=%s"%(n,str(v))]
+            pass
+        for (n,v) in self.instance_types.items():
+            # r += ["--remap-instance-type %s.%s=%s"%(self.model_name,n,str(v))]
+            r += ["--remap-instance-type %s.%s=%s"%(self.cdl_module_name,n,str(v))]
+            pass
+        return " ".join(r)
+
+    #f write_makefile
+    def write_makefile(self, write:Writer, library_name:str) -> None:
+        """
+        Write the makefile entries for an make_verilator_lib invocation
+        """
+
+        other_verilog_files = [""]
+        other_verilog_dirs = [""]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
+        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
+        # other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
+        # other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
+        other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
+
+        r = "$(eval $(call make_verilator_lib_template,"
+        make_verilator_lib_template = [
+            # library_name,
+            "${BUILD_DIR}", # Output directory (BUILD_DIR is library-specific)
+            "${BUILD_DIR}/verilate", # where to build verilator stuff
+            self.top_module, # module (top for verilator)
+            "${BUILD_DIR}", # Source verilog directory
+            " ".join(other_verilog_dirs),
+            " ".join(other_verilog_files),
+        ]
+        r += ",".join(make_verilator_lib_template)
+        r += "))"
+        write(r)
+
+        r = "$(eval $(call make_cwv_template,"
+        make_cwv_template = [
+            library_name,
+            self.parent.get_path_str(self.src_dir),
+            "${BUILD_DIR}",
+            self.cdl_filename+".cdl", # This provides the clocks, inputs and outputs of the module
+            self.model_name, # So the templates have premunged, which is what the verilate templates used
+            self.cpp_filename+".cpp",
+            self.obj_filename+".o",
+            "${CDL_EXTRA_FLAGS} "+self.cdl_flags_string(),
+            # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
+            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string(),
+            "${BUILD_DIR}/verilate",
+        ]
+        r += ",".join(make_cwv_template)
+        r += "))"
+        write(r)
+        pass
     #f All done
     pass
 
@@ -525,105 +630,6 @@ class Executable(BuildableGroup):
     #f All done
     pass
 
-#c VerilatedModels - subclassed in library_desc.py files - MOVE TO VerilatedCdlModule
-class VerilatedModels(BuildableGroup):
-    cdl_include_dirs : List[str]     = []
-    force_includes   : List[str]     = []
-    cdl_filename : str
-    model_name : str
-    cpp_filename : str
-    obj_filename : str
-    #f validate - classmethod
-    @classmethod
-    def validate(cls) -> Optional[str]:
-        """
-        Invoked while examining library_desc.py to validate the file a little
-        """
-        if type(cls.name)!=str: return "name must be a string (but is %s)"%(str(type(cls.name)))
-        return None
-    #f __init__
-    def __init__(self, **kwargs:Any):
-        BuildableGroup.__init__(self, **kwargs)
-        pass
-    #f write_makefile_entry
-    def write_makefile_entry(self, write:Writer, library_name:str) -> None:
-        """
-        Write a makefile line for an make_verilator_lib invocation
-        """
-        r = "$(eval $(call make_verilator_lib,"
-        # make_verilator_lib,
-        # ${BUILD_ROOT},
-        # ${BUILD_VERILATOR_DIR},
-        # bbc_micro_de1_cl,
-        # ${BUILD_ROOT}/verilog/,
-        # ${BUILD_ROOT}/verilog,
-        # ${VERILOG_DIR}/*v ${VERILOG_DIR}/verilate/srams.v
-        other_verilog_files = [""]
-        other_verilog_dirs = [""]
-        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
-        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
-        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
-        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
-        other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
-        make_verilator_lib_template = [# library_name,
-            "${BUILD_DIR}", # Output directory (BUILD_DIR is library-specific)
-            "${BUILD_DIR}/verilate", # where to build verilator stuff
-            self.name, # module (top for verilator)
-            "${BUILD_DIR}", # Source verilog directory
-            " ".join(other_verilog_dirs),
-            " ".join(other_verilog_files),
-        ]
-        r += ",".join(make_verilator_lib_template)
-        r += "))"
-        write("VERILATOR = PATH=${VERILATOR_ROOT}/bin:${PATH} ${VERILATOR_ROOT}/bin/verilator")
-        write("VERILATOR_C_FLAGS = -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14")
-        write("VERILATOR_LIBS = -pthread -lpthread -latomic -lm -lstdc++")
-        write(r)
-
-        cdl_include_dir_option = ""
-        for i in self.cdl_include_dirs:
-            cdl_include_dir_option += "--include-dir "+self.get_path_str(i)+" "
-            pass
-        for i in self.force_includes:
-            cdl_include_dir_option += "--force-include "+i+" "
-            pass
-        r = "$(eval $(call make_cwv,"
-        other_verilog_files = [""]
-        other_verilog_dirs = [""]
-        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
-        other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
-        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
-        other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
-        other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
-        make_verilator_lib_template = [
-            library_name,
-            self.get_path_str(self.src_dir),
-            "${BUILD_DIR}",
-            self.cdl_filename+".cdl",
-            self.model_name, # So the templates have premunged, which is what the verilate templates used
-            "cwv__"+self.cpp_filename+".cpp",
-            "cwv__"+self.obj_filename+".o",
-            "${CDL_EXTRA_FLAGS} "+cdl_include_dir_option, # +self.cdl_flags_string()
-            # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
-            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string()+" "+cdl_include_dir_option,
-            "${BUILD_DIR}/verilate",
-        ]
-        r += ",".join(make_verilator_lib_template)
-        r += "))"
-        write(r)
-        pass
-    #f makefile_write_entries
-    def makefile_write_entries(self, write:Writer, library_name:str) -> None:
-        """
-        Write any makefile entries required to build the verilated object
-        """
-        #for m in self.srcs:
-        #    m.write_makefile(write, library_name, executable=self.name)
-        #    pass
-        self.write_makefile_entry(write, library_name)
-        pass
-    pass
-
 #c Library class - subclassed in library_desc.py files
 class Library:
     name : str
@@ -632,11 +638,9 @@ class Library:
         self.path = library_path
         self.modules          = Modules.new_subclasses()
         self.executables      = Executable.new_subclasses()
-        self.verilated_models = VerilatedModels.new_subclasses()
         self.buildables = []
         self.buildables += self.modules
         self.buildables += self.executables
-        self.buildables += self.verilated_models
         pass
     #f get_name
     def get_name(self) -> str:

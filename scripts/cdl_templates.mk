@@ -1,8 +1,9 @@
 #a Notes
 # Ubuntu 18.04 - VERILATOR_C_FLAGS needs -fPIC
 # Building threaded requires -ftls-model=local-dynamic
-VERILATOR_C_FLAGS += -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14 -fPIC -g -ftls-model=local-dynamic
-VERILATOR_LIBS    += -pthread -lpthread -latomic -lm -lstdc++
+VERILATOR_C_FLAGS ?= -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14 -fPIC -g -ftls-model=local-dynamic
+VERILATOR_LIBS    ?= -pthread -lpthread -latomic -lm -lstdc++
+VERILATOR         ?= PATH=${VERILATOR_ROOT}/bin:${PATH} ${VERILATOR_ROOT}/bin/verilator
 
 #a Variables if not defined yet
 CDL_SCRIPTS_DIR ?= ${CDL_ROOT}/lib/cdl
@@ -372,7 +373,7 @@ $1: ${MODEL_LIBS} ${MODEL_VERILATOR_OBJS} ${MODEL_VERILATOR_LIBS} $3
 
 endef
 
-#f make_cwv
+#f make_cwv_template
 # @param $1 library name
 # @param $2 cdl source directory
 # @param $3 output directory
@@ -382,7 +383,7 @@ endef
 # @param $7 object filename to go in output dir [model name .o]
 # @param $8 CDL options
 # @param $9 verilator build directory
-define make_cwv
+define make_cwv_template
 
 $3/$6 : $2/$4
 	@echo "CDL $4 -cwv $6"
@@ -403,8 +404,8 @@ LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7
 
 endef
 
-#f make_verilator_lib
-define make_verilator_lib
+#f make_verilator_lib_template
+define make_verilator_lib_template
 # @param $1 output directory (for .h file and V<module>.a archive)
 # @param $2 verilator build directory
 # @param $3 module (top for verilator)
@@ -434,7 +435,7 @@ $2/V$3__Syms.h: $2/V$3__ALL.a
 
 $2/V$3.cpp: ${BUILD_STAMPS}/verilog
 	@echo "verilate $3 $$< $$@"
-	${Q}${VERILATOR} --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
+	${Q}${VERILATOR} -CFLAGS "${VERILATOR_C_FLAGS}" --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
 
 $2/V$3__ALL.a: $2/V$3.cpp
 	@echo "cpp for verilate $3"

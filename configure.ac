@@ -82,6 +82,8 @@ PTHREAD_CXXFLAGS="$pthread_cxxflags"
 AC_SUBST([PTHREAD_CFLAGS])
 AC_SUBST([PTHREAD_CXXFLAGS])
 
+
+BUILD_VERILATED="no"
 AC_ARG_VAR([VERILATOR_ROOT],  [Path to bin/verilator*])
 AC_ARG_VAR([VERILATOR_SHARE], [Path to include/verilated.h etc])
 AS_IF([test "x$ac_cv_env_VERILATOR_ROOT" == x],
@@ -105,10 +107,12 @@ AS_IF([test "x$ac_cv_env_VERILATOR_ROOT" != x],
             )]
      VERILATOR_ROOT=$ac_cv_env_VERILATOR_ROOT
      VERILATOR_SHARE=$ac_cv_env_VERILATOR_SHARE
+     BUILD_VERILATED="yes"
      AC_MSG_RESULT([:$VERILATOR_SHARE ; $VERILATOR_ROOT])
      ,
      AC_MSG_RESULT([not being supported])
      )
+AC_SUBST([BUILD_VERILATED])
 
 AC_OUTPUT
 
