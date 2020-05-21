@@ -15,10 +15,12 @@
 REGRESSION_MAKEFILE_DIR = $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 # CDL_ROOT should have bin/cdl, lib/cdl, libexec/cdl, lib/cdl/python/cdl
-CDL_ROOT     ?= $(abspath $(CURDIR)/../build_cdl/install)
-# CDL_ROOT ?= $(abspath $(dir $(abspath $(shell which cdl)))/.. )
+# Expect for local build we have done
+# (cd ${REGRESSION_MAKEFILE_DIR}/.. && ./configure --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
+# make MODELS_MAKE= CDL_ROOT=${REGRESSION_MAKEFILE_DIR}/../install SRC_ROOT=${REGRESSION_MAKEFILE_DIR} regress_python
+CDL_ROOT     ?= ${REGRESSION_MAKEFILE_DIR}/../install
 
-include ${CDL_ROOT}/lib/cdl/cdl_templates.mk
+-include ${CDL_ROOT}/lib/cdl/cdl_templates.mk
 SRC_ROOT   = $(abspath ${CURDIR})
 OTHER_SRCS =
 BUILD_ROOT ?= $(abspath ${CURDIR})/build
@@ -37,6 +39,9 @@ help:
 
 regress_python: ${PYSIM}
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
+
+local_cdl:
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && ./configure --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
 
 # regress_batch:
 # 	CDL_ROOT=${CDL_ROOT} ./regress

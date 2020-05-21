@@ -1,3 +1,9 @@
+#a Notes
+# Ubuntu 18.04 - VERILATOR_C_FLAGS needs -fPIC
+# Building threaded requires -ftls-model=local-dynamic
+VERILATOR_C_FLAGS += -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14 -fPIC -g -ftls-model=local-dynamic
+VERILATOR_LIBS    += -pthread -lpthread -latomic -lm -lstdc++
+
 #a Variables if not defined yet
 CDL_SCRIPTS_DIR ?= ${CDL_ROOT}/lib/cdl
 CDL_BIN_DIR     ?= ${CDL_ROOT}/bin
@@ -31,11 +37,8 @@ ifneq (${VERILATOR_SHARE},)
 MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
 endif
 
-VERILATOR_C_FLAGS += -DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -faligned-new -DVL_THREADED -std=gnu++14
-VERILATOR_LIBS    += -pthread -lpthread -latomic -lm -lstdc++
-
 ${BUILD_ROOT}/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp
-	g++ -c -g $${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
+	${Q}${CXX} -c ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
 
 endef
 
@@ -435,7 +438,7 @@ $2/V$3.cpp: ${BUILD_STAMPS}/verilog
 
 $2/V$3__ALL.a: $2/V$3.cpp
 	@echo "cpp for verilate $3"
-	(cd $2 && make CFLAGS=-g VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
+	(cd $2 && make CFLAGS=${VERILATOR_C_FLAGS} VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
 
 LIB__$1__CLEAN_TARGETS += $2/V$3__ALL.a $2/V$3.h $2/V$3__Syms.h $${VLIB__$3__H} $${VLIB__$3__SYMS} $${VLIB__$3__LIB}
 
