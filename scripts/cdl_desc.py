@@ -142,7 +142,17 @@ class Module(object):
     parent           : 'BuildableGroup'
     inherit          = ["src_dir"]
     def write_makefile(self, write:Writer, library_name:str) -> None: ...
-    
+
+    #f write_makefile_debug_comment
+    def write_makefile_debug_comment(self, write:Writer):
+        write("# %s"%(self.__class__.__name__))
+        for n in dir(self):
+            if n[0]!='_':
+                write("#    %s : %s"%(n,str(getattr(self,n))))
+                pass
+            pass
+        pass
+        
     #f __init__
     def __init__(self, model_name:str, src_dir:Optional[str]=None):
         self.model_name = model_name
@@ -192,8 +202,28 @@ class Module(object):
 #c CdlModule
 class CdlModule(Module):
     """
-    --remap-implementation-name X=Y: changes implementation_name of module X to be Y - this permits many C models of the same module. Not used
-    --remap-registered-name X=Y: changes just the name used for the C registration, not the output name as well (which rmn does). Not used
+    This class describes a model whose source is in CDL
+
+    The output generated is a CPP model for simulation with CDL
+    Normally a verilog implementation is also produced
+
+    The CDL source file should, for this build system, include just a single module.
+    The *module name* is normally the name of the *model*.
+    However, it may be, for example, that a CDL source file provides a generic module,
+    with types or constants that are specified for this particular *model*.
+    In this case, the *cdl_module_name* should be supplied.
+
+    The CPP, compiled object file, verilog files are assumed to be <model>.<suffix>
+    These may be overridden if required.
+
+    The CPP simulation model normally has the name *model*.
+    However, sometimes there is a need for more than one CPP simulation model implementation
+    for a particular CPP simulation model name. For example, a verilated model, and a plain model;
+    or a golden CPP model written by hand and a CDL implementation.
+    The standard CDL to CPP compilation of CDL <module name> produces a CPP simulation model called
+    <module name>; this can be changed to *name* with registered_name=*name*. The particular implementation
+    that the CPP simulation model provides is specified with *implementation_name*.
+
         if o=="vapi":
             options.append("--v_additional_port_include")
             options.append(v)
@@ -225,9 +255,22 @@ class CdlModule(Module):
             return r
         pass
     #t Instance properties
+    cdl_module_name  : Optional[str]    = None # Name of module within CDL file to be analyzed
+    cdl_filename     : str # Name of .cdl file (not including .cdl) in src_dir
+    cpp_filename     : str # Name of output .cpp file without suffix
+    obj_filename     : str # Name of output .o file without suffix
+    verilog_filename : str # Name of output .v file without suffix
+    registered_name  : Optional[str] # Name of CDL simulation model, if to be specified
+    tool_name        : Optional[str] # Name of e.g. verilated model that a CDL wrapper should use
+    implementation   : Optional[str] # Name of CDL simulation model implementation, if to be specified
+    cdl_include_dirs : List[str]
+    force_includes   : List[str]
     extra_cdlflags   : Dict[str,str]    = {}
-    constants        : Dict[str,object] = {}
-    cdl_module_name  : Optional[str]    = None
+    constants        : Dict[str,object] = {} # Dictionary of <constant name> -> value to use for this instance
+    types            : Dict[str,str]    = {} # Dictionary of CDL type -> actual CDL type to use for this instance
+    instance_types   : Dict[str,str]    = {} # Dictionary of <submodule instance type -> actual submodule type to use for this instance
+    cdl_options      : CdlOptions
+    build_options    : Dict[str,bool]   = {}
     inherit = Module.inherit[:] + ["cdl_include_dirs"]
     #f __init__
     def __init__(self, model_name:str,
@@ -235,28 +278,64 @@ class CdlModule(Module):
                  cpp_filename :Optional[str]= None,
                  obj_filename :Optional[str]= None,
                  verilog_filename :Optional[str]= None,
+                 cdl_module_name  :Optional[str] =None,
+                 registered_name  :Optional[str]= None,
+                 tool_name        :Optional[str]= None,
+                 implementation   :Optional[str]= None,
                  cdl_include_dirs :List[str] = [],
                  force_includes   :List[str] = [],
+                 build_options    :Dict[str,bool] = {},
                  extra_cdlflags   :Dict[str,str] = {},
                  options   :Dict[str,bool] = {},
                  constants :Dict[str,object]   = {}, # dictionary of constant name => value for compilation
                  types     :Dict[str,str]      = {}, # dictionary of source type => desired type for compilation
                  instance_types :Dict[str,str] = {}, # dictionary of source module type => desired type for compilation
-                 cdl_module_name : Optional[str] =None, # Name of module in CDL file to be mapped to model_name if None
                  **kwargs:Any):
+        """
+        This is a subclass of Module - which has a src_dir option too
+
+        *common options*
+
+        model_name MUST be supplied - it is the makefile target and used to supply default values for filenames
+        cdl_filename - name of CDL file in src_dir without .cdl suffix - defaults to model_name
+        cdl_include_dirs - list of include directories within the library for includes
+        force_includes - list of filenames within include path that are included in CDL compilation as if the first line of the CDL were such includes; used, for example, to force include definition of types for parameterized FIFOs.
+        constants - dictionary of name -> value for constants that override definitions in the CDL source code and header files; used to, for example, specify FIFO sizes on parameterized FIFOs.
+        types - dictionary of generic_type_name -> type_name for types that override those used in the CDL source code and header files; used to, for example, specify data types of parameterized FIFOs.
+        instance_types - dictionary of source module_type_name -> module_type_name to use, for modules that override those used in the CDL source code; used to, for example, specify RAMs for parmaterized FIFOs that use RAMs.
+        build_options - dictionary of option -> bool; option can only be 'verilog' at present; use to disable build of verilog from CDL
+
+        *uncommon options* - as in, not used by even experienced hackers
+
+        cpp_filename - name of output CPP file
+        obj_filename - name of output OBJ file
+        verilog_filename - name of output verilog file
+        cdl_module_name - name of module in CDL file if different to *cdl_filename*
+        registered_name - name of CPP simulation model as seen by simulation Python files
+        implementation_name - name of CPP simulation model implementation as seen by simulation Python files
+        extra_cdlflags - dictionary of str->str to cover things not provided for
+        options - dictionary of CDL option -> bool, to enable assertions etc
+        """
         Module.__init__(self, model_name, **kwargs)
         self.cdl_filename     = self.value_or_default(cdl_filename, model_name)
         self.cpp_filename     = self.value_or_default(cpp_filename, model_name)
         self.obj_filename     = self.value_or_default(obj_filename, model_name)
         self.verilog_filename = self.value_or_default(verilog_filename, model_name)
+        self.registered_name  = registered_name
+        self.tool_name        = tool_name
+        self.implementation   = implementation
         self.cdl_include_dirs = cdl_include_dirs + self.cdl_include_dirs
         self.extra_cdlflags   = self.value_or_default(extra_cdlflags, self.extra_cdlflags)
         self.force_includes   = force_includes
         self.cdl_module_name  = cdl_module_name
+        if cdl_filename is not None and cdl_module_name is None:
+            self.cdl_module_name  = cdl_filename
+            pass
         self.constants        = constants
         self.types            = types
         self.instance_types   = instance_types
-        self.cdl_options = self.CdlOptions()
+        self.build_options    = dict(build_options.items())
+        self.cdl_options      = self.CdlOptions()
         self.set_attr_options(self.cdl_options, options)
         pass
 
@@ -265,19 +344,37 @@ class CdlModule(Module):
         """
         Return string of flags required from the properties
         """
-        r = self.cdl_options.cdl_flags()
-        if self.cdl_module_name is not None:
-            r += ["--remap-module-name %s=%s"%(self.cdl_module_name, self.model_name)]
+        r = ["${CDL_EXTRA_FLAGS} "]
+        for i in self.cdl_include_dirs:
+            r += ["--include-dir "+self.parent.get_path_str(i)+" "]
             pass
-        for (n,v) in self.constants.items():
-            r += ["--constant %s=%s"%(n,str(v))]
+        for i in self.force_includes:
+            r += ["--force-include "+i+" "]
+            pass
+        r += self.cdl_options.cdl_flags()
+        for (n,v) in self.extra_cdlflags.items():
+            r += ["%s=%s"%(n,str(v))]
+            pass
+        for (n,vo) in self.constants.items():
+            r += ["--constant %s=%s"%(n,str(vo))]
             pass
         for (n,v) in self.types.items():
             r += ["--type-remap %s=%s"%(n,str(v))]
             pass
+        if self.cdl_module_name is not None:
+            r += ["--remap-module-name %s=%s"%(self.cdl_module_name, self.model_name)]
+            pass
         for (n,v) in self.instance_types.items():
-            # r += ["--remap-instance-type %s.%s=%s"%(self.model_name,n,str(v))]
             r += ["--remap-instance-type %s.%s=%s"%(self.cdl_module_name,n,str(v))]
+            pass
+        if self.implementation is not None:
+            r += ["--remap-implementation-name %s=%s"%(self.cdl_module_name,self.implementation)]
+            pass
+        if self.registered_name is not None:
+            r += ["--remap-registered-name %s=%s"%(self.cdl_module_name,self.registered_name)]
+            pass
+        if self.tool_name is not None:
+            r += ["--remap-tool-name %s=%s"%(self.cdl_module_name,self.tool_name)]
             pass
         return " ".join(r)
 
@@ -286,14 +383,11 @@ class CdlModule(Module):
         """
         Write a makefile line for a cdl_template invocation
         """
+        verilog_filename = self.verilog_filename+".v"
+        if "verilog" in self.build_options and not self.build_options["verilog"]:
+            verilog_filename=""
+            pass
         r = "$(eval $(call cdl_template,"
-        cdl_include_dir_option = ""
-        for i in self.cdl_include_dirs:
-            cdl_include_dir_option += "--include-dir "+self.parent.get_path_str(i)+" "
-            pass
-        for i in self.force_includes:
-            cdl_include_dir_option += "--force-include "+i+" "
-            pass
         cdl_template = [library_name,
                         self.parent.get_path_str(self.src_dir),
                         "${BUILD_DIR}",
@@ -301,8 +395,8 @@ class CdlModule(Module):
                         self.model_name,
                         self.cpp_filename+".cpp",
                         self.obj_filename+".o",
-                        self.verilog_filename+".v",
-                        "${CDL_EXTRA_FLAGS} "+self.cdl_flags_string()+" "+cdl_include_dir_option,
+                        verilog_filename,
+                        self.cdl_flags_string(),
                         ]
         r += ",".join(cdl_template)
         r += "))"
@@ -312,108 +406,123 @@ class CdlModule(Module):
     #f All done
     pass
 
-#c CdlVerilatedModule - subclassed in library_desc.py files
-class CdlVerilatedModule(CdlModule):
+#c CdlSimVerilatedModule - subclassed in library_desc.py files
+class CdlSimVerilatedModule(CdlModule):
+    """
+    This is a CPP simulation module only.
+
+    It requires a CDL file that provides the CDL module from which verilog
+    is produced
+    """
     cdl_include_dirs : List[str]     = []
     force_includes   : List[str]     = []
     cdl_filename : str
     model_name : str
     cpp_filename : str
     obj_filename : str
+    extra_verilog : List[str]
     #f __init__
     def __init__(self, model_name:str,
-                 cdl_filename :Optional[str]= None,
-                 cpp_filename :Optional[str]= None,
-                 obj_filename :Optional[str]= None,
-                 top_module   :Optional[str]= None,
-                 extra_cdlflags   :Dict[str,str] = {},
-                 options   :Dict[str,bool] = {},
-                 constants :Dict[str,object]   = {}, # dictionary of constant name => value for compilation
-                 types     :Dict[str,str]      = {}, # dictionary of source type => desired type for compilation
-                 instance_types :Dict[str,str] = {}, # dictionary of source module type => desired type for compilation
-                 cdl_module_name : Optional[str] =None, # Name of module in CDL file to be mapped to model_name if None
+                 cdl_filename     : Optional[str]= None,
+                 verilog_filename : Optional[str]= None,
+                 top_module       : Optional[str]= None,
+                 implementation   : Optional[str]= None,
+                 extra_verilog    : List[str]    = [],
                  **kwargs:Any):
-        Module.__init__(self, model_name, **kwargs)
-        self.top_module       = self.value_or_default(top_module, model_name)   # toplevel verilog module the CDL matches
-        self.cdl_filename     = self.value_or_default(cdl_filename, model_name) # To get the clocks, inputs and outputs
-        self.cpp_filename     = self.value_or_default(cpp_filename, "cwv__"+model_name)
-        self.obj_filename     = self.value_or_default(obj_filename, "cwv__"+model_name)
-        self.extra_cdlflags   = self.value_or_default(extra_cdlflags, self.extra_cdlflags)
-        self.cdl_module_name  = cdl_module_name
-        self.constants        = constants
-        self.types            = types
-        self.instance_types   = instance_types
-        self.cdl_options = self.CdlOptions()
-        self.set_attr_options(self.cdl_options, options)
+        self.verilog_filename    = self.value_or_default(verilog_filename, model_name)      # Source containing top module
+        self.top_module          = self.value_or_default(top_module, self.verilog_filename) # toplevel module inside source the CDL matches
+        implementation           = self.value_or_default(implementation, "verilated")
+        CdlModule.__init__(self,
+                           model_name       = model_name,
+                           cdl_filename     = cdl_filename,
+                           verilog_filename = self.verilog_filename,
+                           tool_name        = self.top_module,
+                           implementation   = implementation,
+                           **kwargs)
+        self.extra_verilog       = extra_verilog
+        self.build_options["verilog"] = False
         pass
-
-    #f cdl_flags_string
-    def cdl_flags_string(self) -> str:
-        """
-        Return string of flags required from the properties
-        """
-        r = self.cdl_options.cdl_flags()
-        if self.cdl_module_name is not None:
-            r += ["--remap-module-name %s=%s"%(self.cdl_module_name, self.model_name)]
-            pass
-        for (n,v) in self.constants.items():
-            r += ["--constant %s=%s"%(n,str(v))]
-            pass
-        for (n,v) in self.types.items():
-            r += ["--type-remap %s=%s"%(n,str(v))]
-            pass
-        for (n,v) in self.instance_types.items():
-            # r += ["--remap-instance-type %s.%s=%s"%(self.model_name,n,str(v))]
-            r += ["--remap-instance-type %s.%s=%s"%(self.cdl_module_name,n,str(v))]
-            pass
-        return " ".join(r)
 
     #f write_makefile
     def write_makefile(self, write:Writer, library_name:str) -> None:
         """
         Write the makefile entries for an make_verilator_lib invocation
         """
-
+        verilate_dir = "${BUILD_DIR}/verilate"  # where to build verilator stuff
         other_verilog_files = [""]
-        other_verilog_dirs = [""]
+        other_verilog_files += [self.verilog_filename]
+        other_verilog_dirs  = [""]
         other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/srams.v"]
         other_verilog_files += ["${CDL_VERILOG_DIR}/verilator/clock_gate_module.v"]
-        # other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/srw_srams.v"]
-        # other_verilog_files += ["${BUILD_DIR}/../../atcf_fpga/rtl/mrw_srams.v"]
+        for f in self.extra_verilog:
+            other_verilog_files += ["${BUILD_DIR}/%s"%(f)]
+            pass
         other_verilog_dirs += ["$(wildcard ${BUILD_DIR}/../*)"] # (hack)
 
         r = "$(eval $(call make_verilator_lib_template,"
         make_verilator_lib_template = [
-            # library_name,
+            library_name,
             "${BUILD_DIR}", # Output directory (BUILD_DIR is library-specific)
-            "${BUILD_DIR}/verilate", # where to build verilator stuff
+            verilate_dir,
             self.top_module, # module (top for verilator)
             "${BUILD_DIR}", # Source verilog directory
-            " ".join(other_verilog_dirs),
-            " ".join(other_verilog_files),
+            " ".join(other_verilog_dirs),  # searched for <module>.v
+            " ".join(other_verilog_files), # automatically included
         ]
         r += ",".join(make_verilator_lib_template)
         r += "))"
         write(r)
 
-        r = "$(eval $(call make_cwv_template,"
-        make_cwv_template = [
+        r = "$(eval $(call cwv_template,"
+        cwv_template = [
             library_name,
             self.parent.get_path_str(self.src_dir),
             "${BUILD_DIR}",
             self.cdl_filename+".cdl", # This provides the clocks, inputs and outputs of the module
-            self.model_name, # So the templates have premunged, which is what the verilate templates used
+            self.model_name,
+            self.top_module,
             self.cpp_filename+".cpp",
             self.obj_filename+".o",
-            "${CDL_EXTRA_FLAGS} "+self.cdl_flags_string(),
-            # The remap-module-name is not needed at present as CDL does this; CDL needs to know the name of the verilated module which it assumes is V<self.model_name>
-            # "${CDL_EXTRA_FLAGS} --remap-module-name %s=cwv__%s "%(self.model_name, self.model_name), # +self.cdl_flags_string(),
-            "${BUILD_DIR}/verilate",
+            self.cdl_flags_string(),
+            verilate_dir,
         ]
-        r += ",".join(make_cwv_template)
+        r += ",".join(cwv_template)
         r += "))"
         write(r)
         pass
+    #f All done
+    pass
+
+#c Verilog
+class Verilog(Module):
+    #t Instance properties
+    inherit = Module.inherit[:]
+
+    #f __init__
+    def __init__(self, model_name:str,
+                 verilog_filename:Optional[str] = None,
+                 **kwargs:Any):
+        Module.__init__(self, model_name, **kwargs)
+        self.verilog_filename = self.value_or_default(verilog_filename, model_name+".v")
+        pass
+
+    #f write_makefile
+    def write_makefile(self, write:Writer, library_name:str, executable:Optional[str]=None) -> None:
+        """
+        Write a makefile line for a verilog_template invocation
+        """
+        r = "$(eval $(call verilog_template,"
+        cpp_template = [library_name,
+                        self.parent.get_path_str(self.src_dir),
+                        "${BUILD_DIR}",
+                        self.verilog_filename,
+                        self.model_name,
+                        ]
+        r += ",".join(cpp_template)
+        r += "))"
+        write(r)
+        pass
+
     #f All done
     pass
 

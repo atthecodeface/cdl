@@ -1,5 +1,6 @@
 import cdl_desc
-from cdl_desc import CdlModule, CModel, CSrc, CdlVerilatedModule
+from cdl_desc import CdlModule, CModel, CSrc, CdlSimVerilatedModule, Verilog
+from typing import Dict, List
 
 class Library(cdl_desc.Library):
     name="cdl_regression"
@@ -40,14 +41,29 @@ class LogModules(cdl_desc.Modules):
     src_dir = "tests/log"
     modules = []
     modules += [ CdlModule("lfsr_log_tracker") ]
+    pass
+
+class VerilogModules(cdl_desc.Modules):
+    modules : List[cdl_desc.Module]
+    name = "verilog"
+    src_dir = "tests/verilog"
+    modules  = []
+    modules += [ Verilog("srw_rams") ]
+    modules += [ CModel("rams") ]
+    modules += [ CdlModule("ram_burst") ]
+    modules += [ Verilog("ram_burst_v") ]
+    modules += [ CdlSimVerilatedModule("ram_burst_v",
+                                       cdl_filename="ram_burst",
+                                       registered_name="ram_burst",
+                                       extra_verilog=["srw_rams.v"])]
 
 class VectorModules(cdl_desc.Modules):
     name = "vector"
     src_dir = "tests/vector"
     modules = []
-    modules += [ CdlModule("vector_toggle__width_16", constants={"width":16}, cdl_filename="vector_toggle", cdl_module_name="vector_toggle") ]
-    modules += [ CdlModule("vector_toggle__width_18", constants={"width":18}, cdl_filename="vector_toggle", cdl_module_name="vector_toggle") ]
-    modules += [ CdlModule("vector_toggle_complex__width_18",    constants={"width":18},  cdl_filename="vector_toggle_complex", cdl_module_name="vector_toggle_complex") ] #
+    modules += [ CdlModule("vector_toggle__width_16", constants={"width":16}, cdl_filename="vector_toggle") ]
+    modules += [ CdlModule("vector_toggle__width_18", constants={"width":18}, cdl_filename="vector_toggle") ]
+    modules += [ CdlModule("vector_toggle_complex__width_18",    constants={"width":18},  cdl_filename="vector_toggle_complex") ] #
     # , rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model") ]
     modules += [ CdlModule("vector_add__width_4", constants={"width":4}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
     modules += [ CdlModule("vector_add__width_8", constants={"width":8}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
@@ -61,7 +77,11 @@ class VectorModules(cdl_desc.Modules):
     modules += [ CdlModule("vector_op_2") ]
     modules += [ CdlModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
 
-    modules += [ CdlVerilatedModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
+    modules += [ CdlSimVerilatedModule("vector_sum_2__width_4_v",
+                                       verilog_filename="vector_sum_2__width_4",
+                                       cdl_filename="vector_sum_2",
+                                       constants={"width":4},
+    ) ]
     pass
 
 class StructModules(cdl_desc.Modules):
@@ -73,7 +93,7 @@ class StructModules(cdl_desc.Modules):
     modules += [ CdlModule("generic_fifo_hierarchy", cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_hierarchy"}) ] # force_includes=["dprintf.h"]
     #cdl struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
 
-class StructModules(cdl_desc.Modules):
+class ClockGateModules(cdl_desc.Modules):
     name = "struct"
     src_dir = "tests/clock_gate"
     modules = []

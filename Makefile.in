@@ -113,3 +113,7 @@ install: ${MK_build}
 	cd ${CDL_SRC_ROOT}/cdl_frontend        && ${SUBMAKE} install
 	cd ${CDL_SRC_ROOT}/python              && ${SUBMAKE} install
 	cd ${CDL_SRC_ROOT}/verilog             && ${SUBMAKE} install
+
+.PHONY: do_submake
+do_submake:
+	${SUBMAKE} ${SM}

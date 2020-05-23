@@ -43,7 +43,8 @@ add_test_suite(".tests.simple")
 add_test_suite(".tests.memory")
 add_test_suite(".tests.clock_gate")
 add_test_suite(".tests.log")
-# add_test_suite(".tests.instantiation")
+add_test_suite(".tests.verilog")
+add_test_suite(".tests.instantiation")
 
 tracer = trace.Trace(ignoredirs=[sys.prefix, sys.exec_prefix], trace=1, count=1)
 
