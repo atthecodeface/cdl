@@ -1381,7 +1381,6 @@ void c_md_target_c::cwv_output_static_variables(void)
     if (module->outputs) {
         output( 0, "/*v output_desc_%s */\n", module->output_name );
         output( 0, "static t_se_cma_output_desc output_desc_%s[] = {\n", module->output_name );
-        int signal_number = 0;
         for (auto signal=module->outputs; signal; signal=signal->next_in_list) {
             for (auto i=0; i<signal->instance_iter->number_children; i++) {
                 auto instance = signal->instance_iter->children[i];
@@ -1597,7 +1596,7 @@ void c_md_target_c::cwv_output_static_functions(void)
         }
     }
     // MOD_CE(mod,de1_cl_lcd_clock__enable,de1_cl_lcd_clock___05Fenable);
-    if (1) {
+    if (options->verilog.clocks_must_have_enables) {
     for (auto clk=module->clocks; clk; clk=clk->next_in_list) {
         if (!clk->data.clock.clock_ref) {// Not a gated clock, i.e. a root clock
             if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) { // 0 is posedge
@@ -3395,17 +3394,13 @@ void c_md_target_c::output_cwv_model(void)
      */
     for (module=model->module_list; module; module=module->next_in_list) {
         if (module->external) continue;
-        module_verilated_name = module->output_name;
-        output( 0, "#include \"V%s.h\"\n", module->output_name);
-        auto keep_output_name = module->output_name;
-        auto cwv_output_name = make_string("cwv__%s",module->output_name);
-        module->output_name = cwv_output_name.c_str();
+        module_verilated_name = module->tool_name;
+        output( 0, "#include \"V%s.h\"\n", module_verilated_name);
         cwv_output_types();
         cwv_output_static_functions();
         cwv_output_static_variables();
-        auto module_registration = make_string("se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->output_name, module->output_name, module->implementation_name);
+        auto module_registration = make_string("se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->registered_name, module->output_name, module->implementation_name);
         module_registrations.push_back(module_registration);
-        module->output_name = keep_output_name;
     }
 
     /*b Output the initialization functions

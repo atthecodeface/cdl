@@ -38,6 +38,11 @@ ifneq (${VERILATOR_SHARE},)
 MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
 endif
 
+clean: clean_verilate
+
+clean_verilate:
+	rm -rf ${BUILD_ROOT}/verilated.o
+
 ${BUILD_ROOT}/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp
 	${Q}${CXX} -c ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
 
@@ -204,6 +209,7 @@ $(eval $(call lib_timestamp_depends,all_cpp,$1,$3/$6))
 -include $3/$6.dep
 
 LIB__$1__C_OBJS  += $3/$7
+
 $3/$7 : $3/$6
 	@echo "CC $6 -o $7"
 	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -c -o $$@ $3/$6
@@ -214,7 +220,7 @@ LIB__$1__VERILOG += $(if $8,$3/$8,)
 
 $3/$8 : $2/$4
 	@echo "CDL $4 -v $8"
-	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --v_clks_must_have_enables --model $5 --verilog $$@ $9 $2/$4
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --verilog $$@ $9 $2/$4
 
 $(eval $(call lib_timestamp_depends,verilog,$1,$3/$8))
 
@@ -227,7 +233,72 @@ $3/$5.xml : $2/$4
 	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --xml $$@ $9 $2/$4
 
 LIB__$1__MODELS += $5
-LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7 $3/$8 $3/$5.cdlh $3/$5.xml
+LIB__$1__CLEAN_TARGETS += $3/$6 $3/$6.dep $3/$7 $3/$8 $3/$5.cdlh $3/$5.xml
+
+endef
+
+#f cwv_template
+# @param $1 library name
+# @param $2 cdl source directory
+# @param $3 output directory
+# @param $4 cdl filename within cdl source directory
+# @param $5 model name of verilated model
+# @param $6 toplevel module name of verilated model - this is the verilated library
+# @param $7 c filename to go in output dir [model name .cpp]
+# @param $8 object filename to go in output dir [model name .o]
+# @param $9 CDL options for creation of CPP
+# @param $(10) verilator build directory
+define cwv_template
+
+.PHONY:all_cwv
+all_cwv:$3/$8
+
+# CPP file $3/$7 for simulation model depends on CDL ($2/$4) only
+$3/$7 : $2/$4
+	@echo "CDL $4 -cwv $7"
+	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model $5 --cwv $$@ $9 $2/$4
+
+$(eval $(call lib_timestamp_depends,all_cpp,$1,$3/$7))
+
+# The library we depend on is <model>, not <model>
+$3/$8 : $3/$7 $${VLIB__$6__H} $${VLIB__$6__LIB}
+	@echo "CC $7 -o $8"
+	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -I $(10) -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -c -o $$@ $3/$7
+
+$(eval $(call lib_timestamp_depends,all_obj,$1,$3/$8))
+
+# Add the verilated library for the model to final amlgamations
+MODEL_VERILATOR_LIBS += $${VLIB__$6__LIB}
+
+# Add to library C models (simulation init fns to invoke) and C objects (.o to include in amalgamations)
+LIB__$1__C_OBJS  += $3/$8
+LIB__$1__MODELS  += $5
+
+# Add to clean for library
+LIB__$1__CLEAN_TARGETS += $3/$7 $3/$8
+
+endef
+
+#f verilog_template
+define verilog_template
+# @param $1 library name
+# @param $2 verilog source directory
+# @param $3 output directory
+# @param $4 verilog filename within verilog source directory
+# @param $5 model name
+
+.PHONY: $5
+$5: $3/$4
+
+$3/$4 : $2/$4
+	@echo "Verilog cp $4"
+	${Q}cp $2/$4 $$@
+
+LIB__$1__VERILOG += $3/$4
+
+LIB__$1__CLEAN_TARGETS += $3/$4
+
+$(eval $(call lib_timestamp_depends,verilog,$1,$3/$4))
 
 endef
 
@@ -373,74 +444,44 @@ $1: ${MODEL_LIBS} ${MODEL_VERILATOR_OBJS} ${MODEL_VERILATOR_LIBS} $3
 
 endef
 
-#f make_cwv_template
-# @param $1 library name
-# @param $2 cdl source directory
-# @param $3 output directory
-# @param $4 cdl filename within cdl source directory
-# @param $5 model name (not including cwv - must have done a make_verilator_lib on this)
-# @param $6 c filename for cwv to go in output dir [model name .cpp]
-# @param $7 object filename to go in output dir [model name .o]
-# @param $8 CDL options
-# @param $9 verilator build directory
-define make_cwv_template
-
-$3/$6 : $2/$4
-	@echo "CDL $4 -cwv $6"
-	${Q}${CDL_BIN_DIR}/cdl $${CDL_FLAGS} --model cwv__$5 --cwv $$@ $8 $2/$4
-
-.PHONY:all_cwv
-all_cwv:$3/$7
-# The library we depend on is <model>, not cwv__<model>
-$3/$7 : $3/$6 $${VLIB__$5__H} $${VLIB__$5__LIB}
-	@echo "CC $6 -o $7"
-	${Q}${CXX} ${CDL_INCLUDES} ${CXXFLAGS} -I $9 -I ${VERILATOR_SHARE}/include -I ${VERILATOR_SHARE}/include/vltstd -c -o $$@ $3/$6
-
-MODEL_VERILATOR_LIBS += $${VLIB__$5__LIB}
-
-LIB__$1__C_OBJS  += $3/$7
-LIB__$1__MODELS += cwv__$5
-LIB__$1__CLEAN_TARGETS += $3/$6 $3/$7
-
-endef
-
 #f make_verilator_lib_template
 define make_verilator_lib_template
-# @param $1 output directory (for .h file and V<module>.a archive)
-# @param $2 verilator build directory
-# @param $3 module (top for verilator)
-# @param $4 verilog source directory (containing <module>.v)
-# @param $5 verilog source directories to include
-# @param $6 other verilog source files
+# @param $1 library name
+# @param $2 output directory (for .h file and V<module>.a archive)
+# @param $3 verilator build directory
+# @param $4 toplevel module (top for verilator)
+# @param $5 verilog source directory (containing <module>.v)
+# @param $6 verilog source directories to include
+# @param $7 other verilog source files
 
-VLIB__$3__H    := $1/V$3.h
-VLIB__$3__SYMS := $1/V$3__Syms.h
-VLIB__$3__LIB  := $1/V$3__ALL.a
+VLIB__$4__H    := $2/V$4.h
+VLIB__$4__SYMS := $2/V$4__Syms.h
+VLIB__$4__LIB  := $2/V$4__ALL.a
 
 .PHONY:verilate_libs
-verilate_libs: $${VLIB__$3__H} $${VLIB__$3__LIB}
+verilate_libs: $${VLIB__$4__H} $${VLIB__$4__LIB}
 
-$${VLIB__$3__H}: $2/V$3.h
+$${VLIB__$4__H}: $3/V$4.h
 	cp $$< $$@
 
-$${VLIB__$3__SYMS}: $2/V$3__Syms.h
+$${VLIB__$4__SYMS}: $3/V$4__Syms.h
 	cp $$< $$@
 
-$${VLIB__$3__LIB}: $2/V$3__ALL.a
+$${VLIB__$4__LIB}: $3/V$4__ALL.a
 	cp $$< $$@
 
-$2/V$3.h: $2/V$3__ALL.a
+$3/V$4.h: $3/V$4__ALL.a
 
-$2/V$3__Syms.h: $2/V$3__ALL.a
+$3/V$4__Syms.h: $3/V$4__ALL.a
 
-$2/V$3.cpp: ${BUILD_STAMPS}/verilog
-	@echo "verilate $3 $$< $$@"
-	${Q}${VERILATOR} -CFLAGS "${VERILATOR_C_FLAGS}" --cc --top-module $3 --threads 1 -Mdir $2 -Wno-fatal $4/$3.v $6 $(foreach s,$5,+incdir+${s})
+$3/V$4.cpp: ${BUILD_STAMPS}/verilog
+	@echo "verilate $4 $$< $$@"
+	${Q}${VERILATOR} -CFLAGS "${VERILATOR_C_FLAGS}" --cc --top-module $4 --threads 1 -Mdir $3 -Wno-fatal $5/$4.v $7 $(foreach s,$6,+incdir+${s})
 
-$2/V$3__ALL.a: $2/V$3.cpp
-	@echo "cpp for verilate $3"
-	(cd $2 && make CFLAGS="${VERILATOR_C_FLAGS}" VERILATOR_ROOT=${VERILATOR_SHARE} -f V$3.mk )
+$3/V$4__ALL.a: $3/V$4.cpp
+	@echo "cpp for verilate $4"
+	(cd $3 && make CFLAGS="${VERILATOR_C_FLAGS}" VERILATOR_ROOT=${VERILATOR_SHARE} -f V$4.mk )
 
-LIB__$1__CLEAN_TARGETS += $2/V$3__ALL.a $2/V$3.h $2/V$3__Syms.h $${VLIB__$3__H} $${VLIB__$3__SYMS} $${VLIB__$3__LIB}
+LIB__$1__CLEAN_TARGETS += $3/V$4__ALL.a $3/V$4.h $3/V$4__Syms.h $${VLIB__$4__H} $${VLIB__$4__SYMS} $${VLIB__$4__LIB}
 
 endef

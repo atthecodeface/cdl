@@ -1,0 +1,93 @@
+/** Copyright (C) 2020,  Gavin J Stark.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @file   ram_burst.cdl
+ *
+ */
+
+/*a Modules */
+/*m se_sram_srw_65536x16 */
+extern module se_sram_srw_65536x16( clock sram_clock,
+                                   input bit select,
+                                   input bit[16] address,
+                                   input bit read_not_write,
+                                   input bit write_enable,
+                                   input bit[16] write_data,
+                                   output bit[16] data_out )
+{
+    timing to   rising clock sram_clock   select, address, read_not_write, write_data, write_enable;
+    timing from rising clock sram_clock   data_out;
+}
+
+typedef struct {
+    bit     running;
+    bit[8]  count;
+    bit[16] addr;
+    bit[16] data;
+    bit     sram_has_data;
+    bit     sram_has_last_data;
+    bit     done;
+} t_state;
+typedef struct {
+    bit sram_read;
+} t_combs;
+module ram_burst( clock clk, input bit reset_n, input bit go, input bit[8] count, input bit[16] addr, output bit done, output bit[16] data)
+{
+    default clock clk;
+    default reset active_low reset_n;
+    clocked t_state state={*=0};
+    comb t_combs combs;
+    net bit[16] sram_read_data;
+    my_code: {
+        combs = {*=0};
+        if (state.sram_has_data) {
+            state.data <= state.data + sram_read_data;
+        }
+        state.sram_has_data      <= 0;
+        state.sram_has_last_data <= 0;
+        state.done <= 0;
+        if (!state.running && go) {
+            state.running <= 1;
+            state.count   <= count;
+            state.addr    <= addr;
+            state.data    <= 0;
+        }
+        if (state.running) {
+            state.addr    <= state.addr+1;
+            state.done <= 0;
+            if (state.count>=1) {
+                combs.sram_read = 1;
+                state.sram_has_data <= 1;
+                state.sram_has_last_data <= (state.count==1);
+            }
+            if (state.count>0) {
+                state.count <= state.count-1;
+            }
+            if (state.sram_has_last_data) {
+                state.running <= 0;
+                state.done <= 1;
+            }
+        }
+        log("tock","running",state.running, "sram", state.sram_has_data, "read_data",sram_read_data, "count",state.count, "addr",state.addr, "data",state.data, "done",state.done);
+        se_sram_srw_65536x16 ram(sram_clock<-clk,
+                                 read_not_write <= 1,
+                                 write_enable <= 0,
+                                 write_data <= 0,
+                                 select <= combs.sram_read,
+                                 address <= state.addr,
+                                 data_out => sram_read_data );
+        done = state.done;
+        data = state.data;
+    }
+}

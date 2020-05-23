@@ -20,5 +20,8 @@ $(eval $(call install_data,${CDL_SCRIPTS_DIR},cdl_templates_old.mk))
 $(eval $(call install_script,${CDL_SCRIPTS_DIR},cdl_desc.py))
 $(eval $(call install_data,${CDL_CONFIGURED_DIR}/scripts,Makefile_cdl_template_config))
 
-check_python_types:
+.PHONY: check_python_types
+check_python_types: check_python_types_cdl_desc
+
+check_python_types_cdl_desc:
 	mypy --strict ${CDL_SCRIPTS_DIR}/cdl_desc.py 

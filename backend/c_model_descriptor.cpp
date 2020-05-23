@@ -5955,6 +5955,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      {
          module->output_name     = module->name;
          module->registered_name = module->name;
+         module->tool_name       = module->name;
          module->implementation_name = "cdl_model";
          int done = 0;
          for (i=0; !done; i++)
@@ -5989,6 +5990,16 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
                  if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
                  {
                      module->implementation_name = remap+j+1;
+                 }
+             }
+             if (sl_option_get_string( env_options, "be_remap_tool_name", i, &remap))
+             {
+                 done = 0;
+                 // remap should be foo=bar
+                 for (j=0; remap[j] && (remap[j]!='='); j++); // remap=>foo j=>=bar
+                 if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
+                 {
+                     module->tool_name = remap+j+1;
                  }
              }
          }
@@ -6180,6 +6191,7 @@ extern void be_getopt_usage( void )
 {
      printf( "\t--model \t\tRequired for C++ - model name that is used for naming the initialization functions\n");
      printf( "\t--cpp <file>\t\tGenerate C++ model output file\n");
+     printf( "\t--cwv <file>\t\tGenerate C++ model output file that uses a Verilated model as the internals; the CDL module description provides clocks, inputs and outputs. Note that v_clks_must_have_enables is respected.\n");
      printf( "\t--xml <file>\t\tGenerate XML tree of 'compiled' model into a file\n");
      printf( "\t--cdlh <file>\t\tGenerate CDL external header timing file\n");
      printf( "\t--verilog <file>\t\tGenerate verilog model output file\n");
@@ -6190,14 +6202,15 @@ extern void be_getopt_usage( void )
      printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
      printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'; this changes the fundamental CPP classname for a CDL C model. 'new_name' has to be unique in the library of built modules.\n");
-     printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
-     printf( "\t--remap-registered-name <name=new_name>\tRemap module type 'name' to register in simulation as another module name 'new_name'. The CPP classname is not effected. This permits many different CDL models with different CPP classes to build different implementations of the same simulatable module name.\n");
+     printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap all module instance types matching given type in given module to be another type 'new_name'\n");
+     printf( "\t--remap-registered-name <name=new_name>\tRemap module type 'name' to register in CDL simulation as another module name 'new_name'. The CPP classname is not effected. This permits many different CDL models with different CPP classes to build different implementations of the same simulatable module name, for example by having different generic types or constant values provided on the command line.\n");
      printf( "\t--remap-implementation-name <name=implementation_name>\tMake C model for module 'name' declare itself as the specified implementation name; if not given, declare as 'cdl_model'\n");
-     printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
+     printf( "\t--remap-tool-name <name=tool_name>\tWhen creating a C model for module 'name' from data from an external tool (such as Verilator), use 'tool_name' as the name of the module used by the tool rather than the default of 'name'\n");
+     printf( "\t--vmod-mode\t\tDEPRECATED Option for verilog which hacks things that VMOD cannot cope with\n");
      printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
-     printf( "\t--v_clks_must_have_enables\t\tChanges clock ports from just <clock> to two ports, <clock> and <clock__enable>, and does not instantiate clock gate modules; use for FPGA builds\n");
+     printf( "\t--v_clks_must_have_enables\t\tChanges clock ports from just <clock> to two ports, <clock> and <clock__enable>, and does not instantiate clock gate modules; use for FPGA builds, and must be correct for verilated CDL models\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
      printf( "\t--v_additional_port_include <filename>\t\tForces insertion of 'include \"filename\" before the ');' of every verilog module header\n");
      printf( "\t--v_additional_body_include <filename>\t\tForces insertion of 'include \"filename\" before the 'endmodule' of every verilog module body\n");
@@ -6299,6 +6312,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_remap_implementation_name:
           *env_options = sl_option_list( *env_options, "be_remap_implementation_name", optarg );
+          return 1;
+     case option_be_remap_tool_name:
+          *env_options = sl_option_list( *env_options, "be_remap_tool_name", optarg );
           return 1;
      }
      return 0;

@@ -43,6 +43,9 @@ regress_python: ${PYSIM}
 do_exec_me: all
 	(cd ${BUILD_ROOT} && ./cdl_regression_exec_me )
 
+check_types:
+	mypy --strict library_desc.py ../install/libexec/cdl/cdl_desc.py 
+
 local_cdl:
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure PYTHON_CONFIG=/home/gavin/Python/install/bin/python3-config --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)

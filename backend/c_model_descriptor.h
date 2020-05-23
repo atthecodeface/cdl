@@ -62,6 +62,7 @@
      { "remap-module-name", required_argument, NULL, option_be_remap_module_name }, \
      { "remap-instance-type", required_argument, NULL, option_be_remap_instance_type }, \
      { "remap-registered-name", required_argument, NULL, option_be_remap_registered_name }, \
+     { "remap-tool-name", required_argument, NULL, option_be_remap_tool_name }, \
      { "remap-implementation-name", required_argument, NULL, option_be_remap_implementation_name }, \
 
 #define MD_TYPE_DEFINITION_HANDLE_VALID(a) ( (a).type!=md_type_definition_handle_type_none )
@@ -104,6 +105,7 @@ enum
     option_be_remap_instance_type,
     option_be_remap_implementation_name,
     option_be_remap_registered_name,
+    option_be_remap_tool_name,
     option_be_vmod_mode,
     option_be_v_clkgate_type,
     option_be_v_clkgate_ports,
@@ -911,12 +913,18 @@ typedef struct t_md_module
     struct t_md_module *next_in_list; // ownership chain, in order declared by the client
     struct t_md_module *next_in_hierarchy; // bottom-up hierarchy, not ownership link, first is the lowest leaf, last is the toplevel
 
+    // The name of a module is supplied by its definition
     char *name;
+    // The output_name of a module is used for most of the output - for C class naming
+    const char *output_name;         // never freed - points in to option, or points to name
+    // The tool name of a module is used only for CDL-wrapped verilog currently; it is the relevant name of a module for the tool for the output method
+    const char *tool_name;
+    // The registered_name of a module is the name that the module is registered with in a CDL simulation; it is not used by verilog output
+    const char *registered_name;     // never freed - points in to option, or points to name
+    // The implementation_name of a module is the name of the implementation of the registered_name that is used in CDL simulation
+    const char *implementation_name; // never freed - points in to option, or points to "cdl_model"
     int name_to_be_freed;
     char *documentation; // always freed if not null
-    const char *output_name;         // never freed - points in to option, or points to name
-    const char *registered_name;     // never freed - points in to option, or points to name
-    const char *implementation_name; // never freed - points in to option, or points to "cdl_model"
     t_md_client_reference client_ref;
 
     int external; // 1 if the module is not to be analyzed; its input and output dependencies are given explicitly, and no code is expected to be generated 

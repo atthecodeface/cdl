@@ -91,6 +91,11 @@ class Instance(object):
         for (n,o) in self.forces.items():
             print("  Force '%s':'%s'"%(n,str(o)))
             pass
+        pass
+    #f __str__
+    def __str__(self) -> str:
+        return "type '%s'"%self.module_type
+    #f All done
     pass
 
 #c Ports
@@ -205,7 +210,12 @@ class Module(Instantiable):
         name = self.get_instance_name()
         self.inst = self.get_instance(hwex, hw)
         self.inst.instantiate(hwex, name)
-        self._ports = Ports(hw, name)
+        try:
+            self._ports = Ports(hw, name)
+            pass
+        except:
+            hwex.report_error("failed to get ports on module %s (%s)"%(self.get_instance_name(), str(self.inst)))
+            pass
         pass
 
     #f add_connectivity

@@ -63,7 +63,6 @@ class vector_hw(HardwareThDut):
     pass
 
 #c TestVector
-#c TestVector
 class TestVector(TestCase):
     hw = vector_hw
     def do_vector_test(self, width:int, module_name:str, module_mif_filename:str, inst_forces:OptionsDict={}, waves=[] ) -> None:
@@ -99,6 +98,9 @@ class TestVector(TestCase):
 
     def test_sum_2_4(self)->None:
         self.do_vector_test(4, "vector_sum_2__width_4", "vector_sum_2__width_4.mif")
+
+    def test_sum_2_4_verilate(self)->None:
+        self.do_vector_test(4, "vector_sum_2__width_4_v", "vector_sum_2__width_4.mif")
 
     def test_op_1_16(self)->None:
         self.do_vector_test(16, "vector_op_1", "vector_op_1.mif")
