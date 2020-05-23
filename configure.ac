@@ -47,7 +47,7 @@ AC_CANONICAL_HOST
 os_cxxflags="-fPIC"
 os_cflags="-fPIC"
 
-dynamic_library_flags="-shared"
+dynamic_library_flags="-shared  -Wl,--unresolved-symbols=report-all"
 pthread_cflags="-pthread"
 pthread_cxxflags="-pthread"
 make_static_binary="\${CXX} \${CXXFLAGS} -o"
