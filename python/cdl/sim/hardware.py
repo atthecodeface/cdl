@@ -100,15 +100,20 @@ class HardwareDescription(HardwareExecFile):
 
     #f exec_run - create the hardware
     def exec_run(self)->None:
-        self.instantiate_modules()
-        self.get_connectivity()
-        self.check_connectivity()
-        self.connect_wires()
-        # self._set_up_reset_values()
+        try:
+            self.instantiate_modules()
+            self.get_connectivity()
+            self.check_connectivity()
+            self.connect_wires()
+            # self._set_up_reset_values()
 
-        # Hook up any waves.
-        self._hw.connect_waves()
-
+            # Hook up any waves.
+            self._hw.connect_waves()
+            pass
+        except Exception as e:
+            self._hw.verbose.error("ERROR (in hardware description):%s"%str(e))
+            self._hw.pending_exception = e
+            raise e
         # Say we're in business.
         self._running = True
         pass
@@ -140,6 +145,7 @@ class Hardware(object):
         self._name = "hardware"
         self._children = children
         self.verbose = Verbose(verbosity,file=sys.stdout)
+        self.pending_exception = None
 
         if thread_mapping is not None:
             self._engine.thread_pool_init()
@@ -164,6 +170,8 @@ class Hardware(object):
             self.verbose.error("Failed to build - exception %s"%str(e))
             pass
         self.display_all_errors()
+        if self.pending_exception is not None:
+            raise self.pending_exception
         self.verbose.info("Built")
         pass
 
@@ -179,6 +187,7 @@ class Hardware(object):
         return self.verbose
     #f passed
     def passed(self) -> bool:
+        self.display_all_errors(force_exception=False)
         passed = True
         for i in self._children:
             passed = passed and i.passed()

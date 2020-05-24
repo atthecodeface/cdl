@@ -37,21 +37,21 @@ help:
 	@echo "Use 'make regress_python' to run a python library regression"
 	@echo "Use 'make regress_batch' to run a batch simulation regression"
 
-regress_python: ${PYSIM}
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && LD_LIBRARY_PATH=/home/gavin/Python/install/lib PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} /home/gavin/Python/install/bin/python3 -m regression.regress -v)
-
 do_exec_me: all
 	(cd ${BUILD_ROOT} && ./cdl_regression_exec_me )
 
 check_types:
-	mypy --strict library_desc.py ../install/libexec/cdl/cdl_desc.py 
+	mypy --strict library_desc.py ../scripts/cdl_desc.py 
+
+regress_python: ${PYSIM}
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
 
 local_cdl:
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure PYTHON_CONFIG=/home/gavin/Python/install/bin/python3-config --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)
 
-regress_python_sys: ${PYSIM}
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
+regress_python_local: ${PYSIM}
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && LD_LIBRARY_PATH=/home/gavin/Python/install/lib PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} /home/gavin/Python/install/bin/python3 -m regression.regress -v)
 
 local_cdl_sys:
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
