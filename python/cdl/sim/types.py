@@ -10,7 +10,7 @@ def expand_wire_type_dict_or_int(wtdoi:WireTypeDictOrInt, prefix:Prefix=[]) -> I
         yield (prefix, wtdoi) # type: ignore
         pass
     else:
-        for (sub_n,sub_wtdoi) in wtdoi:  # type: ignore
+        for (sub_n,sub_wtdoi) in wtdoi.items():  # type: ignore
             for (p,n) in expand_wire_type_dict_or_int(cast(WireTypeDictOrInt, sub_wtdoi), prefix+[sub_n]):
                 yield (p,n)
                 pass

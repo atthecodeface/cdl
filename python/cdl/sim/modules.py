@@ -261,13 +261,14 @@ class TestHarnessModule(Module):
 
     #f passed
     def passed(self) -> bool:
+        passed = True
         if hasattr(self, "exec_file_object"):
             if not self.exec_file_object.passed():
                 print("Test harness %s : %s not PASSED" % (self.get_instance_name(),str(self.exec_file_object.th_get_name())))
-                return False
+                passed = False
                 pass
             pass
-        return True
+        return passed
 
     #f __init__
     def __init__(self, exec_file_object:EFGenerator, **kwargs:Any):
