@@ -223,6 +223,7 @@ class ThExecFile(SimulationExecFile):
     #f failtest
     def failtest(self, message:str) -> None:
         self.__failures = self.__failures + 1
+        self.verbose.error("%s:%s"%(self.global_cycle(), message))
         return self.py.pyfail(self.global_cycle(), message)
 
     #f passed

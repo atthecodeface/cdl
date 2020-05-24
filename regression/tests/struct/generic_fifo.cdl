@@ -82,10 +82,12 @@ cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy  rmt:gt_fi
             {
                 fifo_data[ write_ptr[3;0] ] <= fifo_data_in;
                 write_ptr <= write_ptr + 1;
+                log("push", "write_ptr", write_ptr);
             }
-            if (fifo_push)
+            if (fifo_pop)
             {
                 read_ptr <= read_ptr + 1;
+                log("pop", "read_ptr", read_ptr);
             }
             fifo_empty = 0;
             if (read_ptr==write_ptr)

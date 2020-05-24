@@ -65,17 +65,17 @@ class VectorModules(cdl_desc.Modules):
     modules += [ CdlModule("vector_toggle__width_18", constants={"width":18}, cdl_filename="vector_toggle") ]
     modules += [ CdlModule("vector_toggle_complex__width_18",    constants={"width":18},  cdl_filename="vector_toggle_complex") ] #
     # , rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model") ]
-    modules += [ CdlModule("vector_add__width_4", constants={"width":4}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
-    modules += [ CdlModule("vector_add__width_8", constants={"width":8}, cdl_filename="vector_add", cdl_module_name="vector_add") ]
-    modules += [ CdlModule("vector_mult_by_11__width_8", constants={"width":8}, cdl_filename="vector_mult_by_11", cdl_module_name="vector_mult_by_11") ]
-    modules += [ CdlModule("vector_reverse__width_8", constants={"width":8}, cdl_filename="vector_reverse", cdl_module_name="vector_reverse") ]
-    modules += [ CdlModule("vector_nest__width_8", constants={"width":8}, cdl_filename="vector_nest", cdl_module_name="vector_nest") ]
-    modules += [ CdlModule("vector_sum__width_4", constants={"width":4}, cdl_filename="vector_sum", cdl_module_name="vector_sum") ]
-    modules += [ CdlModule("vector_sum__width_8", constants={"width":8}, cdl_filename="vector_sum", cdl_module_name="vector_sum") ]
-    modules += [ CdlModule("vector_sum__width_64", constants={"width":64}, cdl_filename="vector_sum", cdl_module_name="vector_sum") ]
+    modules += [ CdlModule("vector_add__width_4", constants={"width":4}, cdl_filename="vector_add") ]
+    modules += [ CdlModule("vector_add__width_8", constants={"width":8}, cdl_filename="vector_add") ]
+    modules += [ CdlModule("vector_mult_by_11__width_8", constants={"width":8}, cdl_filename="vector_mult_by_11") ]
+    modules += [ CdlModule("vector_reverse__width_8", constants={"width":8}, cdl_filename="vector_reverse") ]
+    modules += [ CdlModule("vector_nest__width_8", constants={"width":8}, cdl_filename="vector_nest") ]
+    modules += [ CdlModule("vector_sum__width_4", constants={"width":4}, cdl_filename="vector_sum") ]
+    modules += [ CdlModule("vector_sum__width_8", constants={"width":8}, cdl_filename="vector_sum") ]
+    modules += [ CdlModule("vector_sum__width_64", constants={"width":64}, cdl_filename="vector_sum") ]
     modules += [ CdlModule("vector_op_1") ]
     modules += [ CdlModule("vector_op_2") ]
-    modules += [ CdlModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2", cdl_module_name="vector_sum_2") ]
+    modules += [ CdlModule("vector_sum_2__width_4", constants={"width":4}, cdl_filename="vector_sum_2") ]
 
     modules += [ CdlSimVerilatedModule("vector_sum_2__width_4_v",
                                        verilog_filename="vector_sum_2__width_4",
@@ -88,9 +88,9 @@ class StructModules(cdl_desc.Modules):
     name = "struct"
     src_dir = "tests/struct"
     modules = []
-    modules += [ CdlModule("generic_fifo_word",      cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_word"}) ] # force_includes=["dprintf.h"]
-    modules += [ CdlModule("generic_fifo_struct",    cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_struct"}) ] # force_includes=["dprintf.h"]
-    modules += [ CdlModule("generic_fifo_hierarchy", cdl_filename="generic_fifo", cdl_module_name="generic_fifo", types={"gt_fifo_content":"t_fifo_content_hierarchy"}) ] # force_includes=["dprintf.h"]
+    modules += [ CdlModule("generic_fifo_word",      cdl_filename="generic_fifo", types={"gt_fifo_content":"t_fifo_content_word"}) ] # force_includes=["dprintf.h"]
+    modules += [ CdlModule("generic_fifo_struct",    cdl_filename="generic_fifo", types={"gt_fifo_content":"t_fifo_content_struct"}) ] # force_includes=["dprintf.h"]
+    modules += [ CdlModule("generic_fifo_hierarchy", cdl_filename="generic_fifo", types={"gt_fifo_content":"t_fifo_content_hierarchy"}) ] # force_includes=["dprintf.h"]
     #cdl struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
 
 class ClockGateModules(cdl_desc.Modules):

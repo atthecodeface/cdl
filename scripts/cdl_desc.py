@@ -144,7 +144,7 @@ class Module(object):
     def write_makefile(self, write:Writer, library_name:str) -> None: ...
 
     #f write_makefile_debug_comment
-    def write_makefile_debug_comment(self, write:Writer):
+    def write_makefile_debug_comment(self, write:Writer) -> None:
         write("# %s"%(self.__class__.__name__))
         for n in dir(self):
             if n[0]!='_':

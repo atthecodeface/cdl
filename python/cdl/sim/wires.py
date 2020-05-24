@@ -265,7 +265,7 @@ class WiringHierarchy(Hierarchy):
         for (wire_prefix, wire_name, wire) in self.iter_wiring(prefix=[], name=name):
             for (elt_prefix, elt_name, elt) in wire.iter(name=wire_name, prefix=[]):
                 full_name = join_name(prefix=wire_prefix+elt_prefix, name=elt_name)
-                yield (full_name, wire, elt_prefix, elt)
+                yield (full_name, wire, elt_prefix+[elt_name], elt)
                 pass
             pass
         pass

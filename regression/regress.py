@@ -38,13 +38,14 @@ def add_test_suite(module_name:str)->None:
 #test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
 #test_dirs = [ "simple", "vector", "instantiation", "memory"]
 
-add_test_suite(".tests.vector")
-add_test_suite(".tests.simple")
-add_test_suite(".tests.memory")
 add_test_suite(".tests.clock_gate")
 add_test_suite(".tests.log")
+add_test_suite(".tests.memory")
 add_test_suite(".tests.verilog")
 add_test_suite(".tests.instantiation")
+add_test_suite(".tests.simple")
+add_test_suite(".tests.struct")
+add_test_suite(".tests.vector")
 
 tracer = trace.Trace(ignoredirs=[sys.prefix, sys.exec_prefix], trace=1, count=1)
 
