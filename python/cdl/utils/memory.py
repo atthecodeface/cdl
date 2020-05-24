@@ -52,13 +52,15 @@ class Memory(object):
     res["opt_whitespace"] = r"\s*"
     res["whitespace"] = r"(\s+)"
     res["uid"]        = r"([a-zA-Z_][a-zA-Z_0-9]*)"
+    res["any"]        = r"(.*)"
     obj_res = {}
     obj_res["label_match"]          = re.compile(r"%s%s%s<%s>:"%(res["opt_whitespace"], res["hex"], res["whitespace"], res["uid"]))
     obj_res["data_match"]           = re.compile(r"%s%s:%s%s.*"%(res["opt_whitespace"], res["hex"], res["whitespace"], res["hex"]))
     obj_res["data_label_match"]     = re.compile(r"#%s%s%s<%s>"%(res["whitespace"], res["hex"], res["whitespace"], res["uid"]))
     mif_res = {}
     mif_res["mif_label_match"]      = re.compile(r"#%s%s:%s:"%(res["whitespace"], res["hex"], res["uid"]))
-    mif_res["mif_data_match"]       = re.compile(r"%s:%s%s.*"%(res["hex"], res["whitespace"], res["hex"]))
+    mif_res["mif_data_match"]       = re.compile(r"%s:%s%s%s"%(res["hex"], res["whitespace"], res["hex"], res["any"]))
+    mif_res["mif_more_data_match"]  = re.compile(r"%s%s%s"%(res["whitespace"], res["hex"], res["any"]))
     mif_res["mif_data_label_match"] = re.compile(r"#%s%s%s<%s>"%(res["whitespace"], res["hex"], res["whitespace"], res["uid"]))
 
     #t Type properties
@@ -67,11 +69,12 @@ class Memory(object):
     descriptor: Descriptor
 
     #f __init__
-    def __init__(self, bit_width:int=32) -> None:
+    def __init__(self, bit_width:int=32, num_words:int=0) -> None:
         self.reset()
         self.bit_width      = bit_width
         self.bytes_per_word = (bit_width+7) // 8
         self.word_mask      = (1<<self.bit_width) - 1
+        self.num_words      = num_words
         pass
     #f reset - Clear labels and data
     def reset(self) -> None:
@@ -224,13 +227,13 @@ class Memory(object):
     #f load_mif - check bytes_per_word
     def load_mif(self, f:IO[str], base_address:int=0, address_mask:int=0xffffffff) -> None:
         """
-        A simple 32-bit data format file consists of Labels, Data, or Data.
+        A simple 32-bit data format file consists of Labels, Data, or Data, with word addresses
 
         Labels - label = hex_address
             # space hex_address:<label>:
 
         Data - [hex_word_address] <= hex_data
-            hex_word_address: space hex_data .*
+            hex_word_address: space hex_data [more data]
 
         Data and label - [hex_address] <= hex_data, label = hex_label_address
             hex_word_address: space hex_data [*] # hex_label_address space <label>
@@ -244,7 +247,16 @@ class Memory(object):
                 self.add_label(label_match.group(3), int(label_match.group(1),16), base_address, address_mask)
                 pass
             if data_match:
-                self.add_data_word(int(data_match.group(3),16), 4*int(data_match.group(1),16), base_address, address_mask)
+                address = self.bytes_per_word*int(data_match.group(1),16)
+                self.add_data_word(int(data_match.group(3),16), address, base_address, address_mask)
+                rest = data_match.group(4)
+                while True:
+                    more_match = self.mif_res["mif_more_data_match"].match(rest)
+                    if not more_match: break
+                    address = address + self.bytes_per_word
+                    self.add_data_word(int(more_match.group(2),16), address, base_address, address_mask)
+                    rest = more_match.group(3)
+                    pass
                 pass
             if data_label_match:
                 self.add_label(data_label_match.group(4), int(data_label_match.group(2),16), base_address, address_mask)
@@ -418,10 +430,10 @@ class Memory(object):
             pass
         pass
     #f write_quartus_mif
-    def write_quartus_mif(self, f:IO[str], mem_word_size:int, address_range:Optional[Iterable[int]]=None) -> None:
+    def write_quartus_mif(self, f:IO[str], address_range:Optional[Iterable[int]]=None) -> None:
         address_range_nn = self.resolve_address_range(address_range, linear=False)
-        mem_format = "%x:%0"+str(((self.bit_width+3)/4))+"x;"
-        print( "DEPTH = %d;" % mem_word_size, file = f)
+        mem_format = "%x:%0"+str(((self.bit_width+3)//4))+"x;"
+        print( "DEPTH = %d;" % self.num_words, file = f)
         print( "WIDTH = %d;" % self.bit_width, file = f)
         print( "ADDRESS_RADIX = HEX;", file = f)
         print( "DATA_RADIX = HEX;", file = f)
@@ -429,6 +441,9 @@ class Memory(object):
         print( "BEGIN", file = f)
         for word_address in address_range_nn:
             opt_d = self.get(word_address)
+            if word_address>self.num_words:
+                print("Skipping output of address %x (and any further words) as it is beyond the end of memory for qmif")
+                break
             if opt_d is None: continue
             if opt_d == 0:continue
             print( mem_format%(word_address, opt_d), file=f )
