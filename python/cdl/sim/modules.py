@@ -271,9 +271,9 @@ class TestHarnessModule(Module):
         return passed
 
     #f __init__
-    def __init__(self, exec_file_object:EFGenerator, **kwargs:Any):
+    def __init__(self, exec_file_object_fn:EFGenerator, **kwargs:Any):
         Module.__init__(self, module_type="se_test_harness", **kwargs )
-        self.exec_file_object_fn = exec_file_object # type: ignore
+        self.exec_file_object_fn = exec_file_object_fn # type: ignore
         pass
 
     #f get_instance

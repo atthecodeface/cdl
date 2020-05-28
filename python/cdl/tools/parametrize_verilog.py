@@ -1,16 +1,21 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+#a Imports
 import re
 import os
 import argparse
+from typing import Dict, List, Optional, Tuple, Union
+
 param_re = re.compile(r"(.*)#(.*)")
-class remap:
-    def __init__(self, module_name, module_type=None, parameters=None):
+ParameterDict = Dict[str,Union[str,int]]
+#c Remap
+class Remap:
+    def __init__(self, module_name:str, module_type:Optional[str]=None, parameters:ParameterDict={}):
         self.module_name = module_name
         self.module_type = module_type
         self.parameters  = parameters
         self.module_re = re.compile(r"(.*) %s\((.*)"%self.module_name)
         self.parameter_string = ""
-        for (pn,pv) in self.parameters.iteritems():
+        for (pn,pv) in self.parameters.items():
             if self.parameter_string!="":
                 self.parameter_string = "%s, %s(%s)"%(self.parameter_string,pn,pv)
                 pass
@@ -25,7 +30,7 @@ class remap:
             self.parameter_string = " "
             pass
         pass
-    def rewrite_file(self, lines):
+    def rewrite_file(self, lines:List[str]) -> List[str]:
         new_lines = []
         for l in lines:
             match = self.module_re.search(l)
@@ -47,9 +52,11 @@ class remap:
 
 class parametrize_file:
     filename = "file.v"
-    reamppings = [] # list of remap objects
-    def __init__(self, filename=None, remappings=None):
-        if remappings is not None: self.remappings = remappings
+    reamppings :List[Remap]= [] # list of remap objects
+    def __init__(self, filename:str, remappings:List[Remap]=[]):
+        if len(remappings)>0:
+            self.remappings = remappings
+            pass
         f = open(filename)
         lines = []
         for l in f:
@@ -59,7 +66,7 @@ class parametrize_file:
         f.close()
         self.file_lines = lines
         pass
-    def rewrite_verilog(self, filename, backup=True):
+    def rewrite_verilog(self, filename:str, backup:bool=True) -> None:
         lines = self.file_lines
         for r in self.remappings:
             lines = r.rewrite_file(lines)
@@ -74,7 +81,7 @@ class parametrize_file:
             pass
         f = open("%s"%(filename),"w")
         for l in lines:
-            print >>f, l
+            print(l, file=f)
             pass
         f.close()
         pass
@@ -94,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument('--no_backup', type=str, default=False,
                     help='Suppress backup')
     args = parser.parse_args()
-    parameters = {}
+    parameters : ParameterDict = {}
     pre = re.compile(r"(.*)=(.*)")
     for p in args.parameter:
         m = pre.match(p)
@@ -106,6 +113,6 @@ if __name__ == "__main__":
             pass
         pass
     remappings = []
-    remappings.append(remap(args.module, args.type, parameters))
+    remappings.append(Remap(args.module, args.type, parameters))
     pf = parametrize_file(filename=args.file, remappings=remappings)
     pf.rewrite_verilog(filename=args.file, backup=not args.no_backup)

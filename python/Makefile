@@ -48,6 +48,7 @@ PYTHON_CDL_SIM_FILES= \
 
 PYTHON_CDL_UTILS_FILES_TYPE_CLEAN = \
 	cdl/utils/__init__.py \
+	cdl/utils/csr.py \
 	cdl/utils/memory.py
 
 PYTHON_CDL_UTILS_FILES= \
