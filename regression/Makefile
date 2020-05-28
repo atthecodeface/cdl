@@ -24,6 +24,7 @@ CDL_ROOT     ?= ${REGRESSION_MAKEFILE_DIR}/../install
 SRC_ROOT   = $(abspath ${CURDIR})
 OTHER_SRCS =
 BUILD_ROOT ?= $(abspath ${CURDIR})/build
+CDL_MAKEFILE_CONFIG = $(abspath ${CURDIR}/../Makefile_build_config)
 
 all: sim
 
@@ -34,14 +35,18 @@ $(eval $(call cdl_makefile_template,${SRC_ROOT},${BUILD_ROOT},${OTHER_SRCS}))
 help:
 	@echo "'make all' will build the batch simulator and python shared library"
 	@echo ""
+	@echo "Use 'make local_cdl_sys' to build simulation engine for regression"
 	@echo "Use 'make regress_python' to run a python library regression"
-	@echo "Use 'make regress_batch' to run a batch simulation regression"
+	@echo "Use 'make check_types' to check local python types"
 
 do_exec_me: all
 	(cd ${BUILD_ROOT} && ./cdl_regression_exec_me )
 
 check_types:
 	mypy --strict library_desc.py ../scripts/cdl_desc.py 
+
+check_python:
+	(cd ${REGRESSION_MAKEFILE_DIR}/../python && make -f Makefile srcdir=${REGRESSION_MAKEFILE_DIR}/.. CDL_MAKEFILE_CONFIG=${CDL_MAKEFILE_CONFIG} check_types)
 
 regress_python: ${PYSIM}
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)

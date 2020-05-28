@@ -167,7 +167,7 @@ class ClockMapping(object):
 #c Connectivity
 class Connectivity(object):
     clocks : Dict[Clock,ClockMapping]
-    signals: Dict[Wire,WireMapping]
+    signals: Dict[Tuple[Wire,str],WireMapping]
 
     #f __init__
     def __init__(self, hwex:'HardwareDescription', hw:'Hardware') -> None:
@@ -226,7 +226,8 @@ class Connectivity(object):
         """
         Invoked by TimedAssign
         """
-        if wire not in self.signals: self.signals[(wire,"")] = WireMapping(wire, "",wire.wire_type)
+        assert isinstance(wire.wire_type,WireTypeElement)
+        if (wire,"") not in self.signals: self.signals[(wire,"")] = WireMapping(wire, "",wire.wire_type)
         self.signals[(wire,"")].set_is_global_wire(self.hwex)
         pass
 

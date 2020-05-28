@@ -127,7 +127,7 @@ class DutHardware(Hardware):
         def th_exec_file_object_fn(**kwargs):
             return test_harness_exec_file(**kwargs)
         children.append( TestHarnessModule( module_name="th",
-                                            exec_file_object=th_exec_file_object_fn,
+                                            exec_file_object_fn=th_exec_file_object_fn,
                                             clocks=th_clocks,
                                             inputs=th_inputs,
                                             outputs=th_outputs,

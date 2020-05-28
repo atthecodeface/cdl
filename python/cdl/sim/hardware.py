@@ -129,6 +129,7 @@ class Hardware(object):
     _children: List[Instantiable]
     _wavesinst : Waves
     _engine    : Engine
+    pending_exception : Optional[Exception]
 
     @classmethod
     def get_engine(cls) -> None:

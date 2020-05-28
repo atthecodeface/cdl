@@ -59,8 +59,7 @@ class HardwareThDut(Hardware):
 
     #f test_harness_module_fn - the default
     def test_harness_module_fn(self, **kwargs:Any) -> TestHarnessModule:
-        assert self.th_exec_file_object_fn is not None
-        return TestHarnessModule(exec_file_object=self.th_exec_file_object_fn, **kwargs)
+        return TestHarnessModule(**kwargs)
 
     #f __init__
     def __init__(self, **kwargs:Any) -> None: #, test_dict:Dict[str,object]):
@@ -116,12 +115,18 @@ class HardwareThDut(Hardware):
         )
         children.append(self.dut)
 
-        if self.th_exec_file_object_fn is not None:
+        th_exec_file_object_fn = self.th_exec_file_object_fn
+        if "th_exec_file_object_fn" in kwargs:
+            th_exec_file_object_fn = kwargs["th_exec_file_object_fn"]
+            pass
+        if th_exec_file_object_fn is not None:
             self.test_harness_0 = self.test_harness_module_fn(module_name="th",
                                                               clocks=th_clocks,
                                                               inputs=th_inputs,
                                                               outputs=th_outputs,
-                                                              options=self.th_options)
+                                                              options=self.th_options,
+                                                              exec_file_object_fn=th_exec_file_object_fn,
+            )
             children.append(self.test_harness_0)
             pass
 
