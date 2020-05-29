@@ -58,13 +58,13 @@ class WireMapping(object):
     is_global_wire  : bool
     driven_by       : Optional[Connection]
     drives          : List[Connection]
-    elt_type        : WireType
+    elt_size        : int
     #f __init__
-    def __init__(self, wire:Wire, subelt:str, elt_type:WireType)->None:
+    def __init__(self, wire:Wire, subelt:str, elt_size:int)->None:
         self.wire = wire
         self.subelt = ""
         if subelt!="": self.subelt="__"+subelt
-        self.elt_type = elt_type
+        self.elt_size = elt_size
         self.is_global_wire = False
         self.driven_by = None
         self.drives = []
@@ -115,7 +115,7 @@ class WireMapping(object):
             connection    = self.driven_by
             instance_name = connection.instance.get_instance_name()
             port_name     = connection.port_element_name+connection.subelt
-            size          = self.elt_type.get_size()
+            size          = self.elt_size
             driver_sized = "%s[%d]"%(driver_name, size)
             if size==1: driver_sized = driver_name
             # print("create wire %s"%(driver_sized))
@@ -215,8 +215,7 @@ class Connectivity(object):
                 # prefix is ['fifo_in' (from port), 'a' (from wire type)]
                 # endpoint_type is bit[3]
                 subelt = "__".join(prefix[1:])
-                assert isinstance(endpoint_type,WireType)
-                if (wire,subelt) not in self.signals: self.signals[(wire,subelt)] = WireMapping(wire, subelt, endpoint_type)
+                if (wire,subelt) not in self.signals: self.signals[(wire,subelt)] = WireMapping(wire, subelt, endpoint_type.get_size())
                 connection = Connection(instance, port_name, full_name, wire, subelt, endpoint_type)
                 mapping_fn(self.signals[(wire,subelt)], self.hwex, connection)
                 pass
@@ -229,7 +228,7 @@ class Connectivity(object):
         Invoked by TimedAssign
         """
         assert isinstance(wire.wire_type,WireType)
-        if (wire,"") not in self.signals: self.signals[(wire,"")] = WireMapping(wire, "",wire.wire_type)
+        if (wire,"") not in self.signals: self.signals[(wire,"")] = WireMapping(wire, "",wire.wire_type.get_size())
         self.signals[(wire,"")].set_is_global_wire(self.hwex)
         pass
 

@@ -69,7 +69,7 @@ $(eval $(call add_python_files,cdl,${PYTHON_CDL_FILES}))
 $(eval $(call add_python_files,cdl/sim,${PYTHON_CDL_SIM_FILES}))
 $(eval $(call add_python_files,cdl/utils,${PYTHON_CDL_UTILS_FILES}))
 $(eval $(call add_python_files,cdl/tools,${PYTHON_CDL_TOOLS_FILES}))
-$(foreach tool,${PYTHON_CDL_TOOLS_FILES},$(eval $(call install_script,python/cdl/tools,$(notdir $(tool)))))
+$(foreach tool,${PYTHON_CDL_TOOLS_FILES},$(eval $(call install_script,$(dir $(tool)),$(notdir $(tool)))))
 
 #a Type checking
 PYTHON_DIR = $(CURDIR)

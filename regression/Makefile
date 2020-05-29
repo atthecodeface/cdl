@@ -26,6 +26,8 @@ OTHER_SRCS =
 BUILD_ROOT ?= $(abspath ${CURDIR})/build
 CDL_MAKEFILE_CONFIG = $(abspath ${CURDIR}/../Makefile_build_config)
 
+REGRESSION_INSTALL_DIR = ${REGRESSION_MAKEFILE_DIR}/../install
+
 all: sim
 
 -include ${BUILD_ROOT}/Makefile
@@ -35,9 +37,10 @@ $(eval $(call cdl_makefile_template,${SRC_ROOT},${BUILD_ROOT},${OTHER_SRCS}))
 help:
 	@echo "'make all' will build the batch simulator and python shared library"
 	@echo ""
-	@echo "Use 'make local_cdl_sys' to build simulation engine for regression"
+	@echo "Use 'make local_install' to build simulation engine for regression"
 	@echo "Use 'make regress_python' to run a python library regression"
 	@echo "Use 'make check_types' to check local python types"
+	@echo "Use 'make check_python' to check python types"
 
 do_exec_me: all
 	(cd ${BUILD_ROOT} && ./cdl_regression_exec_me )
@@ -48,19 +51,20 @@ check_types:
 check_python:
 	(cd ${REGRESSION_MAKEFILE_DIR}/../python && make -f Makefile srcdir=${REGRESSION_MAKEFILE_DIR}/.. CDL_MAKEFILE_CONFIG=${CDL_MAKEFILE_CONFIG} check_types)
 
+local_install:
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure --prefix=${REGRESSION_INSTALL_DIR})
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)
+
 regress_python: ${PYSIM}
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} python3 -m regression.regress -v)
+	echo 
+	(cd ${REGRESSION_MAKEFILE_DIR} && CDL_ROOT=$(abspath ${CDL_ROOT}) ${CDL_ROOT}/libexec/cdl/cdl_regress.py --pyengine-dir=${BUILD_ROOT} --suite-dir tests clock_gate log memory verilog instantiation simple struct vector)
 
 local_cdl:
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure PYTHON_CONFIG=/home/gavin/Python/install/bin/python3-config --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
+	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure PYTHON_CONFIG=/home/gavin/Python/install/bin/python3-config --prefix=${REGRESSION_INSTALL_DIR})
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)
 
 regress_python_local: ${PYSIM}
 	(cd ${REGRESSION_MAKEFILE_DIR}/.. && LD_LIBRARY_PATH=/home/gavin/Python/install/lib PYTHONPATH=${BUILD_ROOT}:${CDL_ROOT}/lib/cdl/python:${PYTHONPATH} /home/gavin/Python/install/bin/python3 -m regression.regress -v)
-
-local_cdl_sys:
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && autoreconf --install && PATH=/home/gavin/Git/cdl_tools_grip/tools/bin:${PATH} ./configure --prefix=${REGRESSION_MAKEFILE_DIR}/../install)
-	(cd ${REGRESSION_MAKEFILE_DIR}/.. && make clean && make install)
 
 # regress_batch:
 # 	CDL_ROOT=${CDL_ROOT} ./regress
