@@ -48,6 +48,6 @@ class DutHardware(HardwareThDut):
 class TestVector(TestCase):
     hw = DutHardware
     def test_gc_1(self)->None:
-        self.run_test(hw_args={"verbosity":0}, waves=["dut","th"], run_time=500)
+        self.run_test(run_time=500)
         pass
     pass
