@@ -27,6 +27,10 @@ from typing import TYPE_CHECKING
 from types import ModuleType as Module
 
 #a Class
+#c LoadError
+class LoadError(Exception):
+    pass
+
 #c Test
 class Test(object):
     """
@@ -80,7 +84,8 @@ class TestSuites(object):
         on one of the paths of that package
         """
         spec   = importlib.util.find_spec("."+module_name, package=pkg_name)
-        assert spec is not None
+        if spec is None:
+            raise LoadError("Failed to load module '%s' in package '%s'"%(module_name, pkg_name))
         module = importlib.util.module_from_spec(spec)
         # loader has an exec_module, but typing does not know this
         spec.loader.exec_module(module) # type: ignore
@@ -88,11 +93,13 @@ class TestSuites(object):
 
     #f add_test_package
     def add_test_package(self, file_path:Path, pkg_name:str)->None:
-        spec = importlib.util.spec_from_file_location(pkg_name, file_path.joinpath("__init__.py"))
+        # if location is None then spec comes back as None
+        spec = importlib.util.spec_from_file_location(pkg_name, file_path.joinpath("__init__.py"), submodule_search_locations=['/home/gavin/Git/atcf_hardware_riscv_grip/atcf_hardware_i2c/python', '/home/gavin/Git/atcf_hardware_riscv_grip/atcf_hardware_apb/python'])
         if spec is None:
-            raise Exception("Failed to find package %s at '%s'"%(pkg_name, str(file_path)))
+            raise LoadError("Failed to find package %s at '%s'"%(pkg_name, str(file_path)))
         package = importlib.util.module_from_spec(spec)
-        assert package is not None
+        if package is None:
+            raise LoadError("Failed to import module '%s' as package '%s'"%(str(file_path), pkg_name))
         self.packages[pkg_name] = package
         sys.modules[pkg_name] = package
         pkg_spec = package.__spec__
@@ -100,22 +107,36 @@ class TestSuites(object):
         pkg_spec.submodule_search_locations = []
         pass
     
+    #f add_test_package
+    def add_test_package(self, pkg_name:str, pkg_paths:List[str] )->None:
+        spec = importlib.util.spec_from_file_location(pkg_name, "any_old_file.py", submodule_search_locations=pkg_paths)
+        if spec is None:
+            raise LoadError("Failed to make package %s"%(pkg_name))
+        package = importlib.util.module_from_spec(spec)
+        if package is None:
+            raise LoadError("Failed to import package '%s'"%(pkg_name))
+        sys.modules[pkg_name] = package
+        pass
+    
     #f add_path_to_package
     def add_path_to_package(self, pkg_name:str, path:Path) -> None:
         if pkg_name not in self.packages:
-            self.add_test_package(file_path=path, pkg_name=pkg_name)
+            self.packages[pkg_name] = []
             pass
-        spec = self.packages[pkg_name].__spec__
-        assert spec is not None
-        assert spec.submodule_search_locations is not None
-        spec.submodule_search_locations.append(str(path))
+        self.packages[pkg_name].append(str(path))
         pass
-
+    #f resolve_packages
+    def resolve_packages(self):
+        for pkg_name, pkg_paths in self.packages.items():
+            self.add_test_package(pkg_name=pkg_name, pkg_paths=pkg_paths)
+            pass
+        pass
     #f add_test_suite
-    def add_test_suite(self, suite_path:Path, suite_names:List[str]) -> None:
+    def add_test_suite(self, suite_path:Path) -> None:
         self.add_path_to_package(pkg_name=self.regression_suite_pkg_name, path=suite_path)
-        # self.add_test_package(file_path=suite_path, pkg_name="suite") # Local package
-        # suite_package.__spec__.submodule_search_locations.append(args.suite_dir)
+        pass
+    #f add_test_suite_tests
+    def add_test_suite_tests(self, suite_names:List[str]) -> None:
         for sn in args.suites:
             self.add_test_suite_in_package(pkg_name=self.regression_suite_pkg_name, module_name=sn)
             pass
@@ -301,12 +322,25 @@ if args.hw_args is not None:
 
 #b Build TestSuites
 X = TestSuites()
+X.add_test_suite(suite_path=Path(args.suite_dir))
 for p in args.package_dir:
     (pkg_name, pkg_dir) = p.split(":")
     X.add_path_to_package(pkg_name, Path(pkg_dir))
     pass
+try:
+    X.resolve_packages()
+    pass
+except LoadError as e:
+    print("Failed to resolve packages: %s"%(str(e)), file=sys.stderr)
+    sys.exit(4)
 
-X.add_test_suite(suite_path=Path(args.suite_dir), suite_names=args.suites)
+try:
+    X.add_test_suite_tests(suite_names=args.suites)
+    pass
+except LoadError as e:
+    print("Failed to load test suites: %s"%(str(e)), file=sys.stderr)
+    sys.exit(4)
+    
 X.build_test_set()
 if args.list:
     X.list_tests("Before inclusion/exclusion")
