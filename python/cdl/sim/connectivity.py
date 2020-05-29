@@ -58,8 +58,9 @@ class WireMapping(object):
     is_global_wire  : bool
     driven_by       : Optional[Connection]
     drives          : List[Connection]
+    elt_type        : WireType
     #f __init__
-    def __init__(self, wire:Wire, subelt:str, elt_type:WireTypeElement)->None:
+    def __init__(self, wire:Wire, subelt:str, elt_type:WireType)->None:
         self.wire = wire
         self.subelt = ""
         if subelt!="": self.subelt="__"+subelt
@@ -214,6 +215,7 @@ class Connectivity(object):
                 # prefix is ['fifo_in' (from port), 'a' (from wire type)]
                 # endpoint_type is bit[3]
                 subelt = "__".join(prefix[1:])
+                assert isinstance(endpoint_type,WireType)
                 if (wire,subelt) not in self.signals: self.signals[(wire,subelt)] = WireMapping(wire, subelt, endpoint_type)
                 connection = Connection(instance, port_name, full_name, wire, subelt, endpoint_type)
                 mapping_fn(self.signals[(wire,subelt)], self.hwex, connection)
@@ -226,7 +228,7 @@ class Connectivity(object):
         """
         Invoked by TimedAssign
         """
-        assert isinstance(wire.wire_type,WireTypeElement)
+        assert isinstance(wire.wire_type,WireType)
         if (wire,"") not in self.signals: self.signals[(wire,"")] = WireMapping(wire, "",wire.wire_type)
         self.signals[(wire,"")].set_is_global_wire(self.hwex)
         pass

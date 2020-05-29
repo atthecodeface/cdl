@@ -193,6 +193,7 @@ class ThExecFile(SimulationExecFile):
         """
         Wait until the global run time for the test is over, with a safety margin in BFM clock ticks
         """
+        self.verbose.info("%d:Starting to wait for test to be done"%(self.global_cycle()))
         self.bfm_wait(1)
         self.bfm_wait(1)
         self.bfm_wait(self.run_time_remaining()-margin)
