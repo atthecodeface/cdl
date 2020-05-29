@@ -305,7 +305,7 @@ class MapEntry(BaseObject):
     _name  : str
     _brief : str
     _doc   : str
-    def _instantiate(self, map:Map) -> Union[MapEntry,Csr]: ...
+    def _instantiate(self, map:Map) -> Union['MapEntry',Csr]: ...
     pass
 
 #c MapCsr - a MapEntry with a CSR inside
