@@ -57,18 +57,19 @@ PYTHON_CDL_UTILS_FILES= \
 	cdl/utils/xilinx.py
 
 PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN = \
+	cdl/tools/cdl_regress.py \
+	cdl/tools/cdl_mem_convert.py \
 	cdl/tools/parametrize_verilog.py
 
 PYTHON_CDL_TOOLS_FILES= \
-	${PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN} \
-	cdl/tools/cdl_mem_convert.py
-
+	${PYTHON_CDL_TOOLS_FILES_TYPE_CLEAN}
 
 #a Add python files
 $(eval $(call add_python_files,cdl,${PYTHON_CDL_FILES}))
 $(eval $(call add_python_files,cdl/sim,${PYTHON_CDL_SIM_FILES}))
 $(eval $(call add_python_files,cdl/utils,${PYTHON_CDL_UTILS_FILES}))
 $(eval $(call add_python_files,cdl/tools,${PYTHON_CDL_TOOLS_FILES}))
+$(foreach tool,${PYTHON_CDL_TOOLS_FILES},$(eval $(call install_script,python/cdl/tools,$(notdir $(tool)))))
 
 #a Type checking
 PYTHON_DIR = $(CURDIR)

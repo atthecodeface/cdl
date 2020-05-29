@@ -62,7 +62,7 @@ class HardwareThDut(Hardware):
         return TestHarnessModule(**kwargs)
 
     #f __init__
-    def __init__(self, **kwargs:Any) -> None: #, test_dict:Dict[str,object]):
+    def __init__(self, th_exec_file_object_fn:Optional[EFGenerator]=None, **kwargs:Any) -> None: #, test_dict:Dict[str,object]):
         self.wave_file = self.__class__.__module__+".vcd"
 
         children :List[Instantiable] = []
@@ -115,9 +115,8 @@ class HardwareThDut(Hardware):
         )
         children.append(self.dut)
 
-        th_exec_file_object_fn = self.th_exec_file_object_fn
-        if "th_exec_file_object_fn" in kwargs:
-            th_exec_file_object_fn = kwargs["th_exec_file_object_fn"]
+        if th_exec_file_object_fn is None:
+            th_exec_file_object_fn = self.th_exec_file_object_fn
             pass
         if th_exec_file_object_fn is not None:
             self.test_harness_0 = self.test_harness_module_fn(module_name="th",

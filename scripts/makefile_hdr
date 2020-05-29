@@ -263,7 +263,7 @@ install__$2: $1/$2
 
 endef
 
-#f install_script - installs in libexec/cdl normally (from CDL_SCRIPTS_DIR)
+#f install_script - installs in libexec/cdl normally
 define install_script
 # @param $1 script directory
 # @param $2 script filename
