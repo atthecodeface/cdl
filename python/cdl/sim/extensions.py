@@ -42,6 +42,30 @@ from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequ
 class HardwareThDut(Hardware):
     """
     Simple instantiation of a module with just clock and reset, and some specified th ports
+
+    module_name is the name of the CDL module to instantiate as 'dut' (device-under-test)
+
+    loggers is a dictionary of <name> -> <logger options>
+      logger options is a dictionary of <option> -> <value>
+        modules is a string of space separated module names (starting with 'dut' usually)
+        verbose is 1 to enable display to stdout of log events
+        filename is the name of a file to log to (in the cwd)
+      each entry makes an se_logger be created
+
+    clock_desc is a list of <clock_name> -> (delay to first high, cycles low, cycles high)
+    The first entry in clock_desc is used as the clock for the test harness (if any)
+    This is why it is not a dictionary.
+
+    reset_desc is a dictionary of <option> -> <value>
+      name is the name of the reset signal for the dut
+      init_value is the initial value of the signal
+      wait is the delay before the signal changes to !init_value
+
+    dut_inputs is a dictionary of <input port> -> <wiring description of port>
+
+    dut_outputs is a dictionary of <output port> -> <wiring description of port>
+
+    hw_forces is a dictionary of <dut submodule.option_name> -> <value>
     """
     wave_hierarchies : Dict[str,List[str]] = {} # user_key -> list of module names (with + for hierarchy)
     module_name = ""

@@ -198,10 +198,23 @@ t_sl_error_level c_se_internal_module__sram::delete_instance( void )
 */
 /*f c_se_internal_module__sram::reset
 */
+const t_sl_uint64 dummy_input=0;
+#define CHECK_INPUT(inputs, element) \
+    if (inputs . element == NULL) { \
+            fprintf( stderr,"FATAL: Unconnected input port '%s' on SRAM '%s'\n", \
+                     #element, engine->get_instance_full_name(engine_handle)); \
+            inputs . element = (t_sl_uint64 *)&dummy_input;               \
+    }
 t_sl_error_level c_se_internal_module__sram::reset( int pass )
 {
-    if (pass==0)
-    {
+    if (pass==0) {
+        for (int i=0; i<num_ports; i++) {
+            CHECK_INPUT(clock_domains[i].inputs, select);
+            CHECK_INPUT(clock_domains[i].inputs, address);
+            CHECK_INPUT(clock_domains[i].inputs, read_not_write);
+            CHECK_INPUT(clock_domains[i].inputs, write_data);
+            CHECK_INPUT(clock_domains[i].inputs, write_enable);
+        }
         if (memory)
         {
             free(memory);

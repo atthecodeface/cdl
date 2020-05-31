@@ -73,6 +73,7 @@ class TestSuites(object):
     #f __init__
     def __init__(self) -> None:
         self.packages = {}
+        self.modules_loaded = []
         pass
     
     #f add_test_suite_in_package
@@ -89,6 +90,7 @@ class TestSuites(object):
         module = importlib.util.module_from_spec(spec)
         # loader has an exec_module, but typing does not know this
         spec.loader.exec_module(module) # type: ignore
+        self.modules_loaded.append(module) # so they don't just disappear
         pass
 
     #f add_test_package
@@ -149,6 +151,15 @@ class TestSuites(object):
             for c in self.iter_subclasses(subcls):
                 yield c
                 pass
+            pass
+        pass
+
+    #f construct_test_fns
+    def construct_test_fns(self) -> None:
+        for cls in self.iter_subclasses(unittest.TestCase):
+            module_name = cls.__module__.partition(".")[2]
+            assert issubclass(cls,unittest.TestCase)
+            if hasattr(cls,"_tests"): cls._construct_tests()
             pass
         pass
 
@@ -341,6 +352,7 @@ except LoadError as e:
     print("Failed to load test suites: %s"%(str(e)), file=sys.stderr)
     sys.exit(4)
     
+X.construct_test_fns()
 X.build_test_set()
 if args.list:
     X.list_tests("Before inclusion/exclusion")

@@ -111,11 +111,15 @@ class ThExecFile(SimulationExecFile):
         return self.__class__.__name__
 
     def run(self) -> None: ...
+    def run__init(self)     -> None: ... # Optional
+    def run__finalize(self) -> None: ... # Optional
     def exec_run(self) -> None:
         try:
+            if hasattr(self,"run__init"): self.run__init()
             self.run()
+            if hasattr(self,"run__finalize"): self.run__finalize()
         except:
-            self.failtest("Exception raised in run method!"+traceback.format_exc())
+            self.failtest("Exception raised in running!"+traceback.format_exc())
             raise
 
     #f exec_reset
