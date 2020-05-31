@@ -314,7 +314,7 @@ class Memory(object):
             pass
         self.data[word_address] = data
         pass
-    #f add_data
+    #f add_data_word
     def add_data_word(self, data:int, address:int, base_address:int=0, address_mask:int=0xffffffff) -> None:
         address = (address-base_address) & address_mask
         data = data & self.word_mask
