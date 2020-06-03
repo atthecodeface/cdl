@@ -137,6 +137,7 @@ class Module(object):
     """
     model_name       : str
     src_dir          : Optional[str]= None
+    src_lib          : Optional[str]= None
     cpp_include_dirs : List[str] = [] # so they can be inherited
     cdl_include_dirs : List[str] = [] # so they can be inherited
     parent           : 'BuildableGroup'
@@ -154,9 +155,10 @@ class Module(object):
         pass
         
     #f __init__
-    def __init__(self, model_name:str, src_dir:Optional[str]=None):
+    def __init__(self, model_name:str, src_dir:Optional[str]=None, src_lib:Optional[str]=None):
         self.model_name = model_name
         if src_dir is not None: self.src_dir=src_dir
+        if src_lib is not None: self.src_lib=src_lib
         pass
 
     #f validate
@@ -248,7 +250,7 @@ class CdlModule(Module):
             r = []
             if self.assertions:  r.append("--include-assertions")
             if self.system_verilog_assertions:  r.append("--sv-assertions")
-            if self.displays:  r.append("--v_displays")
+            if self.displays:    r.append("--v_displays")
             if self.coverage:    r.append("--include-coverage")
             if self.statements:  r.append("--include-stmt-coverage")
             if self.multithread: r.append("--multithread")
@@ -316,7 +318,7 @@ class CdlModule(Module):
         extra_cdlflags - dictionary of str->str to cover things not provided for
         options - dictionary of CDL option -> bool, to enable assertions etc
         """
-        Module.__init__(self, model_name, **kwargs)
+        super(CdlModule,self).__init__(model_name, **kwargs)
         self.cdl_filename     = self.value_or_default(cdl_filename, model_name)
         self.cpp_filename     = self.value_or_default(cpp_filename, model_name)
         self.obj_filename     = self.value_or_default(obj_filename, model_name)
@@ -387,9 +389,10 @@ class CdlModule(Module):
         if "verilog" in self.build_options and not self.build_options["verilog"]:
             verilog_filename=""
             pass
+        src_file = self.parent.get_path_str(self.src_dir)
         r = "$(eval $(call cdl_template,"
         cdl_template = [library_name,
-                        self.parent.get_path_str(self.src_dir),
+                        src_file,
                         "${BUILD_DIR}",
                         self.cdl_filename+".cdl",
                         self.model_name,
@@ -432,13 +435,13 @@ class CdlSimVerilatedModule(CdlModule):
         self.verilog_filename    = self.value_or_default(verilog_filename, model_name)      # Source containing top module
         self.top_module          = self.value_or_default(top_module, self.verilog_filename) # toplevel module inside source the CDL matches
         implementation           = self.value_or_default(implementation, "verilated")
-        CdlModule.__init__(self,
-                           model_name       = model_name,
-                           cdl_filename     = cdl_filename,
-                           verilog_filename = self.verilog_filename,
-                           tool_name        = self.top_module,
-                           implementation   = implementation,
-                           **kwargs)
+        super(CdlSimVerilatedModule,self).__init__(
+            model_name       = model_name,
+            cdl_filename     = cdl_filename,
+            verilog_filename = self.verilog_filename,
+            tool_name        = self.top_module,
+            implementation   = implementation,
+            **kwargs)
         self.extra_verilog       = extra_verilog
         self.build_options["verilog"] = False
         pass
@@ -502,7 +505,7 @@ class Verilog(Module):
     def __init__(self, model_name:str,
                  verilog_filename:Optional[str] = None,
                  **kwargs:Any):
-        Module.__init__(self, model_name, **kwargs)
+        super(Verilog,self).__init__(model_name, **kwargs)
         self.verilog_filename = self.value_or_default(verilog_filename, model_name+".v")
         pass
 
@@ -539,7 +542,7 @@ class CModel(Module):
                  cpp_include_dirs:List[str] = [],
                  cpp_defines:Dict[str,str] = {},
                  **kwargs:Any):
-        Module.__init__(self, model_name, **kwargs)
+        super(CModel,self).__init__(model_name=model_name, **kwargs)
         self.cpp_filename     = self.value_or_default(cpp_filename, model_name)
         self.obj_filename     = self.value_or_default(obj_filename, self.cpp_filename)
         self.cpp_include_dirs = cpp_include_dirs + self.cpp_include_dirs
@@ -588,7 +591,7 @@ class CSrc(CModel):
     """
     def __init__(self, cpp_filename:str,
                  **kwargs:Any):
-        CModel.__init__(self, model_name="", cpp_filename=cpp_filename, **kwargs)
+        super(CSrc,self).__init__(model_name="", cpp_filename=cpp_filename, **kwargs)
         pass
     pass
 
@@ -600,18 +603,19 @@ class CLibrary(Module):
     pass
 
 #c BuildableGroup - parent class for Modules/Executable, which are subclassed in library_desc.py
+class Resolver(object):
+    def get_path(self, subpaths:List[Path], library_name:Optional[str]=None) -> Path: ...
+    pass
 class BuildableGroup(object):
     #t Instance types
     name    : str
     src_dir : Optional[str] = None
-    # include_dir : Optional[str] = None
-    # making get_path Optional makes mypy not think it is a method
-    get_path : Optional[Callable[[List[Path]],Path]]
+    resolver : Type[Resolver]
     has_been_imported : bool # This gets set when the module is part of a Modules
 
     # __init__
-    def __init__(self, get_path:Callable[[List[Path]],Path]):
-        self.get_path = get_path
+    def __init__(self, resolver:Type[Resolver]):
+        self.resolver = resolver
         pass
 
     #f new_subclasses
@@ -626,11 +630,11 @@ class BuildableGroup(object):
         return l
 
     #f get_path_str
-    def get_path_str(self, subpath:Optional[str]) -> str:
+    def get_path_str(self, subpath:Optional[str], lib:Optional[str]=None ) -> str:
         subpath_list = []
         if subpath is not None: subpath_list = [Path(subpath)]
-        assert self.get_path is not None
-        return str(self.get_path(subpath_list))
+        return str(self.resolver.get_path(subpath_list, lib))
+
     #f makefile_write_entries - must be supplied by subclass
     def makefile_write_entries(self, write:Writer, library_name:str) -> None: ...
     #f All done
@@ -654,7 +658,7 @@ class Modules(BuildableGroup):
 
     #f __init__
     def __init__(self, **kwargs:Any):
-        BuildableGroup.__init__(self, **kwargs)
+        super(Modules,self).__init__(**kwargs)
         for m in self.modules:
             m.set_parent(self)
             pass
@@ -690,7 +694,7 @@ class Executable(BuildableGroup):
         return None
     #f __init__
     def __init__(self, **kwargs:Any):
-        BuildableGroup.__init__(self, **kwargs)
+        super(Executable,self).__init__(**kwargs)
         for s in self.srcs:
             s.set_parent(self)
             pass
@@ -822,18 +826,20 @@ class BadLibraryDescription(LibraryException):
         return "%s: Bad library description: %s"%(str(self.library_path), self.reason)
 
 #c ImportedLibrary class - for each library_desc.py that is loaded (and loading them)
-class ImportedLibrary:
+class ImportedLibrary(Resolver):
     name : str
     path : Path
     library : Library
     buildable_instances : List[BuildableGroup]= []
     required_library_names : List[str]
     optional_library_names : List[str]
+    library_set            :'ImportedLibrarySet'
     #f __init__
-    def __init__(self, library_path:Path, imported_modules:Dict[str,'ImportedLibrary']):
+    def __init__(self, library_path:Path, library_set:'ImportedLibrarySet'):
         """
         Import a library from specified path - it has to contain a library_desc.py file that is importable
         """
+        self.library_set = library_set
         python_module = None
         try:
             library_path = library_path.resolve(strict=True)
@@ -849,8 +855,8 @@ class ImportedLibrary:
         except Exception as e:
             raise e
         sys.path.pop(0)
-        (library, library_name, library_path) = self.validate_library_module(python_module, imported_modules)
-        imported_modules[library_name] = self
+        (library, library_name, library_path) = self.validate_library_module(python_module)
+        self.library_set.add_library(library_name, self)
         self.path      = library_path
         self.name      = library_name
         self.library   = library
@@ -859,15 +865,15 @@ class ImportedLibrary:
         pass
     
     #f validate_library_module
-    def validate_library_module(self, python_module:PythonModule, imported_modules:Dict[str,'ImportedLibrary']) -> Tuple[Library, str, Path]:
+    def validate_library_module(self, python_module:PythonModule) -> Tuple[Library, str, Path]:
         library_path = Path(python_module.__file__).parent
         if not hasattr(python_module, "Library"):
             raise BadLibraryDescription(library_path, "library_desc.py must contain a Library class derived from cdl_desc.Library")
         # get mypy to ignore getting Library attribute - it has got one as we just discovered
         library = python_module.Library(library_path) # type: ignore
         library_name = library.get_name()
-        if library_name in imported_modules:
-            m = imported_modules[library_name]
+        m = self.library_set.find_library(library_name)
+        if m is not None:
             if m.path != library_path:
                 raise DuplicateLibrary(library_name, library_path, m.path)
             raise LibraryLoaded
@@ -887,7 +893,11 @@ class ImportedLibrary:
         return self.optional_library_names
     
     #f get_path
-    def get_path(self, subpaths:List[Path]=[]) -> Path:
+    def get_path(self, subpaths:List[Path]=[], library_name:Optional[str]=None) -> Path:
+        if library_name is not None:
+            m = self.library_set.find_library(library_name)
+            if m is None: raise UnknownLibrary(self, library_name)
+            return m.get_path(subpaths=subpaths, library_name=None)
         path = self.path
         for s in subpaths:
             path = Path(path, s)
@@ -942,7 +952,7 @@ class ImportedLibrary:
         if self.buildable_instances != []: return
         self.buildable_instances = []
         for b in self.library.iter_buildables():
-            instance = b(get_path=self.get_path)
+            instance = b(resolver=self)
             self.buildable_instances.append(instance)
             pass
         pass
@@ -1027,12 +1037,23 @@ class ImportedLibrarySet:
                 raise
             pass
         pass
-    
+
+    #f add_library - invoked by ImportedLibrary to add itself to the set of libraries
+    def add_library(self, library_name:str, library:ImportedLibrary) -> None:
+        self.imported_libraries[library_name] = library
+        pass
+        
+    #f find_library - invoked by ImportedLibrary to add itself to the set of libraries
+    def find_library(self, library_name:str) -> Optional[ImportedLibrary]:
+        if library_name in self.imported_libraries:
+            return self.imported_libraries[library_name]
+        return None
+        
     #f add_library_from_path
     def add_library_from_path(self, library_path:Path, required:bool=True) -> None:
         try:
             if not Path(library_path,"library_desc.py").is_file: raise LibraryNotFound(library_path)
-            lib = ImportedLibrary(library_path, self.imported_libraries)
+            lib = ImportedLibrary(library_path, self)
             if required: self.required_libraries.append(lib)
             else: self.optional_libraries.append(lib)
             pass

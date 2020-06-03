@@ -213,7 +213,9 @@ t_sl_error_level c_se_internal_module__sram::reset( int pass )
             CHECK_INPUT(clock_domains[i].inputs, address);
             CHECK_INPUT(clock_domains[i].inputs, read_not_write);
             CHECK_INPUT(clock_domains[i].inputs, write_data);
-            CHECK_INPUT(clock_domains[i].inputs, write_enable);
+            if (number_of_enables) {
+                CHECK_INPUT(clock_domains[i].inputs, write_enable);
+            }
         }
         if (memory)
         {
