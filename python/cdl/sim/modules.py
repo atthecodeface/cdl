@@ -197,6 +197,10 @@ class Module(Instantiable):
         self._forces = forces
         pass
 
+    #f get_module_type
+    def get_module_type(self) -> str:
+        return self._type
+    
     #f get_instance
     def get_instance(self, hwex:HardwareDescription, hw:Hardware) -> Instance:
         inst = Instance(module_type   = self._type,
@@ -213,8 +217,8 @@ class Module(Instantiable):
         try:
             self._ports = Ports(hw, name)
             pass
-        except:
-            hwex.report_error("failed to get ports on module %s (%s)"%(self.get_instance_name(), str(self.inst)))
+        except Exception as e:
+            hwex.report_error("failed to get ports on module %s (%s) : %s"%(self.get_instance_name(), str(self.inst), str(e)))
             pass
         pass
 
@@ -256,9 +260,11 @@ class TestHarnessModule(Module):
     """
     The object that represents a test harness.
     """
-    exec_file_object_fn : EFGenerator
-    exec_file_object    : ThExecFile
-
+    exec_file_object_fn     : EFGenerator
+    exec_file_object_fn_arg : Dict[str,Any]
+    exec_file_object        : ThExecFile
+    module_type             : str = "se_test_harness"
+    bfm_connections         : List[str] = []
     #f passed
     def passed(self) -> bool:
         passed = True
@@ -271,22 +277,35 @@ class TestHarnessModule(Module):
         return passed
 
     #f __init__
-    def __init__(self, exec_file_object_fn:EFGenerator, **kwargs:Any):
-        Module.__init__(self, module_type="se_test_harness", **kwargs )
+    def __init__(self, exec_file_object_fn:EFGenerator,
+                 exec_file_object_fn_args:Dict[str,Any]={},
+                 module_type:Optional[str]=None,
+                 bfm_connections:List[str]=[],
+                 **kwargs:Any):
+        if bfm_connections!=[]:
+            self.bfm_connections = self.bfm_connections[:] + bfm_connections
+            pass
+        if module_type is None: module_type = self.module_type
+        super(TestHarnessModule,self).__init__(module_type=module_type, **kwargs )
         self.exec_file_object_fn = exec_file_object_fn # type: ignore
+        self.exec_file_object_fn_args = exec_file_object_fn_args
         pass
 
     #f get_instance
     def get_instance(self, hwex:HardwareDescription, hw:Hardware) -> Instance:
-        self.exec_file_object = self.exec_file_object_fn(hardware=hw, th_module=self)
+        self.exec_file_object = self.exec_file_object_fn(hardware=hw, th_module=self, **self.exec_file_object_fn_args)
 
         input_names = []
         for (n,i) in self._inputs.items():
-            input_names.extend(i.full_sized_name_list(n))
+            if n not in self.bfm_connections:
+                input_names.extend(i.full_sized_name_list(n))
+                pass
             pass
         output_names = []
         for (n,i) in self._outputs.items():
-            output_names.extend(i.full_sized_name_list(n))
+            if n not in self.bfm_connections:
+                output_names.extend(i.full_sized_name_list(n))
+                pass
             pass
 
         options = dict(self._options.items())
@@ -294,7 +313,7 @@ class TestHarnessModule(Module):
         options["inputs"]  = " ".join(input_names)
         options["outputs"] = " ".join(output_names)
         options["object"]  = self.exec_file_object
-        inst = Instance( module_type="se_test_harness", force_options=self._forces, options=options)
+        inst = Instance( module_type=self.get_module_type(), force_options=self._forces, options=options)
         return inst
 
     #f set_global_run_time - in global cycles

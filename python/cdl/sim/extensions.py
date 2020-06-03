@@ -65,7 +65,14 @@ class HardwareThDut(Hardware):
 
     dut_outputs is a dictionary of <output port> -> <wiring description of port>
 
+    th_bfm_connections is a list of <port name>, for ports that the test harness *implicitly* has
+      an se_test_harness module has none, but a BFM may have, e.g., an apb_request interface
+      these will not be specified as th_inputs/th_outputs for the test harness to *add*
+
     hw_forces is a dictionary of <dut submodule.option_name> -> <value>
+
+    th_module_type is an optional string name of the module to use for the test harness
+      This defaults (ultimately) to se_test_harness
     """
     wave_hierarchies : Dict[str,List[str]] = {} # user_key -> list of module names (with + for hierarchy)
     module_name = ""
@@ -80,13 +87,19 @@ class HardwareThDut(Hardware):
     th_exec_file_object_fn : Optional[EFGenerator] = None
     hw_forces              : OptionsDict = {}
     th_options             : OptionsDict = {}
+    th_module_type         : Optional[str] = None
+    th_bfm_connections     : List[str] = []
 
     #f test_harness_module_fn - the default
     def test_harness_module_fn(self, **kwargs:Any) -> TestHarnessModule:
         return TestHarnessModule(**kwargs)
 
     #f __init__
-    def __init__(self, th_exec_file_object_fn:Optional[EFGenerator]=None, **kwargs:Any) -> None: #, test_dict:Dict[str,object]):
+    def __init__(self,
+                 th_exec_file_object_fn:Optional[EFGenerator]=None,
+                 th_args:Dict[str,Any]={},
+                 th_module_type:Optional[str]=None, # Defaults to se_test_harness elsewhere
+                 **kwargs:Any) -> None:
         self.wave_file = self.__class__.__module__+".vcd"
 
         children :List[Instantiable] = []
@@ -139,16 +152,20 @@ class HardwareThDut(Hardware):
         )
         children.append(self.dut)
 
+        if th_module_type is None: th_module_type = self.th_module_type
         if th_exec_file_object_fn is None:
             th_exec_file_object_fn = self.th_exec_file_object_fn
             pass
         if th_exec_file_object_fn is not None:
             self.test_harness_0 = self.test_harness_module_fn(module_name="th",
+                                                              module_type=th_module_type,
                                                               clocks=th_clocks,
                                                               inputs=th_inputs,
                                                               outputs=th_outputs,
+                                                              bfm_connections=self.th_bfm_connections,
                                                               options=self.th_options,
                                                               exec_file_object_fn=th_exec_file_object_fn,
+                                                              exec_file_object_fn_args=th_args
             )
             children.append(self.test_harness_0)
             pass
