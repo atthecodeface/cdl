@@ -96,6 +96,7 @@ class ThExecFile(SimulationExecFile):
         SimulationExecFile.__init__(self)
         pass
 
+    #f exec_init
     def exec_init(self) -> None:
         SimulationExecFile.exec_init(self)
         self.hardware.ensure_waves(self)
@@ -104,8 +105,10 @@ class ThExecFile(SimulationExecFile):
         self.__ticks_per_cycle = 0
         self.__subthread_count = 0
         self.__subthread_count_completed = 0
+        self.__announced = False
         pass
 
+    #f th_get_name
     def th_get_name(self) -> str:
         if hasattr(self, "th_name"): return self.th_name
         return self.__class__.__name__
@@ -114,6 +117,10 @@ class ThExecFile(SimulationExecFile):
     def run__init(self)     -> None: ... # Optional
     def run__finalize(self) -> None: ... # Optional
     def exec_run(self) -> None:
+        if not self.__announced:
+            self.verbose.info("exec_run:%s"%(self.th_get_name()))
+            self.__announced = True
+            pass
         try:
             if hasattr(self,"run__init"): self.run__init()
             self.run()
@@ -223,6 +230,7 @@ class ThExecFile(SimulationExecFile):
 
     #f passtest
     def passtest(self, message:str) -> None:
+        self.verbose.info("%s:%s"%(self.global_cycle(), message))
         return self.py.pypass(self.global_cycle(), message)
 
     #f failtest

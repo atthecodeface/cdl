@@ -23,6 +23,7 @@ class single_port_memory_th(ThExecFile):
 
     def run(self) -> None:
         if not self.is_mrw:
+            self.select_0         = self.select
             self.read_not_write_0 = self.read_not_write
             self.address_0        = self.address
             self.write_data_0     = self.write_data
@@ -47,6 +48,7 @@ class single_port_memory_th(ThExecFile):
         self.read_not_write_0.reset(1)
         self.write_enable_0.reset(0)
         self.bfm_wait(1)
+        self.select_0.drive(1)
         tv_addr = 0
         last_data_0 : int
         while True:
@@ -120,6 +122,8 @@ class dual_port_memory_th(ThExecFile):
         self.read_not_write_1.reset(1)
         self.write_enable_1.reset(0)
         self.bfm_wait(1)
+        self.select_0.drive(1)
+        self.select_1.drive(1)
         self.sim_msg = self.sim_message()
         tv_addr = 0
         last_data_0 : int
@@ -195,7 +199,8 @@ class single_port_memory_srw_hw(HardwareThDut):
                     "size": 1024,
                     "width": 16,
                     "verbose": 0 }
-    dut_inputs = { "address": 10,
+    dut_inputs = { "select": 1,
+                   "address": 10,
                    "read_not_write": 1,
                    "write_data": 16
     }
@@ -232,7 +237,8 @@ class single_port_memory_hw(HardwareThDut):
                     "size": 1024,
                     "width": 16,
                     "verbose": 0 }
-    dut_inputs = { "address_0": 10,
+    dut_inputs = { "select_0": 1,
+                   "address_0": 10,
                    "read_not_write_0": 1,
                    "write_data_0": 16
     }
@@ -270,9 +276,11 @@ class dual_port_memory_hw(HardwareThDut):
                                            "size": 1024,
                                            "width": 16,
                                            "verbose": 0 }
-    dut_inputs = { "address_0": 10,
+    dut_inputs = { "select_0": 1,
+                   "address_0": 10,
                    "read_not_write_0": 1,
                    "write_data_0": 16,
+                   "select_1": 1,
                    "address_1": 10,
                    "read_not_write_1": 1,
                    "write_data_1": 16,
