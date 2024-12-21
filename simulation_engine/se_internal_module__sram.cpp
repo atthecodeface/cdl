@@ -222,6 +222,8 @@ t_sl_error_level c_se_internal_module__sram::reset( int pass )
             free(memory);
             memory = NULL;
         }
+        fprintf(stderr, "%s : read mif '%s'",  engine->get_instance_full_name(engine_handle), filename);
+
         sl_mif_allocate_and_read_mif_file( engine->error,
                                            strcmp(filename,"")?filename:NULL,
                                            "c_se_internal_module__sram",

@@ -28,7 +28,7 @@ AC_ARG_VAR([PYTHON_CONFIG],  [Path to python3-config])
 AS_IF([test -z "$PYTHON_INCLUDE"], [
   AS_IF([test -z "$PYTHON_CONFIG"], [
     AC_PATH_PROGS([PYTHON_CONFIG],
-                  [python$PYTHON_VERSION-config python-config],
+                  [python3-config],
                   [no],
                   [`dirname $PYTHON`])
     AS_IF([test "$PYTHON_CONFIG" = no], [AC_MSG_ERROR([cannot find python-config for $PYTHON.])])
@@ -37,7 +37,7 @@ AS_IF([test -z "$PYTHON_INCLUDE"], [
   PYTHON_INCLUDE=`$PYTHON_CONFIG --includes`
   AC_MSG_RESULT([:$PYTHON_INCLUDE])
   AC_MSG_CHECKING([python library flags])
-  PYTHON_LIBS=`$PYTHON_CONFIG --ldflags`
+  PYTHON_LIBS=`$PYTHON_CONFIG --ldflags --embed`
   AC_MSG_RESULT([:$PYTHON_LIBS])
 ])
 AC_SUBST([PYTHON_INCLUDE])

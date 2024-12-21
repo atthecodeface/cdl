@@ -34,7 +34,8 @@ PyTypeObject py_engine_PyTypeObject_frame = {
     .tp_basicsize = sizeof( t_py_engine_PyObject ), // basic size
     .tp_new       = py_engine_new,     /*tp_new*/
     .tp_dealloc   = py_engine_dealloc, /*tp_dealloc*/
-    .tp_print     = py_engine_print,   /*tp_print*/
+    // Not provided in PYTHOn 3.9 and beyond, and not used in Python 3
+    // .tp_print     = py_engine_print,   /*tp_print*/
     .tp_repr      = py_engine_repr,          /*tp_repr*/
 	.tp_str       = py_engine_str, /*tp_str */
     .tp_getattro  = PyObject_GenericGetAttr,
