@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <cstddef>
 #include "sl_debug.h"
 #include "sl_general.h"
 #include "sl_token.h"
@@ -190,6 +191,7 @@ static struct t_internal_module_data *create_internal_module_data( c_engine *eng
 {
      t_internal_module_data *data;
      data = (t_internal_module_data *)malloc(sizeof(t_internal_module_data));
+
      data->engine = engine;
      data->ptr = NULL;
      data->next_in_list = engine->module_data;
@@ -200,78 +202,47 @@ static struct t_internal_module_data *create_internal_module_data( c_engine *eng
 /*f internal_module_delete_data
     Should unlink it?!?
  */
-static t_sl_error_level internal_module_delete_data( void *handle )
+static void internal_module_delete_data(t_internal_module_data *data)
 {
-    t_internal_module_data *data;
-    if (handle)
-    {
-        data = (t_internal_module_data *)handle;
-        if (data->ptr)
-            free(data->ptr);
+    if (data) {
+        if (data->ptr) free(data->ptr);
         free(data);
     }
-    return error_level_okay;
-}
-
-/*f internal_module_generic_logic_comb
- */
-static t_sl_error_level internal_module_generic_logic_comb( void *handle )
-{
-     t_internal_module_data *data;
-     data = (t_internal_module_data *)handle;
-
-     generic_logic_fns[ data->args[2] ].logic_fn( data->args[0], data->outputs, data->inputs, data->args[1] );
-
-     return error_level_okay;
 }
 
 /*f internal_module_generic_logic_instantiate
  */
 static t_sl_error_level internal_module_generic_logic_instantiate( c_engine *engine, void *engine_handle )
 {
-     const char *type;
-     int width, number_inputs;
-     t_internal_module_data *data;
-     int i;
-     char buffer[256];
+    char buffer[256];
 
-     type = engine->get_option_string( engine_handle, "type", "<none>" );
-     width = engine->get_option_int( engine_handle, "width", 16 );
-     number_inputs = engine->get_option_int( engine_handle, "number_inputs", 2 );
+    auto type = engine->get_option_string( engine_handle, "type", "<none>" );
+    auto width = engine->get_option_int( engine_handle, "width", 16 );
+    auto number_inputs = engine->get_option_int( engine_handle, "number_inputs", 2 );
 
-     for (i=0; generic_logic_fns[i].type; i++)
-     {
-          if (!strcmp( generic_logic_fns[i].type, type))
-          {
-               break;
-          }
-     }
-     if (!generic_logic_fns[i].type)
-     {
-          return engine->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
-                                           error_arg_type_malloc_string, type,
-                                           error_arg_type_none );
-     }
+    auto generic_fn = generic_logic_fns;
+    for (; generic_fn->type; generic_fn++) {
+        if (!strcmp( generic_fn->type, type)) break;
+    }
+    if (!generic_fn->type) {
+        return engine->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
+                                  error_arg_type_malloc_string, type,
+                                  error_arg_type_none );
+    }
 
-     data = create_internal_module_data( engine );
-     data->args[0] = width;
-     data->args[1] = number_inputs;
-     data->args[2] = i;
+    auto data = create_internal_module_data( engine );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
+    engine->register_output_signal( engine_handle, "bus_out", width, &data->outputs[0] );
+    engine->register_comb_output( engine_handle, "bus_out" );
+    engine->register_comb_fn(engine_handle, [generic_fn,data,width,number_inputs](void){generic_fn->logic_fn(width, data->outputs, data->inputs, number_inputs );});
 
-     engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
-     engine->register_output_signal( engine_handle, "bus_out", width, &data->outputs[0] );
-     engine->register_comb_output( engine_handle, "bus_out" );
+    for (int i=0; i<number_inputs; i++) {
+        sprintf( buffer, "bus_in__%d__", i );
+        engine->register_input_signal( engine_handle, buffer, width, &data->inputs[i] );
+        engine->register_comb_input( engine_handle, buffer );
+    }
 
-     for (i=0; i<number_inputs; i++)
-     {
-          sprintf( buffer, "bus_in__%d__", i );
-          engine->register_input_signal( engine_handle, buffer, width, &data->inputs[i] );
-          engine->register_comb_input( engine_handle, buffer );
-     }
-
-     engine->register_comb_fn( engine_handle, (void *)data, internal_module_generic_logic_comb );
-
-     return error_level_okay;
+    return error_level_okay;
 }
 
 /*f internal_module_bit_extract_comb
@@ -316,7 +287,7 @@ static t_sl_error_level internal_module_bit_extract_instantiate( c_engine *engin
      data->args[1] = width_out;
      data->args[2] = start_out;
 
-     engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
+     engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
      engine->register_input_signal( engine_handle, "bus_in", width_in, &data->inputs[0] );
      engine->register_output_signal( engine_handle, "bus_out", width_out, &data->outputs[0] );
      engine->register_comb_input( engine_handle, "bus_in" );
@@ -376,7 +347,7 @@ static t_sl_error_level internal_module_bundle_instantiate( c_engine *engine, vo
     data = create_internal_module_data( engine );
     data->args[0] = number_inputs;
 
-    engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
     {
         int i;
         char buffer[256];
@@ -397,22 +368,17 @@ static t_sl_error_level internal_module_bundle_instantiate( c_engine *engine, vo
 
 /*f internal_module_clock_phase_reset
  */
-static t_sl_error_level internal_module_clock_phase_reset( void *handle, int pass )
+static void internal_module_clock_phase_reset(t_internal_module_data *data, int pass )
 {
-    t_internal_module_data *data;
-    data = (t_internal_module_data *)handle;
-
     data->args[2] = data->args[0]; // cycles left in delay
     data->args[3] = 0; // position in pattern
     data->outputs[0] = 0;
-    return error_level_okay;
 }
 
 /*f internal_module_clock_phase_int_preclock
  */
-static t_sl_error_level internal_module_clock_phase_int_preclock( void *handle )
+static void internal_module_clock_phase_int_preclock(t_internal_module_data *data)
 {
-    return error_level_okay;
 }
 
 /*f internal_module_clock_phase_int_clock
@@ -473,20 +439,25 @@ static t_sl_error_level internal_module_clock_phase_instantiate( c_engine *engin
     data->args[4] = strlen(pattern); // after this cycle in pattern output becomes 0
     data->ptr = sl_str_alloc_copy( pattern );
 
-    engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
-    engine->register_reset_function( engine_handle, (void *)data, internal_module_clock_phase_reset );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
+    engine->register_reset_function( engine_handle,  [data](int pass){internal_module_clock_phase_reset(data,pass);} );
 
     engine->register_output_signal( engine_handle, "phase", 1, &data->outputs[0] );
-    engine->register_clock_fns( engine_handle, (void *)data, "int_clock", internal_module_clock_phase_int_preclock, internal_module_clock_phase_int_clock );
+    engine->register_clock_fns( engine_handle, "reset_clock",
+                                    [data](){internal_module_clock_phase_int_preclock(data);},
+                                    [data](){internal_module_clock_phase_int_clock(data);},
+                                t_se_engine_std_function(), t_se_engine_std_function() );
     engine->register_output_generated_on_clock( engine_handle, "phase", "int_clock", 1 );
 
     {
         static t_engine_state_desc state_desc[] =
         {
-            {"output",engine_state_desc_type_bits,NULL,((char *)(&(data->outputs[0])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"delay_left",engine_state_desc_type_bits,NULL,((char *)(&(data->args[2])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"position",engine_state_desc_type_bits,NULL,((char *)(&(data->args[3])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"", engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
+            {"output",    engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,outputs[0]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"delay_left",engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,args[2]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"position",  engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,args[3]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            // {"delay_left",engine_state_desc_type_bits,NULL,((char *)(&(data->args[2])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            // {"position",  engine_state_desc_type_bits,NULL,((char *)(&(data->args[3])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"",          engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
         };
         engine->register_state_desc( engine_handle, 1, state_desc, data, NULL );
     }
@@ -497,30 +468,22 @@ static t_sl_error_level internal_module_clock_phase_instantiate( c_engine *engin
 
 /*f internal_module_assign_reset
  */
-static t_sl_error_level internal_module_assign_reset( void *handle, int pass )
+static void internal_module_assign_reset(t_internal_module_data *data, int pass )
 {
-    t_internal_module_data *data;
-    data = (t_internal_module_data *)handle;
-
     data->outputs[0] = data->args[1];
-    return error_level_okay;
 }
 
 /*f internal_module_assign_reset_preclock
  */
-static t_sl_error_level internal_module_assign_reset_preclock( void *handle )
+static void internal_module_assign_reset_preclock(t_internal_module_data *data)
 {
-    return error_level_okay;
 }
 
 /*f internal_module_assign_reset_clock
  */
-static t_sl_error_level internal_module_assign_reset_clock( void *handle )
+static void internal_module_assign_reset_clock(t_internal_module_data *data)
 {
-    t_internal_module_data *data;
-    data = (t_internal_module_data *)handle;
     data->outputs[0]=data->args[3];
-    return error_level_okay;
 }
 
 /*f internal_module_data_assign_instantiate
@@ -536,23 +499,25 @@ static t_sl_error_level internal_module_data_assign_instantiate( c_engine *engin
     after_value = engine->get_option_int( engine_handle, "after_value", 32 );
 
     data = create_internal_module_data( engine );
+
     data->args[0] = bus_width;
     data->args[1] = value;
     data->args[2] = until_cycle;
     data->args[3] = after_value;
 
-    engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
-    engine->register_reset_function( engine_handle, (void *)data, internal_module_assign_reset );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
+    engine->register_reset_function( engine_handle,  [data](int pass){internal_module_assign_reset(data,pass);} );
 
     engine->register_output_signal( engine_handle, "bus", bus_width, &data->outputs[0] );
-    if (until_cycle>0)
-    {
-        static t_engine_state_desc state_desc[] =
-        {
-            {"output",engine_state_desc_type_bits,NULL,((char *)(&(data->outputs[0])))-(char *)(data),{32,0,0,0},{NULL,NULL,NULL,NULL}},
-            {"", engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
+    if (until_cycle>0) {
+        static t_engine_state_desc state_desc[] = {
+            {"output",    engine_state_desc_type_bits,NULL,offsetof(t_internal_module_data,outputs[0]),{32,0,0,0},{NULL,NULL,NULL,NULL}},
+            {"",          engine_state_desc_type_none, NULL, 0, {0,0,0,0}, {NULL,NULL,NULL,NULL} }
         };
-        engine->register_clock_fns( engine_handle, (void *)data, "reset_clock", internal_module_assign_reset_preclock, internal_module_assign_reset_clock );
+        engine->register_clock_fns( engine_handle, "reset_clock",
+                                    [data](){internal_module_assign_reset_preclock(data);},
+                                    [data](){internal_module_assign_reset_clock(data);},
+                                    t_se_engine_std_function(), t_se_engine_std_function() );
         engine->register_output_generated_on_clock( engine_handle, "bus", "reset_clock", 1 );
         engine->register_state_desc( engine_handle, 1, state_desc, data, NULL );
     }
@@ -586,7 +551,7 @@ static t_sl_error_level internal_module_data_cmp_instantiate( c_engine *engine, 
      data->args[0] = bus_width;
      data->args[1] = value;
 
-     engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
 
      engine->register_input_signal( engine_handle, "bus", bus_width, &data->inputs[0] );
      engine->register_comb_input( engine_handle, "bus" );
@@ -634,7 +599,7 @@ static t_sl_error_level internal_module_data_mux_instantiate( c_engine *engine, 
      data->args[1] = number_inputs;
      data->args[2] = select_width;
 
-     engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
      for (i=0; i<number_inputs; i++)
      {
           sprintf( buffer, "bus_in__%d__", i );
@@ -685,7 +650,7 @@ static t_sl_error_level internal_module_decode_instantiate( c_engine *engine, vo
      data->args[1] = input_width;
      data->args[2] = 1<<input_width;
 
-     engine->register_delete_function( engine_handle, (void *)data, internal_module_delete_data );
+    engine->register_delete_function( engine_handle, [data](){internal_module_delete_data(data);} );
      engine->register_input_signal( engine_handle, "bus_in", input_width, &data->inputs[0] );
      engine->register_comb_input( engine_handle, "bus_in" );
      if (enabled)

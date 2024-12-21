@@ -21,8 +21,8 @@ module constants constants_0
 
 option_string "clock" system_clock
 option_string "signal_object_prefix" "signal__"
-option_string "inputs" "high_0 high_1 low_0 toggle_0 invert_0 and_0 invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7 constants_out[13]"
-option_string "outputs" "test_reset and_in_0 and_in_1"
+option_string "inputs" "high_0 high_1 low_0 toggle_0 invert_0 and_0 invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7 constants_out[13] test_reset"
+option_string "outputs" "and_in_0 and_in_1"
 option_string "filename" test_harness.th
 module se_test_harness test_harness_0
 
@@ -32,6 +32,7 @@ drive test_harness_0.system_clock system_clock
 drive constants_0.clk system_clock
 
 wire test_reset
+assign test_reset 1 5 0
 
 wire high_0 high_1 low_0 toggle_0 invert_0 and_0
 wire invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7
@@ -61,7 +62,7 @@ drive and_0.in_value_0 and_in_0
 drive and_0.in_value_1 and_in_1
 drive and_0 and_0.out_value
 
-drive test_reset test_harness_0.test_reset
+drive test_harness_0.test_reset test_reset
 drive test_harness_0.high_0 high_0
 drive test_harness_0.high_1 high_1
 drive test_harness_0.low_0 low_0

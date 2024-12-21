@@ -973,8 +973,8 @@ c_co_signal_declaration::~c_co_signal_declaration()
  */
 c_co_sized_int_pair::c_co_sized_int_pair( t_sized_int *left, t_sized_int *right )
 {
-    left = left;
-    right = right;
+    this->left = left;
+    this->right = right;
 
     co_init(co_type_sized_int_pair,"sized_int_pait()");
     co_link(co_compile_stage_parse, left, "left" );

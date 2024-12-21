@@ -1,11 +1,11 @@
 /*a Copyright
-  
+
   This file 'c_se_engine__instantiation.cpp' copyright Gavin J Stark 2003, 2004
-  
+
   This is free software; you can redistribute it and/or modify it under
   the terms of the GNU Lesser General Public License as published by the Free Software
   Foundation, version 2.1.
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
@@ -118,48 +118,45 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     int i, j;
     int width;
     char *arg, *names[SL_EXEC_FILE_MAX_CMD_ARGS+1];
-    //fprintf(stderr,"cmd_cb->cmd %d\n",cmd_cb->cmd);
     switch (cmd_cb->cmd)
     {
     case cmd_module:
-        //fprintf(stderr,"Instantiate %s %s\n",cmd_cb->args[0].p.string, cmd_cb->args[1].p.string);
         instantiate( NULL,
-                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                      option_list );
-        //fprintf(stderr,"Instantiation complete\n");
         option_list = NULL;
         break;
     case cmd_module_force_option_int:
-        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                     sl_option_list( NULL,
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                                                     sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 2) ));
         break;
     case cmd_module_force_option_string:
-        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                     sl_option_list( NULL,
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 2) ));
         break;
     case cmd_module_force_option_object:
-        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                     sl_option_list( NULL,
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                                                     sl_exec_file_eval_fn_get_argument_pointer( cmd_cb, 2) ));
         break;
     case cmd_option_int:
-        option_list = sl_option_list( option_list, 
+        option_list = sl_option_list( option_list,
                                       sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                       sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 1) );
         break;
     case cmd_option_string:
-        option_list = sl_option_list( option_list, 
+        option_list = sl_option_list( option_list,
                                       sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                       sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1) );
         break;
     case cmd_option_object:
-        option_list = sl_option_list( option_list, 
+        option_list = sl_option_list( option_list,
                                       sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
                                       sl_exec_file_eval_fn_get_argument_pointer( cmd_cb, 1) );
         break;
@@ -262,7 +259,6 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
         generic_logic( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), j-2, names[0], names[1], (const char **)(names+2) );
         break;
     case cmd_clock:
-        //fprintf(stderr,"Create clock %s %lld %lld %lld\n",cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         create_clock( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         break;
     case cmd_clock_divide:
@@ -290,7 +286,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
             name( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), names[1], names[1]+i+1, names[0] );
             break;
         }
-          
+
         if (find_global( names[1] ))
         {
             for (i=0; (names[0][i]!='.') && (names[0][i]!=0); i++);
@@ -360,6 +356,7 @@ static void exec_file_instantiate_callback( void *handle, struct t_sl_exec_file_
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
 }
@@ -416,7 +413,7 @@ t_sl_error_level c_engine::read_and_interpret_py_object( PyObject *describer, t_
      return error_level_okay;
 }
 
-/*f c_engine::instantiate 
+/*f c_engine::instantiate
  */
 t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *type, const char *name, t_sl_option_list option_list )
 {
@@ -431,8 +428,8 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
       */
      name = sl_str_alloc_copy( name );
      pemi = (t_engine_module_instance *)parent_engine_handle;
-     if (pemi)
-     {
+     full_name = (char *)name;
+     if (pemi) {
          int parent_length;
          parent_length = strlen(pemi->full_name);
          full_name = (char *)malloc( parent_length+strlen(name)+2 );
@@ -440,22 +437,19 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
          full_name[parent_length] = '.';
          strcpy( full_name+parent_length+1, name );
      }
-     else
-     {
-         full_name = (char *)name;
-     }
 
      /*b Find any override options for full_name, and create a new list with those options pointing to option_list at the tail;
       */
      combined_option_list = option_list;
-     {
-         t_engine_module_forced_option *fopt;
-         for (fopt = module_forced_options; fopt; fopt=fopt->next_in_list)
-         {
-             if (!strcmp(fopt->full_name, full_name))
-             {
-                 //fprintf(stderr,"Prepending forces option for module %s\n",full_name);
-                 combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
+     int full_name_len = strlen(full_name);
+     for (auto fopt = module_forced_options; fopt; fopt=fopt->next_in_list) {
+         if (!strcmp(fopt->full_name, full_name)) {
+             combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
+         } else {
+             if ( (!strncmp(fopt->full_name, full_name, full_name_len)) && (fopt->full_name[full_name_len]=='.')) {
+                 auto opt = sl_option_list_copy_item(fopt->option,&(fopt->full_name[full_name_len+1]),sl_option_keyword(fopt->option));
+                 combined_option_list = sl_option_list_prepend( combined_option_list, opt );
+                 // fprintf(stderr, "New option for %s is %s\n", full_name, sl_option_keyword(opt));
              }
          }
      }
@@ -463,7 +457,6 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      /*b Find any forced implementation name
       */
      const char *implementation_name = sl_option_get_string(combined_option_list,"__implementation_name");
-     //fprintf(stderr,"Implementation name %s before forced options for type for module %s\n",implementation_name?implementation_name:"<none>", full_name );
      if (implementation_name==NULL)
      {
          t_engine_module_instance *root;
@@ -512,7 +505,9 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
                                    error_arg_type_none );
      }
 
-     emi = (t_engine_module_instance *)malloc(sizeof(t_engine_module_instance));
+     emi = new t_engine_module_instance();
+     // fprintf(stderr,"create emi %p\n",emi);
+     // fprintf(stderr,"create emi->name %s\n",full_name);
      emi->next_instance = module_instance_list;
      module_instance_list = emi;
      emi->parent_instance = pemi;
@@ -536,19 +531,21 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->full_name       = full_name;
      emi->full_name_hash  = sl_str_hash( emi->full_name, -1 );
 
-     emi->option_list = combined_option_list;
-     emi->delete_fn_list = NULL;
-     emi->reset_fn_list = NULL;
-     emi->clock_fn_list = NULL;
-     emi->comb_fn_list = NULL;
-     emi->propagate_fn_list = NULL;
-     emi->prepreclock_fn_list = NULL;
-     emi->input_list = NULL;
+     emi->option_list    = combined_option_list;
+     // emi->delete_cb      = new c_se_engine_callbacks_void();
+     // emi->reset_cb       = new c_se_engine_callbacks_int();
+     // emi->propagate_cb   = new c_se_engine_callbacks_void();
+     // emi->prepreclock_cb = new c_se_engine_callbacks_void();
+     // emi->comb_cb        =
+     // emi->message_cb     =
+
+     emi->checkpoint_fn_list = NULL;
+
+     emi->clock_fn_list  = NULL;
+     emi->input_list  = NULL;
      emi->output_list = NULL;
      emi->state_desc_list = NULL;
      emi->coverage_desc = NULL;
-     emi->checkpoint_fn_list = NULL;
-     emi->message_fn_list = NULL;
      emi->log_event_list = NULL;
 
      emi->sdl_to_view = NULL;
@@ -622,7 +619,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      emi = (t_engine_module_instance *)find_module_instance( NULL, driver_module_name );
      if (!emi)
      {
-          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_module_type, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, driver_module_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -633,10 +630,10 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      if (!output)
      {
           return add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_name,
-                                   error_arg_type_malloc_string, driver_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
+                            error_arg_type_malloc_string, driver_signal_name,
+                            error_arg_type_malloc_string, emi->full_name,
+                            error_arg_type_malloc_string, emi->type,
+                            error_arg_type_none );
      }
 
      if ( (find_clock(global_name)) )
@@ -660,9 +657,9 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      if (global->driven_by)
      {
           return add_error( (void *)driver_module_name, error_level_serious, error_number_se_multiple_global_drivers, error_id_se_c_engine_name,
-                                   error_arg_type_malloc_string, driver_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
+                            error_arg_type_malloc_string, driver_signal_name,
+                            error_arg_type_malloc_string, emi->full_name,
+                            error_arg_type_malloc_string, emi->type,
                                    error_arg_type_none );
      }
 
@@ -693,19 +690,19 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      if (!input)
      {
           return add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
-                                   error_arg_type_malloc_string, driven_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
+                            error_arg_type_malloc_string, driven_signal_name,
+                            error_arg_type_malloc_string, emi->full_name,
+                            error_arg_type_malloc_string, emi->type,
+                            error_arg_type_none );
      }
 
      if (input->data.input.driven_by)
      {
           return add_error( (void *)driven_module_name, error_level_serious, error_number_se_multiple_port_drivers, error_id_se_c_engine_drive,
-                                   error_arg_type_malloc_string, driven_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
+                            error_arg_type_malloc_string, driven_signal_name,
+                            error_arg_type_malloc_string, emi->full_name,
+                            error_arg_type_malloc_string, emi->type,
+                            error_arg_type_none );
      }
 
      if ( (find_clock(global_name)) )
@@ -732,58 +729,49 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      return error_level_okay;
 }
 
-/*f c_engine::bind_clock
+/*f c_engine::bind_clock - bind a global clock to a toplevel modules instance name and signal
  */
 t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, const char *module_instance_name, const char *module_signal_name, const char *global_clock_name )
 {
-     t_engine_module_instance *emi;
-     t_engine_function *clk;
-     t_engine_clock *global_clock;
+    auto emi = (t_engine_module_instance *)find_module_instance( NULL, module_instance_name );
+    if (!emi) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_instance_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     emi = (t_engine_module_instance *)find_module_instance( NULL, module_instance_name );
-     if (!emi)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_instance_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    auto clk = se_engine_function_find_function( emi->clock_fn_list, module_signal_name );
+    if (!clk) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_signal_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     clk = se_engine_function_find_function( emi->clock_fn_list, module_signal_name );
-     if (!clk)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_signal_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    if (clk->data.clock.driven_by) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, module_signal_name,
+                          error_arg_type_malloc_string, clk->data.clock.driven_by->global_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     if (clk->data.clock.driven_by)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, module_signal_name,
-                                   error_arg_type_malloc_string, clk->data.clock.driven_by->global_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
+    auto global_clock = find_clock( global_clock_name );
+    if (!global_clock) {
+        return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+                          error_arg_type_malloc_string, global_clock_name,
+                          error_arg_type_malloc_filename, filename,
+                          error_arg_type_line_number, line_number,
+                          error_arg_type_none );
+    }
 
-     global_clock = find_clock( global_clock_name );
-     if (!global_clock)
-     {
-          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
-                                   error_arg_type_malloc_string, global_clock_name,
-                                   error_arg_type_malloc_filename, filename,
-                                   error_arg_type_line_number, line_number,
-                                   error_arg_type_none );
-     }
-
-     clk->data.clock.driven_by = global_clock;
-     se_engine_function_references_add( &global_clock->clocks_list, clk );
-
-     return error_level_okay;
+    clk->data.clock.driven_by = global_clock;
+    global_clock->clocks_list.push_back(clk);
+    return error_level_okay;
 }
 
 /*f c_engine::bit_extract
@@ -864,7 +852,7 @@ t_sl_error_level c_engine::assign( const char *filename, int line_number, const 
      t_sl_option_list option_list;
      char *instance_name;
 
-     if ( find_clock(output_bus) )          
+     if ( find_clock(output_bus) )
      {
           return add_error( (void *)"assign", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_bus,
@@ -910,7 +898,7 @@ t_sl_error_level c_engine::create_clock_phase( const char *filename, int line_nu
     t_sl_option_list option_list;
     char *instance_name;
 
-    if ( !find_clock(global_clock_name) )          
+    if ( !find_clock(global_clock_name) )
     {
         return add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                  error_arg_type_malloc_string, global_clock_name,
@@ -919,7 +907,7 @@ t_sl_error_level c_engine::create_clock_phase( const char *filename, int line_nu
                                  error_arg_type_none );
     }
 
-    if ( find_clock(output_signal) )          
+    if ( find_clock(output_signal) )
     {
         return add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                  error_arg_type_malloc_string, output_signal,
@@ -968,7 +956,7 @@ t_sl_error_level c_engine::compare( const char *filename, int line_number, const
                                    error_arg_type_line_number, line_number,
                                    error_arg_type_none );
      }
-     if ( find_clock(output_signal) )          
+     if ( find_clock(output_signal) )
      {
           return add_error( (void *)"compare", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_signal,
@@ -1102,7 +1090,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
                                    error_arg_type_line_number, line_number,
                                    error_arg_type_none );
      }
-     if ( find_clock(output_bus) )          
+     if ( find_clock(output_bus) )
      {
           return add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, output_bus,
@@ -1389,10 +1377,10 @@ t_sl_error_level c_engine::check_connectivity( void )
                      SL_DEBUG(sl_debug_level_info, "c_engine::check_connectivity", "Module %s undriven input %s", emi->full_name, emi_sig->name );
                      add_error( (void *)"generic_logic", error_level_serious, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
-                                       error_arg_type_malloc_string, emi_sig->name, 
+                                       error_arg_type_malloc_string, emi_sig->name,
                                        error_arg_type_none );
                  }
-             }             
+             }
          }
          else
          {
@@ -1406,7 +1394,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                      {
                          add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
                                            error_arg_type_malloc_string, emi->full_name,
-                                           error_arg_type_malloc_string, emi_sig->name, 
+                                           error_arg_type_malloc_string, emi_sig->name,
                                            error_arg_type_integer, emi_sig->data.input.size,
                                            error_arg_type_malloc_string, sig->global_name,
                                            error_arg_type_integer, sig->size,
@@ -1421,7 +1409,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  {
                      add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
-                                       error_arg_type_malloc_string, emi_sig->name, 
+                                       error_arg_type_malloc_string, emi_sig->name,
                                        error_arg_type_none );
                  }
                  else
@@ -1429,7 +1417,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                      (*emi_sig->data.input.value_ptr_ptr) = NULL;
                      //add_error( (void *)"generic_logic", error_level_info, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                      //                  error_arg_type_malloc_string, emi->full_name,
-                     //                  error_arg_type_malloc_string, emi_sig->name, 
+                     //                  error_arg_type_malloc_string, emi_sig->name,
                      //                  error_arg_type_none );
                  }
              }
@@ -1445,7 +1433,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                          {
                              add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
                                                error_arg_type_malloc_string, emi->full_name,
-                                               error_arg_type_malloc_string, emi_sig->name, 
+                                               error_arg_type_malloc_string, emi_sig->name,
                                                error_arg_type_integer, emi_sig->data.output.size,
                                                error_arg_type_malloc_string, sig->global_name,
                                                error_arg_type_integer, sig->size,
@@ -1457,7 +1445,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  {
                      add_error( (void *)"generic_logic", error_level_warning, error_number_se_unloaded_output, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
-                                       error_arg_type_malloc_string, emi_sig->name, 
+                                       error_arg_type_malloc_string, emi_sig->name,
                                        error_arg_type_none );
                  }
              }
@@ -1467,7 +1455,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  {
                      add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_clock, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
-                                       error_arg_type_malloc_string, emi_sig->name, 
+                                       error_arg_type_malloc_string, emi_sig->name,
                                        error_arg_type_none );
                  }
              }

@@ -211,46 +211,6 @@ static t_sl_error_level internal_module_ddr_preclock( t_internal_module_ddr_data
     return error_level_okay;
 }
 
-/*f internal_module_ddr_posedge_preclock_fn
- */
-static t_sl_error_level internal_module_ddr_posedge_preclock_fn( void *handle )
-{
-    t_internal_module_ddr_data *data;
-
-    data = (t_internal_module_ddr_data *)handle;
-    return internal_module_ddr_preclock( data, 1 );
-}
-
-/*f internal_module_ddr_posedge_clock_fn
- */
-static t_sl_error_level internal_module_ddr_posedge_clock_fn( void *handle )
-{
-    t_internal_module_ddr_data *data;
-
-    data = (t_internal_module_ddr_data *)handle;
-    return internal_module_ddr_clock( data, 1 );
-}
-
-/*f internal_module_ddr_negedge_preclock_fn
- */
-static t_sl_error_level internal_module_ddr_negedge_preclock_fn( void *handle )
-{
-    t_internal_module_ddr_data *data;
-
-    data = (t_internal_module_ddr_data *)handle;
-    return internal_module_ddr_preclock( data, 0 );
-}
-
-/*f internal_module_ddr_negedge_clock_fn
- */
-static t_sl_error_level internal_module_ddr_negedge_clock_fn( void *handle )
-{
-    t_internal_module_ddr_data *data;
-
-    data = (t_internal_module_ddr_data *)handle;
-    return internal_module_ddr_clock( data, 0 );
-}
-
 /*f internal_module__ddr_instantiate
 */
 extern t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, void *engine_handle )
@@ -317,7 +277,12 @@ extern t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, v
     data->number_outputs = num_outputs;
     data->clock = sl_str_alloc_copy( clock );
 
-    engine->register_clock_fns( engine_handle, (void *)data, clock, internal_module_ddr_posedge_preclock_fn, internal_module_ddr_posedge_clock_fn, internal_module_ddr_negedge_preclock_fn, internal_module_ddr_negedge_clock_fn );
+    engine->register_clock_fns( engine_handle,
+                                clock,
+                                [data](){internal_module_ddr_preclock(data,1);},
+                                [data](){internal_module_ddr_clock(data,1);},
+                                [data](){internal_module_ddr_preclock(data,0);},
+                                [data](){internal_module_ddr_clock(data,0);} );
 
     for (i=0; i<num_inputs; i++)
     {
@@ -360,8 +325,8 @@ extern t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, v
 
     }
 
-    engine->register_reset_function( engine_handle, (void *)data, internal_module_ddr_reset );
-    engine->register_delete_function( engine_handle, (void *)data, internal_module_ddr_delete_data );
+    engine->register_reset_function( engine_handle,  [data](int pass){internal_module_ddr_reset(data,pass);} );
+    engine->register_delete_function( engine_handle, [data](){internal_module_ddr_delete_data(data);} );
 
     free(input_string);
     free(output_string);

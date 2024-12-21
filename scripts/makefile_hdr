@@ -9,9 +9,8 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
-#a Documentation
-# ${CDL_ROOT} should point at cvstree/hardware/cyclicity (set in parent makefile)
-# ${arch} should be cygwin or linux (set in a user's .login or equivalent)
+#a Documentation - This file is included in the CDL build system only
+PREREQS ?= 
 # $(PREREQS) should be a list of letters including:
 #   b if backend includes are required
 #   e if simulation engine includes are required
@@ -24,14 +23,27 @@
 #   H if execution harness objects are required
 
 #a Determine OS subdirectories - required for includes and objects for builds
-objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OS_DIR}/%.o,${SRC:.y=.cpp}))
+Q:=@
+
+ifneq (${BUILD_PYTHON},yes)
+BUILD_PYTHON = no
+# $(info Building without python bindings)
+else
+# $(info Building with python bindings)
+endif
+ifneq (${BUILD_VPI},yes)
+BUILD_VPI = no
+endif
 
 #a Set up correct includes and objects for builds
+CYCLICITY_INCLUDES    = -I ${CDL_BUILD_INCLUDE_DIR}
+CYCLICITY_LIBS        = -L ${CDL_BUILD_LIB_DIR} 
+CYCLICITY_LIBS_PYTHON = -L ${CDL_BUILD_LIB_DIR} 
+
 BACKEND_INCLUDES :=
 ENGINE_INCLUDES :=
 SUPPORT_INCLUDES := 
 HARNESS_INCLUDES := 
-EXPORTED_INCLUDES := 
 BACKEND_OBJECTS :=
 ENGINE_LIBS :=
 ENGINE_OBJECTS :=
@@ -40,90 +52,348 @@ SUPPORT_LIBS :=
 HARNESS_BATCH_OBJECTS := 
 HARNESS_GUI_OBJECTS := 
 
-ifneq (,$(findstring b,${PREREQS}))
-BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
-endif
-ifneq (,$(findstring B,${PREREQS}))
-BACKEND_INCLUDES := -I ${CDL_ROOT}/backend
-BACKEND_OBJECTS := ${CDL_BUILD_OBJ_DIR}/be_backend.o
-endif
-
-ifneq (,$(findstring e,${PREREQS}))
-ENGINE_INCLUDES := -I ${CDL_ROOT}/simulation_engine
-endif
-ifneq (,$(findstring E,${PREREQS}))
-ENGINE_INCLUDES   := -I ${CDL_ROOT}/simulation_engine
-ENGINE_LIBFILE    := se_simulation_engine
-ENGINE_LIBS       := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
-ENGINE_OBJECTS    := ${CDL_BUILD_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
-endif
-
-ifneq (,$(findstring s,${PREREQS}))
-SUPPORT_INCLUDES := -I ${CDL_ROOT}/support_libraries
-endif
 ifneq (,$(findstring S,${PREREQS}))
-SUPPORT_INCLUDES            := -I ${CDL_ROOT}/support_libraries
-SUPPORT_OBJECTS             := ${CDL_LIB_DIR}/sl_support.o
-SUPPORT_WITH_PYTHON_OBJECTS := ${CDL_LIB_DIR}/sl_support_with_python.o
+CYCLICITY_LIBS        += -lcdl_sl
+CYCLICITY_LIBS_PYTHON += -lcdl_sl_python
 SUPPORT_LIBS := -lpthread
 endif
 
-ifneq (,$(findstring h,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
+ifneq (,$(findstring b,${PREREQS}))
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/backend
 endif
-ifneq (,$(findstring H,${PREREQS}))
-HARNESS_INCLUDES := -I ${CDL_ROOT}/execution_harnesses
-HARNESS_BATCH_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_batch_scripting_harness.o
-HARNESS_GUI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_python_scripting_harness.o
-HARNESS_VPI_OBJECTS := ${CDL_BUILD_OBJ_DIR}/eh_vpi_harness.o
-ifeq ($(BUILD_PYTHON),no)
-HARNESS_GUI_OBJECTS := 
-endif
-ifeq ($(BUILD_VPI),no)
-HARNESS_VPI_OBJECTS := 
-endif
+ifneq (,$(findstring B,${PREREQS}))
+CYCLICITY_INCLUDES     += -I ${CDL_SRC_ROOT}/backend
+CYCLICITY_LIBS         += ${CDL_BUILD_OBJ_DIR}/be_backend.o
+CYCLICITY_LIBS_PYTHON  += ${CDL_BUILD_OBJ_DIR}/be_backend.o
 endif
 
-ifneq (,$(findstring i,${PREREQS}))
-EXPORTED_INCLUDES := -I ${CDL_ROOT}/include
+ifneq (,$(findstring e,${PREREQS}))
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/simulation_engine
+endif
+ifneq (,$(findstring E,${PREREQS}))
+CYCLICITY_INCLUDES  += -I ${CDL_SRC_ROOT}/simulation_engine
 endif
 
-#a Default linux environment
-# Use '=' here as SPECIFIC_INCLUDES is set AFTER this file is included
-BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
-CYCLICITY_INCLUDES     = -I ${CDL_INCLUDE_DIR} ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
-CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
-CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
-CYCLICITY_LIBS         = ${ENGINE_LIBS} ${SUPPORT_LIBS}
-
-LIBS = 
-LIB_DEP_EXT = so
-LIB_EXT = so
-
-#a Makefile flags
-# for verbose builds use Q:=
-Q:=@
+#a Resultant 'libraries'
+SUPPORT_PLAIN_LIBRARY   := libcdl_sl.a
+SUPPORT_PYTHON_LIBRARY  := libcdl_sl_python.a
+SIMULATION_LIBRARY         := libcdl_se_no_harness.a
+SIMULATION_LIBRARY_BATCH   := libcdl_se_batch.a
+SIMULATION_LIBRARY_PYTHON  := libcdl_se_python.a
+ifeq (${BUILD_PYTHON},no)
+SUPPORT_PYTHON_LIBRARY    := python_is_not_configured
+SIMULATION_LIBRARY_PYTHON := python_is_not_configured
+endif
 
 #a Compiler flags
-COMPILE_OPTIMIZATION_FLAGS := -O2 -Wall
-LINK_OPTIMIZATION_FLAGS := 
+CFLAGS   += -Wall
+CXXFLAGS += -Wall
 ifeq (${DEBUG_BUILD},yes)
-	COMPILE_OPTIMIZATION_FLAGS := -DDEBUG_ENABLED -g -Wall
-	LINK_OPTIMIZATION_FLAGS := -g
+	CFLAGS += -g -DDEBUG_ENABLED
+	CXXFLAGS += -g -DDEBUG_ENABLED
+	LDFLAGS += -g
+else
+	CFLAGS += -O2
+	CXXFLAGS += -O2
 endif
+G=-g
 
-CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CFLAGS}    ${LOCAL_CFLAGS}
-CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
-LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CDL_ROOT}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
-LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
+CFLAGS    += ${CYCLICITY_INCLUDES}
+CXXFLAGS  += ${CYCLICITY_INCLUDES}
+LDFLAGS   += -L${CDL_BUILD_LIB_DIR}
 
-#a Os-specific overrides - libs for python and DLL generation issues
-ifndef PYTHON_ROOT
-  PYTHON_ROOT := /usr
-endif
+#a Install
+.PHONY: install install_include install_bin install_lib install_script install_python install_verilog
+install: install_include install_bin install_lib install_script install_python install_verilog
 
-#a Default patterns
-${OS_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OS_DIR}/$*.P $< -o $@
+#a Templates
+#f objs_from_srcs
+# @param $1 object directory
+# @param $2 source filenames
+objs_from_srcs = $(foreach SRC,${2},$(patsubst %.c,${1}/%.o,$(patsubst %.cpp,%.c,${SRC:.y=.cpp})))
+
+#f compile_cpp
+define compile_cpp
+# @param $1 object directory
+# @param $2 source directory
+# @param $3 source filename (.cpp)
+# @param $4 Extra C flags
+# @param $5 Extra dependencies
+# @param $6 object suffix prior to .o extension
+
+$1/$(3:.cpp=$6.o): $2/$3
+	@echo "C++ $3$6 -o $$@"
+	${Q}${CXX} ${G} ${CXXFLAGS} -c -Wp,-MMD,$1/$(3:.cpp=$6.P) -Wp,-MT,$$@ $2/$3 $4 -o $$@
+
+$1/$(3:.cpp=$6.o): $5
+
+-include $1/$(3:.cpp=$6.P)
+
+endef
+
+#f compile_c
+define compile_c
+# @param $1 object directory
+# @param $2 source directory
+# @param $3 source filename (.c)
+# @param $4 Extra C flags
+# @param $5 Extra dependencies
+# @param $6 object suffix prior to .o extension
+
+$1/$(3:.c=$6.o): $2/$3
+	@echo "C++ $3$6 -o $$@"
+	${Q}${CC} ${G} ${CFLAGS} -c -Wp,-MD,$1/$(3:.c=$6.P) $2/$3 $4 -o $$@
+
+$1/$(3:.c=$6.o): $5
+
+-include $1/$(3:.c=$6.P)
+
+endef
+
+#f compile_cpps
+define compile_cpps
+# @param $1 object directory
+# @param $2 source directory
+# @param $3 source filenames (.cpp)
+# @param $4 Extra C flags
+# @param $5 Extra dependencies
+# @param $6 object suffix prior to .o extension
+$(foreach x,$(filter %.cpp,$3),$(eval $(call compile_cpp,$1,$2,$x,$4,$5,$6)))
+$(foreach x,$(filter %.c,$3),$(eval $(call compile_c,$1,$2,$x,$4,$5,$6)))
+endef
+
+#f bison_to_h_and_o
+# @param $1 object directory
+# @param $2 source directory
+# @param $3 grammar filename (.y)
+# @param $4 Extra C flags
+#
+# Using bison 2.3 a single invocation of bison can create header and c file
+#
+# This then can copy the files created to the correct names
+#
+# The dependency chain is defined precisely here as:
+# .y -> .tab.c (and .tab.h implicitly) -> .cpp -> .h
+# If the bison step fails then .cpp will not be created neither will .h
+#
+# Having .h depend on .cpp means the make process has to complete
+# all these steps before other CPP files are compiled to make debug simpler
+#
+define bison_to_h_and_o
+
+$1/$(3:.y=.tab.c): $2/$3
+	${YACC} --debug -d $2/$3 --output=$$@
+
+$1/$(3:.y=.tab.h): $1/$(3:.y=.tab.c)
+	${Q}echo
+
+$1/$(3:.y=.cpp): $1/$(3:.y=.tab.c)
+	cp $1/$(3:.y=.tab.c) $$@
+
+$1/$(3:.y=.h): $1/$(3:.y=.tab.h) $1/$(3:.y=.cpp)
+	cp $1/$(3:.y=.tab.h) $$@
+
+$(eval $(call compile_cpp,${OBJ_DIR},${OBJ_DIR},$(3:.y=.cpp),-I$2))
+
+endef
+
+#f make_static_library
+define make_static_library
+# @param $1 library filename
+# @param $2 objects
+# @param $3 static libraries to include in addition - must be ${CDL_BUILD_LIB_DIR}/lib<x>.a
+
+$1:$2 $(foreach l,$3,${CDL_BUILD_LIB_DIR}/lib$l.a)
+	@echo "make static library $$@"
+	${Q}mkdir -p $1__library_dir
+	${Q}(cd $1__library_dir $(foreach l,$3,&& ar x ${CDL_BUILD_LIB_DIR}/lib$l.a))
+	${Q}(cd $1__library_dir && cp $2 $1__library_dir)
+	${Q}(cd $1__library_dir && ${MAKE_STATIC_LIBRARY} $$@ *.o)
+	${Q}(cd $1__library_dir && rm *)
+	${Q}(rmdir $1__library_dir)
+
+clean_libraries: clean_library_$1
+clean_library_$1:
+	@echo "Clean library build directory"
+	${Q}(cd $1__library_dir && rm *)
+	${Q}(rmdir $1__library_dir)
+
+endef
+
+#f make_static_binary
+define make_static_binary
+# @param $1 binary filename
+# @param $2 objects
+# @param $3 libraries
+
+$1: ${CDL_BUILD_OBJ_DIR}/be_backend.o
+
+$1:$2
+	@echo "make static binary $$@"
+	${Q}${MAKE_STATIC_BINARY} $$@ ${G} $2 $3
+
+endef
+
+#f install_static_library - installs in lib
+define install_static_library
+# @param $1 library directory
+# @param $2 library name
+
+install_bin: install__$2
+
+# Use INSTALL_DATA as it does not strip the library - that would make it uselss
+install__$2: $1/$2
+	@echo "install static library $2"
+	${Q} [ -d ${INSTALL_LIB_DIR} ] || mkdir -p ${INSTALL_LIB_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_LIB_DIR}
+
+endef
+
+#f install_static_binary - installs in bin (from CDL_BUILD_BIN_DIR)
+define install_static_binary
+# @param $1 binary directory (usually ${CDL_BUILD_BIN_DIR})
+# @param $2 binary name
+
+install_bin: install__$2
+
+install__$2: $1/$2
+	@echo "install static binary $2"
+	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
+	${Q}${INSTALL_PROGRAM} $$< ${INSTALL_BIN_DIR}
+
+endef
+
+#f install_script - installs in libexec/cdl normally
+define install_script
+# @param $1 script directory
+# @param $2 script filename
+install_script: install__$2
+
+install__$2: $1/$2
+	@echo "install script $2"
+	${Q} [ -d ${INSTALL_SCRIPT_DIR} ] || mkdir -p ${INSTALL_SCRIPT_DIR}
+	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_SCRIPT_DIR}
+
+endef
+
+#f install_bin_script - installs in bin normally
+define install_bin_script
+# @param $1 executable directory
+# @param $2 executable filename
+install_script: install__$2
+
+install__$2: $1/$2
+	@echo "install binary script $2"
+	${Q} [ -d ${INSTALL_BIN_DIR} ] || mkdir -p ${INSTALL_BIN_DIR}
+	${Q}${INSTALL_SCRIPT} $$< ${INSTALL_BIN_DIR}
+
+endef
+
+#f install_data - installs in lib/cdl normally
+define install_data
+# @param $1 script directory
+# @param $2 script filename
+install_script: install__$2
+
+install__$2: $1/$2
+	@echo "install data script $2"
+	${Q} [ -d ${INSTALL_DATA_DIR} ] || mkdir -p ${INSTALL_DATA_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_DATA_DIR}
+
+endef
+
+#f add_include
+define add_include
+# @param $1 include filename
+
+include: ${CDL_BUILD_INCLUDE_DIR}/$1
+
+${CDL_BUILD_INCLUDE_DIR}/$1: $1
+	@echo "cp include $1" 
+	${Q}cp $$< $$@
+
+install_include: install__$1
+
+install__$1: ${CDL_BUILD_INCLUDE_DIR}/$1
+	@echo "install include $1"
+	${Q} [ -d ${INSTALL_HDRS_DIR} ] || mkdir -p ${INSTALL_HDRS_DIR}
+	${Q}${INSTALL_DATA} $$< ${INSTALL_HDRS_DIR}
+
+endef
+
+#f add_includes
+#
+# Add a list of includes
+#
+# @param $1	includes
+#
+define add_includes
+$(foreach x,$1,$(eval $(call add_include,$x)))
+endef
+
+#f add_python_file
+define add_python_file
+# @param $1 subdirectory to install into
+# @param $2 python filename - to be installed from local directory to INSTALL_PYTHON_DIR
+
+install_python: install__py__$2
+
+install__py__$2: $2
+	@echo "install python file $$<"
+	${Q} [ -d ${INSTALL_PYTHON_DIR}/$1 ] || mkdir -p ${INSTALL_PYTHON_DIR}/$1
+	${Q}${INSTALL_DATA} $$< ${INSTALL_PYTHON_DIR}/$1
+
+endef
+
+#f add_python_files
+#
+# Add a list of python files
+#
+# @param $1 subdirectory to install into
+# @param $2	python files
+#
+define add_python_files
+$(foreach x,$2,$(eval $(call add_python_file,$1,$x)))
+endef
+
+#f add_verilog_file
+define add_verilog_file
+# @param $1 subdirectory to install into
+# @param $2 verilog filename - to be installed from local directory to INSTALL_VERILOG_DIR
+
+install_verilog: install__verilog__$2
+
+install__verilog__$2: $2
+	@echo "install verilog file $$<"
+	${Q} [ -d ${INSTALL_VERILOG_DIR}/$1 ] || mkdir -p ${INSTALL_VERILOG_DIR}/$1
+	${Q}${INSTALL_DATA} $$< ${INSTALL_VERILOG_DIR}/$1
+
+endef
+
+#f add_verilog_files
+#
+# Add a list of verilog files
+#
+# @param $1 subdirectory to install into
+# @param $2	verilog files
+#
+define add_verilog_files
+$(foreach x,$2,$(eval $(call add_verilog_file,$1,$x)))
+endef
+
+#f new_stamp
+#
+# Define a new makefile stamp
+#
+# @param $1	stamp name
+#
+define new_stamp
+
+MK_$1 := ${CDL_BUILD_STAMPS_DIR}/$1
+
+.PHONY: $1
+
+$1: $$(MK_$$1)
+
+endef
 

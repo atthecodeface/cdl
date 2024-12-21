@@ -1,10 +1,10 @@
 /*a Copyright
-  
+
   This file 'sl_exec_file.cpp' copyright Gavin J Stark 2003, 2004
-  
+
   This is free software; you can redistribute it and/or modify it however you wish,
   with no obligations
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.
@@ -27,8 +27,8 @@
 #include <unistd.h>
 #include "c_sl_error.h"
 #include "sl_debug.h"
-#include "sl_general.h" 
-#include "sl_token.h" 
+#include "sl_general.h"
+#include "sl_token.h"
 #include "sl_mif.h"
 #include "sl_pthread_barrier.h"
 #include "sl_ef_lib_random.h"
@@ -374,7 +374,7 @@ enum
 
 /*v internal_cmds
  */
-static t_sl_exec_file_cmd internal_cmds[] = 
+static t_sl_exec_file_cmd internal_cmds[] =
 {
      {cmd_int,           1, "!int", "v",         "int <variable name>" },
      {cmd_string,        1, "!string", "v",      "string <variable name>" },
@@ -425,7 +425,7 @@ static t_sl_exec_file_cmd internal_cmds[] =
 
 /*v internal_fns
  */
-static t_sl_exec_file_fn internal_fns[] = 
+static t_sl_exec_file_fn internal_fns[] =
 {
      {fn_env_int,           "env_int",    'i', "s", "env_int(<string>)", ef_fn_eval_env_int },
      {fn_env_double,        "env_double", 'd', "s", "env_double(<string>)", ef_fn_eval_env_double },
@@ -823,6 +823,7 @@ extern int sl_exec_file_add_file_commands( struct t_sl_exec_file_data *file_data
     lib_desc.cmd_handler = NULL;
     lib_desc.file_cmds = file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = NULL;
 
     return (sl_exec_file_add_library( file_data, &lib_desc )!=0);
 }
@@ -1402,7 +1403,7 @@ static int parse_argument( t_sl_exec_file_data *file_data, int line_number, char
                arg->eval = sl_exec_file_arg_eval_no;
                arg->type = sl_exec_file_value_type_integer;
           }
-          else 
+          else
           {
                file_data->error->add_error( (void *)file_data->user, error_level_serious, error_number_sl_syntax, error_id_sl_exec_file_allocate_and_read_exec_file,
                                                    error_arg_type_const_string, syntax,
@@ -1425,7 +1426,7 @@ static int parse_argument( t_sl_exec_file_data *file_data, int line_number, char
                arg->eval = sl_exec_file_arg_eval_no;
                arg->type = sl_exec_file_value_type_double;
           }
-          else 
+          else
           {
                file_data->error->add_error( (void *)file_data->user, error_level_serious, error_number_sl_syntax, error_id_sl_exec_file_allocate_and_read_exec_file,
                                             error_arg_type_const_string, syntax,
@@ -1457,7 +1458,7 @@ static int parse_argument( t_sl_exec_file_data *file_data, int line_number, char
                arg->type = sl_exec_file_value_type_integer;
                arg->real = (double)arg->integer;
           }
-          else 
+          else
           {
                file_data->error->add_error( (void *)file_data->user, error_level_serious, error_number_sl_syntax, error_id_sl_exec_file_allocate_and_read_exec_file,
                                                    error_arg_type_const_string, syntax,
@@ -1516,6 +1517,28 @@ static int parse_argument( t_sl_exec_file_data *file_data, int line_number, char
           break;
      }
      return 1;
+}
+
+/*f init_line - initialize a t_sl_exec_file_line
+ */
+static void init_line(t_sl_exec_file_line *line)
+{
+    for (auto j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++) {
+        line->args[j].p.ptr = NULL;
+        line->args[j].fn = NULL;
+        line->args[j].variable_name = NULL;
+    }
+}
+
+/*f free_line - free a t_sl_exec_file_line
+ */
+static void free_line(t_sl_exec_file_line *line)
+{
+    for (auto j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++) {
+        if (line->args[j].p.ptr)         free(line->args[j].p.ptr);
+        if (line->args[j].fn)            free(line->args[j].fn);
+        if (line->args[j].variable_name) free(line->args[j].variable_name);
+    }
 }
 
 /*f parse_line
@@ -1757,6 +1780,7 @@ static void sl_exec_file_data_add_default_cmds( t_sl_exec_file_data *file_data )
     lib_desc.cmd_handler = NULL;
     lib_desc.file_cmds = internal_cmds;
     lib_desc.file_fns = internal_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
     sl_ef_lib_random_add_exec_file_enhancements( file_data );
@@ -1821,6 +1845,9 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
      sl_exec_file_data_init( *file_data_ptr, error, message, id, user );
      (*file_data_ptr)->filename = sl_str_alloc_copy(filename);
      (*file_data_ptr)->number_lines = nlines;
+     for (int i=0; i<nlines; i++) {
+         init_line((*file_data_ptr)->lines+i);
+     }
 
      /*b Add default commands and functions
       */
@@ -1908,7 +1935,11 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
              (efc->callback_fn)( efc->handle );
          }
          (*file_data_ptr)->register_state_fn = NULL;
-         (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
+        while ((*file_data_ptr)->poststate_callbacks) {
+            auto efc = (*file_data_ptr)->poststate_callbacks;
+            (*file_data_ptr)->poststate_callbacks = efc->next_in_list;
+            free(efc);
+        }
      }
 
      /*b Free text buffer, reset the threads,  and return
@@ -1926,55 +1957,56 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
  */
 extern void sl_exec_file_free( t_sl_exec_file_data *file_data )
 {
-     t_sl_exec_file_variable *var, *next_var;
-     int i, j;
+    t_sl_exec_file_variable *var, *next_var;
+    int i;
 
-     WHERE_I_AM;
+    WHERE_I_AM;
 
-     if (file_data)
-     {
-          free(file_data->id);
-          if (file_data->filename)
-              free(file_data->filename);
-          if (file_data->py_object)
-          {
-              WHERE_I_AM;
-              Py_DECREF(file_data->py_object);
-          }
-          free(file_data->user);
-          for (i=0; i<file_data->number_lines; i++) // number_lines==0 for Python
-          {
-               for (j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++)
-               {
-                    if (file_data->lines[i].args[j].p.ptr)
-                    {
-                         free(file_data->lines[i].args[j].p.ptr);
-                    }
-               }
-          }
-          for (var = file_data->variables; var; var=next_var)
-          {
-               next_var = var->next_in_list;
-               free(var);
-          }
-          {
-              t_sl_exec_file_object_chain *obj, *next_obj;
-              for (obj=file_data->object_chain; obj; obj=next_obj)
-              {
-                  if (obj->object_desc.free_fn)
-                  {
-                      t_sl_exec_file_object_cb obj_cb;
-                      obj_cb.object_handle = (void *)obj;
-                      obj_cb.object_desc = &(obj->object_desc);
-                      obj->object_desc.free_fn(&obj_cb);
-                  }
-                  next_obj=obj->next_in_list;
-                  free(obj);
-              }
-          }
-          free(file_data);
-     }
-     WHERE_I_AM;
+    if (!file_data) return;
+
+
+    free(file_data->id);
+    if (file_data->filename)
+        free(file_data->filename);
+    if (file_data->py_object)
+    {
+        WHERE_I_AM;
+        Py_DECREF(file_data->py_object);
+    }
+    free(file_data->user);
+    for (i=0; i<file_data->number_lines; i++) // number_lines==0 for Python
+    {
+        free_line(file_data->lines+i);
+    }
+    for (var = file_data->variables; var; var=next_var)
+    {
+        next_var = var->next_in_list;
+        free(var);
+    }
+    while (file_data->object_chain) {
+        auto obj=file_data->object_chain;
+        file_data->object_chain=obj->next_in_list;
+        if (obj->object_desc.free_fn) {
+            t_sl_exec_file_object_cb obj_cb;
+            obj_cb.object_handle = (void *)obj;
+            obj_cb.object_desc = &(obj->object_desc);
+            obj->object_desc.free_fn(&obj_cb);
+        }
+        free(obj);
+    }
+    while (file_data->lib_chain) {
+        auto lib=file_data->lib_chain;
+        file_data->lib_chain=lib->next_in_list;
+        // fprintf(stderr,"Lib desc %p %s\n", lib, lib->lib_desc.library_name);
+        if (lib->lib_desc.free_fn) {
+            t_sl_exec_file_lib_cb lib_cb;
+            lib_cb.lib_handle = (void *)lib;
+            lib_cb.lib_desc = &(lib->lib_desc);
+            lib->lib_desc.free_fn(&lib_cb);
+        }
+        free(lib);
+    }
+    free(file_data);
 }
 
 /*f sl_exec_file_reset
@@ -2009,6 +2041,15 @@ extern void sl_exec_file_reset( struct t_sl_exec_file_data *file_data )
     {
         sl_exec_file_py_reset( file_data );
     }
+}
+
+/*f sl_exec_file_lib_free_handle
+  frees whatever is at handle
+ */
+extern t_sl_error_level sl_exec_file_lib_free_handle(t_sl_exec_file_lib_cb *lib_cb)
+{
+    free(lib_cb->lib_desc->handle);
+    return error_level_okay;
 }
 
 /*a Stack frame handling
@@ -2252,7 +2293,7 @@ extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_cmd_cb *cmd_cb, t_sl_
 }
 
 /*f sl_exec_file_eval_fn_set_result( file_data *, double )
- */ 
+ */
 extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, double result )
 {
      WHERE_I_AM;
@@ -2266,7 +2307,7 @@ extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, doub
 }
 
 /*f sl_exec_file_eval_fn_set_result( cmd_cb *, double )
- */ 
+ */
 extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_cmd_cb *cmd_cb, double result )
 {
     return sl_exec_file_eval_fn_set_result( cmd_cb->file_data, result );
@@ -3105,7 +3146,7 @@ extern char *sl_exec_file_vprintf( struct t_sl_exec_file_data *file_data, t_sl_e
                i++;
                done = 0;
                ch = args[0].p.string[i];
-               switch (ch)                   
+               switch (ch)
                {
                case 'F':
                     if (args[0].p.string[i+1]=='%')
@@ -3320,7 +3361,7 @@ typedef struct t_py_thread_data
 {
     // This is inside the barrier thread data
     PyThreadState *py_thread;
-    PyObject *barrier_thread_object; // A CObject that contains a pointer to this barrier thread, so this can be used as an element of a tuple arg to a PyMethod bound to this thread
+    PyObject *barrier_thread_object; // A Capsule that contains a pointer to this barrier thread, so this can be used as an element of a tuple arg to a PyMethod bound to this thread
     t_sl_exec_file_thread_execution_data execution;
 } t_py_thread_data;
 
@@ -3356,7 +3397,7 @@ enum
 
 /*v py_internal_cmds
  */
-static t_sl_exec_file_cmd py_internal_cmds[] = 
+static t_sl_exec_file_cmd py_internal_cmds[] =
 {
      {cmd_pyspawn,       2, "pyspawn", "oo",    "spawn <function> <args>" },
      {cmd_pypass,        2, "pypass",  "is",    "pass <integer> <message>" },
@@ -3374,6 +3415,23 @@ static t_sl_exec_file_fn py_internal_fns[] =
      {cmd_pypassed,                   "pypassed",            'i', "", "pypassed()", py_fn_handler_pypassed },
      {sl_exec_file_fn_none, NULL,     0,   NULL, NULL },
 };
+
+/*f Python3 wrappers
+ */
+#if PY_MAJOR_VERSION >= 3
+#define PyInt_FromLong  PyLong_FromLong
+#define PyInt_AsLong    PyLong_AsLong
+#define PyInt_AsSsize_t PyLong_AsSsize_t
+static const char *PyString_AsString(PyObject *obj) {
+    const char *c;
+    Py_ssize_t size;
+    c = PyUnicode_AsUTF8AndSize(obj, &size);
+    return c;
+}
+static PyObject *PyString_FromString(const char *s) {
+    return PyUnicode_FromString(s);
+}
+#endif
 
 /*f static py_cmd_handler_cb
  */
@@ -3620,6 +3678,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
 }
 
 /*f py_engine_cb_block_on_wait
+  Invoked with GIL owned by thread
   If clocked...
   We can either be in init here (in which case sl_exec_file_py_reset is waiting at the barrier for us if we block) OR we have just been running, so we are between tick-start and tick-done barriers.
   If not clocked, barrier_thread and barrier_thread_data will be NULL - just return
@@ -3660,27 +3719,25 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
         WHERE_I_AM_TH_STR2("cb_block_cycle", pthread_self(), barrier_thread, "PyBoWt");
         WHERE_I_AM;
         // Wait for post-reset barrier or tick-done barrier; then wait for tick-start barrier (or pre-finalize barrier if we are being killed off)
-        Py_BEGIN_ALLOW_THREADS;
+        Py_BEGIN_ALLOW_THREADS; // GIL must be held, is released
         WHERE_I_AM;
         sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW1" );
         WHERE_I_AM;
         sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW2" );
         WHERE_I_AM;
-        Py_END_ALLOW_THREADS;
+        Py_END_ALLOW_THREADS; // GIL must not be held, is gained
         WHERE_I_AM;
         // Now we are after pre-finalize or tick-start; check for pre-finalize
         if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_die)
         {
             WHERE_I_AM_TH_STR2("exit", pthread_self(), barrier_thread, "PyBoWt");
-            PyEval_ReleaseThread(barrier_thread_data->py_thread);
-            PyEval_AcquireLock();
-            Py_DECREF(barrier_thread_data->barrier_thread_object);
-            PyThreadState_Clear(barrier_thread_data->py_thread);
-            PyThreadState_Delete(barrier_thread_data->py_thread);
+            Py_DECREF(barrier_thread_data->barrier_thread_object); // GIL must be held
+            PyThreadState_Clear(barrier_thread_data->py_thread);   // GIL must be held
+            PyEval_ReleaseThread(barrier_thread_data->py_thread);  // GIL must be held
+            PyThreadState_Delete(barrier_thread_data->py_thread);  // GIL not required
             // sl_pthread_barrier_thread_delete can cause barrier_thread to be freed; barrier_thread_data is potentially part of barrier_thread
             // It seems best to finish using barrier_thread_data before deleting the pthread_barrier_thread, therefore :-)
             sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
-            PyEval_ReleaseLock();
             pthread_exit(NULL);
         }
         // Not told to die - just after tick-start, so check if we should return and do stuff
@@ -3739,13 +3796,14 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     {
         // If called from the main thread during init then barrier_thread_obj is Py_None
         WHERE_I_AM_TH_STR2("thread_obj", pthread_self(), barrier_thread_obj, "PyEnCb");
-        barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
+        // barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
+        barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCapsule_GetPointer(barrier_thread_obj, NULL);
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
         WHERE_I_AM_TH_STR2("thread?", pthread_self(), barrier_thread, "PyEnCb");
         WHERE_I_AM;
     }
-    
+
     //fprintf(stderr,"self %p\n",self);
     cmd_cb.file_data  = file_data;
     cmd_cb.error      = file_data->error;
@@ -3885,7 +3943,7 @@ void py_exec_file_find_thread_cb( void *handle, t_sl_pthread_barrier_thread_ptr 
 static void py_exec_file_library_dealloc( PyObject* py_ef_lib_obj )
 {
     t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
-    
+
     Py_XDECREF(py_ef_lib->py_object);
     py_ef_lib_obj->ob_type->tp_free(py_ef_lib_obj);
 }
@@ -3896,7 +3954,7 @@ static void py_exec_file_library_dealloc( PyObject* py_ef_lib_obj )
  */
 static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObject *attr_name )
 {
-    char *name = PyString_AsString(attr_name);
+    const char *name = PyString_AsString(attr_name);
     t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
     t_sl_exec_file_lib_desc *lib_desc;
     int call_type; // 0 for function
@@ -3936,7 +3994,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     {
         return PyObject_GenericGetAttr(py_ef_lib_obj, attr_name);
     }
-    
+
     static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
     PyObject *tuple;
     PyObject *barrier_thread_object;
@@ -3946,7 +4004,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     barrier_thread_object = Py_None;
     if (py_ef_lib->py_object->clocked)
     {
-        py_thread = PyThreadState_Get();
+        py_thread = PyThreadState_Get(); // GIL must be held
         find_thread.py_thread = py_thread;
         find_thread.barrier_thread_data = NULL;
         sl_pthread_barrier_thread_iter( &py_ef_lib->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
@@ -3972,7 +4030,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
  */
 static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject *attr_name )
 {
-    char *name = PyString_AsString(attr_name);
+    const char *name = PyString_AsString(attr_name);
     t_py_object_exec_file_object *py_ef_obj = (t_py_object_exec_file_object *)py_ef_obj_obj;
     t_sl_exec_file_object_desc *obj_desc;
     int call_type; // 0 for function
@@ -3998,7 +4056,7 @@ static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject
     {
         return PyObject_GenericGetAttr(py_ef_obj_obj, attr_name);
     }
-    
+
     static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
     PyObject *tuple;
     PyObject *barrier_thread_object;
@@ -4008,7 +4066,7 @@ static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject
     barrier_thread_object = Py_None;
     if (py_ef_obj->py_object->clocked)
     {
-        py_thread = PyThreadState_Get();
+        py_thread = PyThreadState_Get(); // GIL must be held
         find_thread.py_thread = py_thread;
         find_thread.barrier_thread_data = NULL;
         sl_pthread_barrier_thread_iter( &py_ef_obj->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
@@ -4037,8 +4095,9 @@ static PyMethodDef py_object_methods[] = { {NULL} };
 /*v py_class_object__exec_file
  */
 static PyTypeObject py_class_object__exec_file = {
-    PyObject_HEAD_INIT(&PyType_Type)
-    0,                         /*ob_size*/
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(&PyType_Type,0)
     "py_engine.exec_file",             /*tp_name*/
     sizeof(t_py_object), /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -4058,8 +4117,8 @@ static PyTypeObject py_class_object__exec_file = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE | 
-    Py_TPFLAGS_HAVE_CLASS,        /*tp_flags*/
+//     | Py_TPFLAGS_HAVE_CLASS        /*tp_flags*/
+    Py_TPFLAGS_BASETYPE,
     "exec_file objects",           /* tp_doc */
     0, /* tp_traverse*/
     0, /*tp_clear */
@@ -4096,8 +4155,9 @@ static PyTypeObject py_class_object__exec_file = {
  */
 static PyTypeObject py_object_exec_file_library =
 {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(NULL,0)
     "exec_file_library", // for printing
     sizeof( t_py_object_exec_file_library ), // basic size
     0, // item size
@@ -4123,8 +4183,9 @@ static PyTypeObject py_object_exec_file_library =
  */
 static PyTypeObject py_object_exec_file_object =
 {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    //PyObject_HEAD_INIT(NULL)
+    //0,
+    PyVarObject_HEAD_INIT(NULL,0)
     "exec_file_object", // for printing
     sizeof( t_py_object_exec_file_object ), // basic size
     0, // item size
@@ -4151,7 +4212,7 @@ static PyTypeObject py_object_exec_file_object =
   The py_start_data contains the mutex and condition for the thread start synchronization
   and the py_callable that should be invoked for the thread
  */
-static void barrier_thread_object_destroy_callback( void *p )
+static void barrier_thread_object_destroy_callback( PyObject *p )
 {
     WHERE_I_AM_TH_STR2("thread#", pthread_self(), p, "PyThDst");
 }
@@ -4171,7 +4232,7 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     t_py_object *py_object = py_start_data->py_object;
     PyObject *barrier_thread_object;
 
-    signal( 2, py_thread_signal ); // Catch ctrl-C in this thread; it will cause the signal to go to the parent 
+    signal( 2, py_thread_signal ); // Catch ctrl-C in this thread; it will cause the signal to go to the parent
 
     WHERE_I_AM;
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
@@ -4183,21 +4244,21 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
     WHERE_I_AM_TH_STR2("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_AcquireLock();
     WHERE_I_AM_TH_STR2("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
-    py_thread = PyThreadState_New(py_object->py_interp);
-    PyThreadState_Clear(py_thread);
+    py_thread = PyThreadState_New(py_object->py_interp);// GIL need not be held
+    PyEval_AcquireThread(py_thread); // GIL must not be held, py_thread must be non-NULL
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
-    barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, barrier_thread_object_destroy_callback ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
+    barrier_thread_data->barrier_thread_object = PyCapsule_New( (void *)barrier_thread, NULL, barrier_thread_object_destroy_callback );
     WHERE_I_AM_TH_STR2("ref+", pthread_self(), barrier_thread_data->barrier_thread_object, "PyThrd");
     WHERE_I_AM_TH_STR2("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_ReleaseLock();
+    PyEval_ReleaseThread(py_thread); // GIL must be held, py_thread must be same as for acquire
+    //PyEval_ReleaseLock();
 
     // Important: must be called with GIL _not_ held (otherwise deadlock)
     start_new_py_thread_started( py_object, py_start_data );
 
-    // Invoke callable 
+    // Invoke callable
     // This is expected to call numerous waits
     // It might also spawn more subthreads
     // If it does so, those subthreads will be added to the barrier, before this one hits the barrier
@@ -4224,7 +4285,7 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     }
     WHERE_I_AM;
     WHERE_I_AM_TH_STR2("gilthrd-", pthread_self(), &py_object->barrier, "PyThrd");
-    PyEval_ReleaseThread(py_thread);
+    PyEval_ReleaseThread(py_thread); // GIL must be held, releases GIL
 
     // Save the thread object because we're about to deallocate where it lives.
     barrier_thread_object = barrier_thread_data->barrier_thread_object;
@@ -4234,13 +4295,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     WHERE_I_AM;
 
     WHERE_I_AM;
-    PyEval_AcquireLock();
-    WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
+    PyEval_AcquireThread(py_thread);  // GIL must not be held
+    PyThreadState_Clear(py_thread);   // GIL must be held
     Py_DECREF(barrier_thread_object);
     Py_DECREF(py_object);
-    PyThreadState_Clear(py_thread);
-    PyThreadState_Delete(py_thread);
-    PyEval_ReleaseLock();
+    PyEval_ReleaseThread(py_thread);  // GIL must be held
+    PyThreadState_Delete(py_thread);  // GIL not required
+    WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
     WHERE_I_AM;
 
     // Free the start data
@@ -4261,7 +4322,7 @@ extern int sl_exec_file_python_add_class_object( PyObject *module )
     // Apparently some platforms/compilers complain about static initialization
     // of a structure member with an external function. So we initialize here.
     // Sounds like FUD to me but that's what the Python manual states.
-    py_class_object__exec_file.tp_new = PyType_GenericNew; 
+    py_class_object__exec_file.tp_new = PyType_GenericNew;
     if (PyType_Ready(&py_class_object__exec_file) < 0)
         return error_level_fatal;
 
@@ -4284,7 +4345,7 @@ static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data,
     if (!file_data->py_object) return;
 
     WHERE_I_AM;
-    //fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
+    // fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
     py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
     py_ef_obj->py_object = PyObj(file_data);
     py_ef_obj->file_data = file_data;
@@ -4364,8 +4425,8 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     lib_desc.cmd_handler = py_cmd_handler_cb;
     lib_desc.file_cmds = py_internal_cmds;
     lib_desc.file_fns = py_internal_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( *file_data_ptr, &lib_desc );
-
 
     /*b Invoke callback to fill in extra functions and add other libraries; old exec file declared objects, not sure what to do about that here
      */
@@ -4407,7 +4468,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         PyThreadState* py_thread;
         t_sl_pthread_barrier_thread_ptr barrier_thread;
         t_py_thread_data *barrier_thread_data;
-         
+
         WHERE_I_AM;
         py_object->clocked = 1;
         PyEval_InitThreads();
@@ -4439,18 +4500,26 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             (efc->callback_fn)( efc->handle );
         }
         (*file_data_ptr)->register_state_fn = NULL;
-        (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
+        while ((*file_data_ptr)->poststate_callbacks) {
+            auto efc = (*file_data_ptr)->poststate_callbacks;
+            (*file_data_ptr)->poststate_callbacks = efc->next_in_list;
+            free(efc);
+        }
     }
 
-    /*b Add in objects for each sl_exec_file object
-     */
+    /*b NOT Add in objects for each sl_exec_file object - GJS May 2020, removed
+      This used to add objects here; they have already been added, though
     {
         t_sl_exec_file_object_chain *chain;
         for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
         {
-            sl_exec_file_py_add_object_instance( *file_data_ptr, chain );
+            if ((*file_data_ptr)->py_object) {
+                fprintf(stderr,"GJS May 2020 - NOT Adding object %s to object (%p)\n",chain->object_desc.name,chain);
+            }
+            // sl_exec_file_py_add_object_instance( *file_data_ptr, chain );
         }
     }
+     */
 
     /*b Reset the file
      */
@@ -4565,7 +4634,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
 
     // Create new subthread and execute 'exec_run' method in that - the subthread hits reset complete barrier after the exec_run completes
     PyObject *exec_run_obj = PyObject_GetAttrString((PyObject*)py_object, "exec_run");
-    if (PyErr_Occurred()) 
+    if (PyErr_Occurred())
     {
         PyErr_Print();
         PyErr_Clear();

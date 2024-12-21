@@ -1,10 +1,10 @@
 /*a Copyright
-  
+
   This file 'c_sl_error.h' copyright Gavin J Stark 2003, 2004
-  
+
   This is free software; you can redistribute it and/or modify it however you wish,
   with no obligations
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.
@@ -135,6 +135,7 @@ public:
      /*b Error interrogation
       */
      t_sl_error_level get_error_level( void );
+     t_sl_error_level get_error_level(void *handle);
      int get_error_count( t_sl_error_level error_level );
      void *get_next_error( void *handle, t_sl_error_level error_level );
      void *get_nth_error( int n, t_sl_error_level error_level );
@@ -156,6 +157,7 @@ private:
      t_sl_error_level worst_error;
      t_sl_error_text_list *error_message_lists;
      t_sl_error_text_list *function_message_lists;
+     void delete_text_list(t_sl_error_text_list **list_ptr);
 };
 
 /*a Error number enumerations

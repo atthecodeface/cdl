@@ -21,6 +21,13 @@
 
 /*a Types
  */
+/*t t_sl_wl_data
+ */
+typedef struct t_sl_wl_data
+{
+    t_sl_wl_std_callback callback;
+} t_sl_wl_data;
+
 /*t t_sl_wl_mutex
  */
 typedef struct t_sl_wl_mutex
@@ -159,8 +166,7 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
                 continue;
 
         t_sl_wl_data *data_ptr = &(worklist->data[i*data_per_item+entry_number]);
-        if (data_ptr->callback)
-            data_ptr->callback(data_ptr->handle);
+        if (data_ptr->callback) data_ptr->callback();
     }
 
     if (thread)
@@ -411,9 +417,15 @@ extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool
     t_sl_wl_worklist *worklist;
     int i, j;
 
-    worklist = (t_sl_wl_worklist *) malloc( sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items+sizeof(t_sl_wl_data)*number_of_items*data_per_item+strlen(name) );
-    worklist->data = (t_sl_wl_data *)(&((char *)worklist)[sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items]);
-    worklist->name = (&((char *)worklist)[sizeof(t_sl_wl_worklist)+sizeof(t_sl_wl_head)*number_of_items+sizeof(t_sl_wl_data)*number_of_items*data_per_item]);
+    int base_size   = sizeof(t_sl_wl_worklist);
+    int head_size   = sizeof(t_sl_wl_head)*number_of_items;
+    int wldata_size = sizeof(t_sl_wl_data)*number_of_items*data_per_item;
+    int name_len    = strlen(name)+1;
+    int data_size   = base_size+head_size+wldata_size+name_len;
+    worklist       = (t_sl_wl_worklist *) malloc(data_size);
+    memset(worklist,0,data_size);
+    worklist->data = (t_sl_wl_data *)(((char *)worklist) + base_size + head_size);
+    worklist->name = (((char *)worklist) + base_size + head_size + wldata_size);
 
     worklist->next_in_list = thread_pool->worklists;
     thread_pool->worklists = worklist;
@@ -429,10 +441,8 @@ extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool
         worklist->heads[i].subname = NULL;
         worklist->heads[i].guard_ptr = NULL;
         worklist->heads[i].affinity = NULL;
-        for (j=0; j<data_per_item; j++)
-        {
-            worklist->data[i*data_per_item+j].callback=NULL;
-            worklist->data[i*data_per_item+j].handle=NULL;
+        for (j=0; j<data_per_item; j++) {
+            worklist->data[i*data_per_item+j].callback = t_sl_wl_std_callback();
         }
     }
     return worklist;
@@ -482,12 +492,16 @@ extern void sl_wl_set_work_head( t_sl_wl_worklist *worklist, int item, const cha
  */
 extern void sl_wl_set_work_item( t_sl_wl_worklist *worklist, int item, int entry_number, t_sl_wl_callback_fn callback, void *handle )
 {
-    if ((item>=0) && (item<worklist->number_of_items))
-    {
-        if ((entry_number>=0) && (entry_number<=worklist->data_per_item))
-        {
+    sl_wl_set_work_item(worklist, item, entry_number, [callback, handle](){callback(handle);} );
+}
+
+/*f sl_wl_set_work_item
+ */
+extern void sl_wl_set_work_item( t_sl_wl_worklist *worklist, int item, int entry_number, t_sl_wl_std_callback callback )
+{
+    if ((item>=0) && (item<worklist->number_of_items)) {
+        if ((entry_number>=0) && (entry_number<=worklist->data_per_item)) {
             worklist->data[item*worklist->data_per_item+entry_number].callback = callback;
-            worklist->data[item*worklist->data_per_item+entry_number].handle = handle;
         }
     }
 }

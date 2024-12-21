@@ -8,10 +8,47 @@ which are multi-billion transistor devices.
 
 ## Installation
 
-To get CDL, clone the github repo; currently the configuration
-mechanism is to enter the 'scripts' directory and soft-link
-'makefile.config' to a 'makefile.config.blah' file suitable for your
-system.
+To get CDL, clone the github repo.
+
+autoreconf --install --verbose
+
+Then in another directory (potentially):
+
+<cdl_src>/configure --prefix=<install_path>
+make clean
+make -j8 install
+
+This will install:
+
+<install_path>/bin/cdl
+<install_path>/include/cdl/*h
+<install_path>/lib/cdl/<some files>
+<install_path>/lib/libcdl*
+<install_path>/libexec/cdl/<some files>
+
+## Installation with grip
+
+First clone the grip.git repository
+
+git clone https://github.com/atthecodeface/grip.git grip
+
+Then clone cdl_tools_grip.git
+
+git clone https://github.com/atthecodeface/cdl_tools_grip.git cdl_tools_grip
+
+Then:
+
+cd cdl_tools_grip
+../grip/grip configure all
+../grip/grip make configure
+../grip/grip make install
+
+This will clone all the required repositories for verilator, cdl, and
+cross-compilers for RISC-V in the GNU toolchain, and build them.
+
+then ../grip/grip shell
+
+will provide a Bash shell with the path set to use these tools.
 
 ## Usage
 
@@ -34,8 +71,6 @@ CDL has been around since the early 2000s, as a successor to numerous
 simulation development tools. It grew out of a frustration with
 Verilog and VHDL, which were (and are) very antiquated, and expensive
 to simulate in large quantities.
-
-CDL does 
 
 ## Credits
 

@@ -101,7 +101,7 @@ t_sl_error_level c_engine::enumerate_instances( t_sl_cons_list *cl )
      {
           sl_cons_reset_list( &item_list );
           sl_cons_append( &item_list, sl_cons_item( emi->full_name, 1 ));
-          sl_cons_append( &item_list, sl_cons_item( se_external_module_name(emi->module_handle), 1 ));
+          sl_cons_append( &item_list, sl_cons_item( (char *)se_external_module_name(emi->module_handle), 1 ));
           sl_cons_append( cl, sl_cons_item( &item_list ) );
      }
      return error_level_okay;
@@ -406,13 +406,9 @@ void *c_engine::find_module_instance( const char *full_name, int length )
  */
 int c_engine::module_instance_send_message( void *module, t_se_message *message )
 {
-     t_engine_module_instance *emi;
-     emi = (t_engine_module_instance *)module;
-     if (!emi)
-         return -1;
-     if (!emi->message_fn_list)
-         return 0;
-     se_engine_function_call_invoke_all_argp( emi->message_fn_list, (void *) message );
+     auto emi = (t_engine_module_instance *)module;
+     if (!emi) return -1;
+     emi->message_cb.invoke_all(message);
      return 1;
 }
 
@@ -1387,12 +1383,9 @@ int c_engine::interrogate_get_entity_value_string( t_se_interrogation_handle ent
           n = snprintf( buffer, buffer_size, "<none>" );
           break;
      case engine_state_desc_type_bits:
-         if (datas[0])
-         {
+         if (datas[0]) {
              sl_print_bits_hex( buffer, buffer_size, ((int **)datas)[0], sizes[0] );
-         }
-         else
-         {
+         } else {
              strcpy( buffer, "<unc>");
          }
           n = strlen(buffer);

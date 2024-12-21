@@ -21,6 +21,7 @@
 /*a Includes
  */
 #include "c_sl_error.h"
+#include "sl_general.h"
 #include "sl_option.h"
 
 /*a Defines
@@ -35,6 +36,7 @@
 #define BE_OPTIONS \
      { "model", required_argument, NULL, option_be_model }, \
      { "cpp", required_argument, NULL, option_be_cpp }, \
+     { "cwv", required_argument, NULL, option_be_cwv }, \
      { "xml", required_argument, NULL, option_be_xml }, \
      { "cdlh", required_argument, NULL, option_be_cdlh }, \
      { "verilog", required_argument, NULL, option_be_verilog }, \
@@ -60,6 +62,7 @@
      { "remap-module-name", required_argument, NULL, option_be_remap_module_name }, \
      { "remap-instance-type", required_argument, NULL, option_be_remap_instance_type }, \
      { "remap-registered-name", required_argument, NULL, option_be_remap_registered_name }, \
+     { "remap-tool-name", required_argument, NULL, option_be_remap_tool_name }, \
      { "remap-implementation-name", required_argument, NULL, option_be_remap_implementation_name }, \
 
 #define MD_TYPE_DEFINITION_HANDLE_VALID(a) ( (a).type!=md_type_definition_handle_type_none )
@@ -87,6 +90,7 @@ enum
     option_be_verilog = option_be_start,
     option_be_vhdl,
     option_be_cpp,
+    option_be_cwv,
     option_be_xml,
     option_be_cdlh,
     option_be_model,
@@ -101,6 +105,7 @@ enum
     option_be_remap_instance_type,
     option_be_remap_implementation_name,
     option_be_remap_registered_name,
+    option_be_remap_tool_name,
     option_be_vmod_mode,
     option_be_v_clkgate_type,
     option_be_v_clkgate_ports,
@@ -130,6 +135,51 @@ enum
     md_edge_pos,
     md_edge_neg
 };
+
+/*t t_md_verilog_options
+ */
+typedef struct
+{
+    int vmod_mode;
+    const char *clock_gate_module_instance_type;
+    const char *clock_gate_module_instance_extra_ports;
+    const char *assert_delay_string;
+    const char *verilog_comb_reg_suffix;
+    const char *additional_port_include;
+    const char *additional_body_include;
+    const char *assertions_ifdef;
+    int include_displays;
+    int include_assertions;
+    int sv_assertions;
+    int include_coverage;
+    int use_always_at_star;
+    int clocks_must_have_enables;
+} t_md_verilog_options;
+
+/*t t_md_cpp_options
+ */
+typedef struct
+{
+    int include_assertions;
+    int include_coverage;
+    int include_stmt_coverage;
+    int multithread;
+} t_md_cpp_options;
+
+/*t t_md_cdl_header_options
+ */
+typedef struct
+{
+    int reserved;
+} t_md_cdl_header_options;
+
+/*t t_md_options
+ */
+typedef struct {
+    t_md_cpp_options cpp;
+    t_md_cdl_header_options cdlh;
+    t_md_verilog_options verilog;
+} t_md_options;
 
 /*t t_md_client_reference
   A client reference that is supplied by the client of the backend has three items
@@ -863,12 +913,18 @@ typedef struct t_md_module
     struct t_md_module *next_in_list; // ownership chain, in order declared by the client
     struct t_md_module *next_in_hierarchy; // bottom-up hierarchy, not ownership link, first is the lowest leaf, last is the toplevel
 
+    // The name of a module is supplied by its definition
     char *name;
+    // The output_name of a module is used for most of the output - for C class naming
+    const char *output_name;         // never freed - points in to option, or points to name
+    // The tool name of a module is used only for CDL-wrapped verilog currently; it is the relevant name of a module for the tool for the output method
+    const char *tool_name;
+    // The registered_name of a module is the name that the module is registered with in a CDL simulation; it is not used by verilog output
+    const char *registered_name;     // never freed - points in to option, or points to name
+    // The implementation_name of a module is the name of the implementation of the registered_name that is used in CDL simulation
+    const char *implementation_name; // never freed - points in to option, or points to "cdl_model"
     int name_to_be_freed;
     char *documentation; // always freed if not null
-    const char *output_name;         // never freed - points in to option, or points to name
-    const char *registered_name;     // never freed - points in to option, or points to name
-    const char *implementation_name; // never freed - points in to option, or points to "cdl_model"
     t_md_client_reference client_ref;
 
     int external; // 1 if the module is not to be analyzed; its input and output dependencies are given explicitly, and no code is expected to be generated 
@@ -1129,6 +1185,9 @@ public:
     t_md_labelled_expression *labelled_expression_create( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, const char *text, int copy_text, t_md_expression *expression );
     void labelled_expression_append( t_md_labelled_expression **labelled_expression_list, t_md_labelled_expression *labelled_expression );
     void labelled_expressions_free( t_md_labelled_expression *list );
+
+    /*b Options */
+    t_md_options options;
 
     /*b Output generation methods
      */

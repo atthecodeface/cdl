@@ -110,6 +110,12 @@ static t_sl_exec_file_cmd file_cmds[] =
  */
 static int cmd_base;
 
+/*a Fake python symbol
+  This is required so that the eh libraries ALL include the symbol PyInit_py_engine
+  This enables the derived_mode_list to use and export that symbol in batch or python
+ */
+extern "C" void *PyInit_py_engine( void ) {return NULL;}
+
 /*a Main routines
  */
 /*f usage
@@ -277,6 +283,7 @@ static void exec_file_instantiate_callback( void *handle, struct t_sl_exec_file_
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = NULL;
     cmd_base = sl_exec_file_add_library( file_data, &lib_desc );
 
     hw_engine->bfm_add_exec_file_enhancements( file_data, NULL );
@@ -385,6 +392,8 @@ extern int main( int argc, char **argv )
     delete(batch_message);
     delete(batch_error);
     delete(hw_engine);
+    delete(hw_error);
+    delete(hw_message);
     se_c_engine_exit();
     sl_option_free_list( env_options );
     return 0;

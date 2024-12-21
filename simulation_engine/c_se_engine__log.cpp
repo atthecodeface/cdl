@@ -1,11 +1,11 @@
 /*a Copyright
-  
+
   This file 'c_se_engine__log.cpp' copyright Gavin J Stark 2003, 2004
-  
+
   This is free software; you can redistribute it and/or modify it under
   the terms of the GNU Lesser General Public License as published by the Free Software
   Foundation, version 2.1.
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
@@ -22,11 +22,11 @@
 // possibly first with value_store=address
 // The consume would do
 // log_handle = log_interest("hierarchy", callback, handle ); // log_handle includes all events in the module specified by the hierarchy - it is a set, not a single event
-// log_parse_read_handle = log_parse_setup( log_handle, "read", 1, "address" ); // parse all 'read' events in log_handle so that their 'address' field values are visible as arg 0 to 
+// log_parse_read_handle = log_parse_setup( log_handle, "read", 1, "address" ); // parse all 'read' events in log_handle so that their 'address' field values are visible as arg 0 to
 // callback( engine_handle, log_handle, handle, log_event_instance ) // engine_handle is instance that invoked log_event_occurred
 //    t_se_signal_value args[1];
 //    if (log_parse( log_event_instance, log_parse_read_handle, args )) // using above structure, check it is a read and find the args, i.e. args[0]=address
-// 
+//
  */
 /*a Includes
  */
@@ -38,6 +38,7 @@
 #include "sl_exec_file.h"
 #include "se_engine_function.h"
 #include "c_se_engine.h"
+#include "se_errors.h"
 #include "c_se_engine__internal_types.h"
 
 /*a Defines
@@ -133,6 +134,7 @@ typedef struct t_log_event_ef_object
     t_log_event_ef_lib *ef_lib;
     int num_args;
     int event_number;
+    int initialized;
     int arg_offset;
     const char *name;
     const char *arg_name[SL_EXEC_FILE_MAX_CMD_ARGS];
@@ -224,8 +226,8 @@ t_engine_log_event_array *c_engine::log_event_array_create( void *engine_handle,
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *) engine_handle;
 
-    lea = (t_engine_log_event_array *)malloc( sizeof(t_engine_log_event_array) + 
-                                              (num_events-1)*sizeof(t_engine_log_event_array_entry) + 
+    lea = (t_engine_log_event_array *)malloc( sizeof(t_engine_log_event_array) +
+                                              (num_events-1)*sizeof(t_engine_log_event_array_entry) +
                                               total_args*sizeof(t_engine_text_value_pair) );
     if (!lea) return NULL;
     lea->next_in_list = emi->log_event_list;
@@ -274,7 +276,7 @@ struct t_engine_log_parser *c_engine::log_parse_create( void *engine_handle, int
 struct t_engine_log_event_array *c_engine::log_event_register( void *engine_handle, const char *event_name, t_se_signal_value *value_base, ... )
 {
     const char *value_name;
-    
+
     int i;
     int num_args;
     t_engine_log_event_array *event_array;
@@ -291,7 +293,7 @@ struct t_engine_log_event_array *c_engine::log_event_register( void *engine_hand
         value_name = va_arg( ap, const char * );
     }
     va_end(ap);
-    
+
     event_array = log_event_array_create( engine_handle, 1, num_args );
     if (!event_array) return NULL;
 
@@ -310,7 +312,7 @@ struct t_engine_log_event_array *c_engine::log_event_register( void *engine_hand
     return event_array;
 }
 
-/*f log_event_register_array
+/*f c_engine::log_event_register_array
  */
 struct t_engine_log_event_array *c_engine::log_event_register_array( void *engine_handle, const t_engine_text_value_pair *descriptor, t_se_signal_value *value_base )
 {
@@ -350,6 +352,22 @@ struct t_engine_log_event_array *c_engine::log_event_register_array( void *engin
     return event_array;
 }
 
+/*f c_engine::log_event_deregister_array
+ */
+void c_engine::log_event_deregister_array(void *engine_handle, struct t_engine_log_event_array *event_array)
+{
+    auto emi = (t_engine_module_instance *)engine_handle;
+    auto lea_ptr = &(emi->log_event_list);
+    while (*lea_ptr) {
+        if ((*lea_ptr)==event_array) {
+            *lea_ptr = event_array->next_in_list;
+            free(event_array);
+            return;
+        }
+        lea_ptr = &((*lea_ptr)->next_in_list);
+    }
+}
+
 /*f log_event_occurred
  */
 void c_engine::log_event_occurred( void *engine_handle, struct t_engine_log_event_array *event_array, int event_number )
@@ -360,13 +378,13 @@ void c_engine::log_event_occurred( void *engine_handle, struct t_engine_log_even
         return;
 
     mutex_claim(engine_mutex_log_callback);
-    //fprintf(stderr,"event_array %p\n",event_array);
-    //fprintf(stderr,"event_number %d\n",event_number);
-    //fprintf(stderr,"callback_list %p\n",event_array->events[event_number].callback_list);
+    // fprintf(stderr,"event_array %p\n",event_array);
+    // fprintf(stderr,"event_number %d\n",event_number);
+    // fprintf(stderr,"callback_list %p\n",event_array->events[event_number].callback_list);
     for (cfi=event_array->events[event_number].callback_list; cfi; cfi=cfi->next_in_list)
     {
         WHERE_I_AM;
-        //fprintf(stderr,"cfi %p\n",cfi);
+        // fprintf(stderr,"cfi %p\n",cfi);
         cfi->log_handle->callback_fn( engine_handle, cycle(), cfi->log_handle, cfi->log_handle->handle, cfi - cfi->log_handle->callbacks,  &(event_array->events[event_number]) );
     }
     mutex_release(engine_mutex_log_callback);
@@ -619,6 +637,7 @@ int c_engine::log_add_exec_file_enhancements( struct t_sl_exec_file_data *file_d
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = log_file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 
@@ -634,6 +653,7 @@ static t_sl_error_level ef_event_object_message_handler( t_sl_exec_file_object_c
         int i, x;
         leeo->event_number = leeo->ef_lib->next_event;
         leeo->arg_offset = leeo->ef_lib->next_arg;
+        leeo->initialized = 1;
         x = leeo->ef_lib->next_event + leeo->ef_lib->next_arg;
         leeo->ef_lib->log_desc[x+0].text = leeo->name;
         leeo->ef_lib->log_desc[x+0].value = leeo->num_args;
@@ -741,6 +761,7 @@ int c_engine::log_handle_exec_file_command( t_log_event_ef_lib *log_event_ef_lib
         leeo->ef_lib = log_event_ef_lib;
         leeo->name = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ));
         leeo->num_args = num_args-1;
+        leeo->initialized = 0; // Gets properly initialized at post-state callback
         for (i=0; i<leeo->num_args; i++)
         {
             leeo->arg_name[i] = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, i+1 ));
@@ -926,6 +947,14 @@ static t_sl_error_level ef_method_eval_occurred( t_sl_exec_file_cmd_cb *cmd_cb, 
 
     WHERE_I_AM;
     leeo = (t_log_event_ef_object *)object_desc->handle;
+    if (!leeo->initialized) {
+          return leeo->ef_lib->engine->add_error( (void *)"log_event_occured", error_level_serious, error_number_se_dated_message, error_id_se_c_engine,
+                            error_arg_type_integer, 0,
+                            error_arg_type_const_string, "log_event.occurred on uninitialized event - log events must be declared in exec_init, this was not",
+                            error_arg_type_const_string, "",
+                            error_arg_type_none );
+    }
+
     WHERE_I_AM;
     for (i=0; i<cmd_cb->num_args; i++)
     {

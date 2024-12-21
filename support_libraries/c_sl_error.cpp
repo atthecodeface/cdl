@@ -1,10 +1,10 @@
 /*a Copyright
-  
+
   This file 'c_sl_error.cpp' copyright Gavin J Stark 2003, 2004
-  
+
   This is free software; you can redistribute it and/or modify it however you wish,
   with no obligations
-  
+
   This software is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.
@@ -96,26 +96,10 @@ void c_sl_error::internal_create( int private_size, int max_args )
  */
 c_sl_error::~c_sl_error()
 {
-     t_error *error, *next_error;
-     int i;
-
-     for (error=error_list; error; error=next_error )
-     {
-          next_error = error->next_in_list;
-          for (i=0; i<error->argc; i++)
-          {
-               if (error->args[i].needs_to_be_freed)
-               {
-                    if (error->args[i].string)
-                         free(error->args[i].string);
-                    if (error->args[i].handle)
-                         free(error->args[i].handle);
-               }
-          }
-     }
-     error_list = NULL;
-     last_error = NULL;
-     worst_error = error_level_okay;
+    reset();
+    delete_text_list(&error_message_lists);
+    delete_text_list(&function_message_lists);
+    worst_error = error_level_okay;
 }
 
 /*a Error handling methods
@@ -124,17 +108,31 @@ c_sl_error::~c_sl_error()
  */
 void c_sl_error::reset( void )
 {
-     t_error *error, *next_error;
+    t_error *error, *next_error;
+    for (error=error_list; error; error=next_error ) {
+        next_error = error->next_in_list;
+        for (int i=0; i<error->argc; i++) {
+            if (error->args[i].needs_to_be_freed) {
+                if (error->args[i].string) free(error->args[i].string);
+                if (error->args[i].handle) free(error->args[i].handle);
+            }
+        }
+        // fprintf(stderr,"c_sl_error::free error %p %p\n", this, error);
+        free(error);
+    }
+    error_list = NULL;
+    last_error = NULL;
+}
 
-     //fprintf(stderr,"c_sl_error::reset %p\n", this );
-
-     for (error=error_list; error; error=next_error )
-     {
-          next_error = error->next_in_list;
-          free(error);
-     }
-     error_list = NULL;
-     last_error = NULL;
+/*f c_sl_error::delete_text_list
+ */
+void c_sl_error::delete_text_list(t_sl_error_text_list **list_ptr)
+{
+    while (*list_ptr) {
+        auto nl = (*list_ptr)->next_in_list;
+        free(*list_ptr);
+        *list_ptr = nl;
+    }
 }
 
 /*f c_sl_error::add_text_list
@@ -192,14 +190,14 @@ t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_l
      int i;
      t_sl_error_arg_type arg_type;
 
-     //fprintf(stderr,"c_sl_error::add error %p (location %p) level %d number %d function %d\n", this, location, error_level, error_number, function_id );
-
      if ((int)error_level > (int)worst_error)
      {
           worst_error = error_level;
      }
 
      error = (t_error *)malloc(sizeof(t_error)+sizeof(t_error_arg)*max_error_args);
+     // fprintf(stderr,"c_sl_error::add error %p %p (location %p) level %d number %d function %d\n", this, error, location, error_level, error_number, function_id );
+
      if (!error)
           return error_level_fatal;
 
@@ -254,7 +252,7 @@ t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_l
                error->args[i].type = arg_type;
                error->args[i].integer.sint64 = 0;
                error->args[i].string = (char *)va_arg( ap, char *);
-               //printf("Const string %p from %s\n",error->args[i].string,error->args[i].string); 
+               //printf("Const string %p from %s\n",error->args[i].string,error->args[i].string);
                error->args[i].handle = NULL;
                error->args[i].needs_to_be_freed = 0;
                break;
@@ -311,7 +309,7 @@ t_sl_error_level c_sl_error::add_error_lite( void *location, t_sl_error_level er
     va_end( ap );
     return add_error( location, error_level, error_number_general_error_s, error_id_sl_lite,
                       error_arg_type_malloc_string, buffer,
-                      error_arg_type_const_filename, "<lite error>", 
+                      error_arg_type_const_filename, "<lite error>",
                       error_arg_type_none );
 }
 
@@ -379,159 +377,165 @@ t_sl_error_level c_sl_error::get_error_level( void )
     return worst_error;
 }
 
+/*f c_sl_error::get_error_level
+ */
+t_sl_error_level c_sl_error::get_error_level(void *handle) {
+    if (!handle) {
+        return error_level_fatal;
+    }
+    auto error = (t_error *)handle;
+    return error->error_level;
+}
+
 /*f c_sl_error::generate_error_message
  */
 static int copy_to_sized_buffer( char **buffer, int *buffer_size, const char *text, int length )
 {
-     if (length<0)
-          length = strlen(text);
-     if (*buffer_size<length+1)
-     {
-          return 0;
-     }
-     memcpy( *buffer, text, length );
-     *buffer += length;
-     *buffer_size -= length;
-     (*buffer)[0] = 0;
-     return 1;
+    int result = 1;
+
+    if (length<0) length = strlen(text);
+    if (*buffer_size<length+1) {
+        result = 0;
+        length = *buffer_size-1;
+    }
+    if (length>0) {
+        memcpy( *buffer, text, length );
+        *buffer += length;
+        *buffer_size -= length;
+    }
+    (*buffer)[0] = 0;
+    return result;
 }
 
 int c_sl_error::generate_error_message( void *handle, char *buffer, int buffer_size, int verbosity, void *callback )
 {
-     t_error *error;
-     t_sl_error_text_list *text_list;
-     const char *message;
-     const char *function;
-     char temp[32];
-     int i, j, k;
+    if (!handle) {
+        return 0;
+    }
 
-     if (!handle)
-     {
-          return 0;
-     }
+    auto error = (t_error *)handle;
 
-     error = (t_error *)handle;
+    /*b Find the text for the error message
+     */
+    const char *message = NULL;
+    for (auto text_list = error_message_lists; (!message) && text_list; text_list=text_list->next_in_list) {
+        for (int i=0; (!message) && (i<text_list->number_messages); i++) {
+            if (error->error_number==text_list->messages[i].number) {
+                message = text_list->messages[i].message;
+            }
+        }
+    }
+    if (!message) {
+        message = "Error type %E";
+    }
 
-     /*b Find the text for the error message
-      */
-     message = NULL;
-     for (text_list = error_message_lists; (!message) && text_list; text_list=text_list->next_in_list)
-     {
-          for (i=0; (!message) && (i<text_list->number_messages); i++)
-          {
-              //printf("%p:%s:%d:%d:%d\n", this, text_list->messages[i].message, i, error->error_number,text_list->messages[i].number);
-               if (error->error_number==text_list->messages[i].number)
-               {
-                    message = text_list->messages[i].message;
-               }
-          }
-     }
-     if (!message)
-          message = "Error type %E";
+    /*b Find the text for the function id
+     */
+    const char *function = NULL;
+    for (auto text_list = function_message_lists; (!function) && text_list; text_list=text_list->next_in_list) {
+        for (int i=0; (!function) && (i<text_list->number_messages); i++) {
+            if (error->error_number==text_list->messages[i].number) {
+                function = text_list->messages[i].message;
+            }
+        }
+    }
+    if (!function) {
+        function = "Function %F";
+    }
 
-     /*b Find the text for the function id
-      */
-     function = NULL;
-     for (text_list = function_message_lists; (!function) && text_list; text_list=text_list->next_in_list)
-     {
-          for (i=0; (!function) && (i<text_list->number_messages); i++)
-          {
-               if (error->error_number==text_list->messages[i].number)
-               {
-                    function = text_list->messages[i].message;
-               }
-          }
-     }
-     if (!function)
-          function = "Function %F";
 
-     i=0;
-     while (1)
-     {
-          if (message[i]==0)
-          {
-               break;
-          }
-          while (message[i]=='%')
-          {
-               switch (message[i+1])
-               {
-               case 's':
-                    k = message[i+2]-'0';
-                    if ((k<0) || (k>=max_error_args))
-                         return 0;
-                    if (error->args[k].string)
-                    {
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, error->args[k].string, -1))
-                              return 0;
-                    }
-                    else
-                    {
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, "<null>", -1))
-                              return 0;
-                    }
-                    i=i+3;
-                    break;
-               case 'd':
-                    k = message[i+2]-'0';
-                    if ((k<0) || (k>=max_error_args))
-                         return 0;
-                    sprintf(temp, "%d",error->args[k].integer.integer); 
-                    if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
-                         return 0;
-                    i=i+3;
-                    break;
-               case 'f':
-                    for (k=0; k<error->argc; k++)
-                         if ( (error->args[k].type == error_arg_type_const_filename) ||
-                              (error->args[k].type == error_arg_type_malloc_filename) )
-                              break;
-                    if ( (k<error->argc) && (error->args[k].string) )
-                    {
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, error->args[k].string, -1))
-                              return 0;
-                    }
-                    else
-                    {
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, "<unknown file>", -1))
-                              return 0;
-                    }
-                    i=i+2;
-                    break;
-               case 'l': // line_number, if given, else ?
-                    for (k=0; k<error->argc; k++)
-                         if (error->args[k].type == error_arg_type_line_number)
-                              break;
-                    if (k<error->argc)
-                    {
-                         sprintf( temp, "%d", error->args[k].integer.integer );
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
-                              return 0;
-                    }
-                    else
-                    {
-                         if (!copy_to_sized_buffer( &buffer, &buffer_size, "?", -1))
-                              return 0;
-                    }
-                    i=i+2;
-                    break;
-               case 'E':
-                    sprintf( temp, "%d", error->error_number );
-                    if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
-                         return 0;
-                    i=i+2;
-                    break;
-               default:
+    /*b Convert the message in to the error buffer */
+    char temp[32];
+    int i, j, k;
+    i=0;
+    while (1) {
+        /*b String done? */
+        if (message[i]==0) break;
+
+        /*b Conversion? */
+        while (message[i]=='%') {
+            switch (message[i+1]) {
+            case 's':
+                k = message[i+2]-'0';
+                if ((k<0) || (k>=max_error_args))
                     return 0;
-               }
-          }
-          for (j=i; message[j] && (message[j]!='%'); j++);
-          if (!copy_to_sized_buffer( &buffer, &buffer_size, message+i, j-i))
-               return 0;
-          i=j;
-     }
-     
-     return 1;
+                if (error->args[k].string)
+                {
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, error->args[k].string, -1))
+                        return 0;
+                }
+                else
+                {
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, "<null>", -1))
+                        return 0;
+                }
+                i=i+3;
+                break;
+            case 'd':
+                k = message[i+2]-'0';
+                if ((k<0) || (k>=max_error_args))
+                    return 0;
+                sprintf(temp, "%d",error->args[k].integer.integer);
+                if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
+                    return 0;
+                i=i+3;
+                break;
+            case 'f':
+                for (k=0; k<error->argc; k++)
+                    if ( (error->args[k].type == error_arg_type_const_filename) ||
+                         (error->args[k].type == error_arg_type_malloc_filename) )
+                        break;
+                if ( (k<error->argc) && (error->args[k].string) )
+                {
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, error->args[k].string, -1))
+                        return 0;
+                }
+                else
+                {
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, "<unknown file>", -1))
+                        return 0;
+                }
+                i=i+2;
+                break;
+            case 'l': // line_number, if given, else ?
+                for (k=0; k<error->argc; k++)
+                    if (error->args[k].type == error_arg_type_line_number)
+                        break;
+                if (k<error->argc)
+                {
+                    sprintf( temp, "%d", error->args[k].integer.integer );
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
+                        return 0;
+                }
+                else
+                {
+                    if (!copy_to_sized_buffer( &buffer, &buffer_size, "?", -1))
+                        return 0;
+                }
+                i=i+2;
+                break;
+            case 'E':
+                sprintf( temp, "%d", error->error_number );
+                if (!copy_to_sized_buffer( &buffer, &buffer_size, temp, -1))
+                    return 0;
+                i=i+2;
+                break;
+            default:
+                return 0;
+            }
+        }
+
+        /*b Not a conversion */
+        for (j=i; message[j] && (message[j]!='%'); j++);
+        if (!copy_to_sized_buffer( &buffer, &buffer_size, message+i, j-i)) {
+            return 0;
+        }
+        i=j;
+
+        /*b Done */
+    }
+
+    return 1;
 }
 
 /*a Display methods

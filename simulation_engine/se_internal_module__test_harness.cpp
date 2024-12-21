@@ -125,6 +125,7 @@ static t_sl_error_level internal_module_test_harness_preclock( t_internal_module
  */
 static t_sl_error_level internal_module_test_harness_clock( t_internal_module_test_harness_data *data )
 {
+    SL_DEBUG( sl_debug_level_verbose_info, "Clock test harness" );
     /*b Run the exec_file - this should do the 'tick-start, tick-end' of an exec file
      */
     WHERE_I_AM;
@@ -240,6 +241,7 @@ static void internal_module_test_harness_exec_file_instantiate_callback( void *h
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = test_harness_file_cmds;
     lib_desc.file_fns = test_harness_file_fns;
+    lib_desc.free_fn = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
 
     data->engine->bfm_add_exec_file_enhancements( file_data, data->engine_handle, data->clock, data->posedge );
@@ -276,12 +278,16 @@ extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *
     data->exec_file_data = NULL;
 
     if (data->clock[0]) {
-        engine->register_prepreclock_fn( engine_handle, (void *)data, internal_module_test_harness_prepreclock_fn );
-        engine->register_clock_fns( engine_handle, (void *)data, clock, internal_module_test_harness_posedge_preclock_fn, internal_module_test_harness_posedge_clock_fn, internal_module_test_harness_negedge_preclock_fn, internal_module_test_harness_negedge_clock_fn );
+        engine->register_prepreclock_fn( engine_handle, [data](){internal_module_test_harness_prepreclock_fn(data);} );
+        engine->register_clock_fns( engine_handle, clock,
+                                    [data](){internal_module_test_harness_posedge_preclock_fn(data);},
+                                    [data](){internal_module_test_harness_posedge_clock_fn(data);},
+                                    [data](){internal_module_test_harness_negedge_preclock_fn(data);},
+                                    [data](){internal_module_test_harness_negedge_clock_fn(data);} );
     }
 
-    engine->register_reset_function( engine_handle, (void *)data, internal_module_test_harness_reset );
-    engine->register_delete_function( engine_handle, (void *)data, internal_module_test_harness_delete_data );
+    engine->register_reset_function(engine_handle, [data](int pass){internal_module_test_harness_reset(data,pass);} );
+    engine->register_delete_function(engine_handle, [data](){internal_module_test_harness_delete_data(data);} );
 
     if (obj)
     {

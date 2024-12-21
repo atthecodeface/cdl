@@ -30,9 +30,28 @@ static PyMethodDef no_methods[] =
  */
 /*f scripting_init_module
  */
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "",     /* m_name */
+        "No documentation",  /* m_doc */
+        -1,                  /* m_size */
+        no_methods,    /* m_methods */
+        NULL,                /* m_reload */
+        NULL,                /* m_traverse */
+        NULL,                /* m_clear */
+        NULL,                /* m_free */
+    };
+#endif
+
 extern void scripting_init_module( const char *script_module_name )
 {
+#if PY_MAJOR_VERSION >= 3
+    moduledef.m_name = script_module_name;
+    (void) PyModule_Create(&moduledef);
+#else
      Py_InitModule( (char *)script_module_name, no_methods );
+#endif
 }
 
 /*a Editor preferences and notes

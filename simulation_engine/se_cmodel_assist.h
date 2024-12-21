@@ -116,18 +116,6 @@ static inline void se_cmodel_assist_assign_to_bit( t_sl_uint64 *vector, int size
     }
 }
 
-/*f se_cmodel_assist_or_to_bit
- */
-static inline void se_cmodel_assist_or_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value)
-{
-    int shift;
-    if ((bit<size) && (bit>=0))
-    {
-        shift = bit%64;
-        vector[bit/64] |= ((value&1LL)<<shift);
-    }
-}
-
 /*f se_cmodel_assist_assign_to_bit_range
  */
 static inline void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value)
@@ -141,6 +129,58 @@ static inline void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, in
         old = vector[bit/64];
         shift = bit%64;
         vector[bit/64] = (old &~ (bit_mask<<shift)) | ((value&bit_mask)<<shift);
+    }
+}
+
+/*f se_cmodel_assist_or_to_bit
+ */
+static inline void se_cmodel_assist_or_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value)
+{
+    int shift;
+    if ((bit<size) && (bit>=0))
+    {
+        shift = bit%64;
+        vector[bit/64] |= ((value&1LL)<<shift);
+    }
+}
+
+/*f se_cmodel_assist_or_to_bit_range
+ */
+static inline void se_cmodel_assist_or_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value)
+{
+    t_sl_uint64 bit_mask;
+    int shift;
+    bit_mask = (length >= 64) ? ~0ULL : ((1ULL << length)-1);
+
+    if ((bit+length<=size) && (bit>=0) && (length>=1)) {
+        shift = bit%64;
+        vector[bit/64] |= ((value&bit_mask)<<shift);
+    }
+}
+
+/*f se_cmodel_assist_and_with_bit
+ */
+static inline void se_cmodel_assist_and_with_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value)
+{
+    int shift;
+    if ((bit<size) && (bit>=0))
+    {
+        shift = bit%64;
+        vector[bit/64] &= ~(((~value)&1LL)<<shift);
+    }
+}
+
+/*f se_cmodel_assist_and_with_bit_range
+ */
+static inline void se_cmodel_assist_and_with_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value)
+{
+    t_sl_uint64 bit_mask;
+    int shift;
+    bit_mask = (length >= 64) ? ~0ULL : ((1ULL << length)-1);
+
+    if ((bit+length<=size) && (bit>=0) && (length>=1)) {
+        shift = bit%64;
+        vector[bit/64] &= ~(((~value)&bit_mask)<<shift);
     }
 }
 

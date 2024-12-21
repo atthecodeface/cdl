@@ -49,28 +49,6 @@ static t_sl_error_level log_toggle_instance_fn( c_engine *engine, void *engine_h
     return error_level_okay;
 }
 
-/*f log_toggle_delete - simple callback wrapper for the main method
- */
-static t_sl_error_level log_toggle_delete( void *handle )
-{
-    c_log_toggle *mod;
-    t_sl_error_level result;
-    mod = (c_log_toggle *)handle;
-    result = mod->delete_instance();
-    delete( mod );
-    return result;
-}
-
-/*f log_toggle_reset
- */
-static t_sl_error_level log_toggle_reset( void *handle, int pass )
-{
-    c_log_toggle *clt;
-
-    clt = (c_log_toggle *)handle;
-    return clt->reset( pass );
-}
-
 /*a Constructors and destructors for log_toggle
  */
 /*f c_log_toggle::c_log_toggle
@@ -103,8 +81,8 @@ c_log_toggle::c_log_toggle( class c_engine *eng, void *eng_handle )
 
     dut_name = engine->get_option_string( engine_handle, "module_name", "" );
 
-    engine->register_delete_function( engine_handle, (void *)this, log_toggle_delete );
-    engine->register_reset_function( engine_handle, (void *)this, log_toggle_reset );
+    engine->register_delete_function(engine_handle, [this](){delete(this);} );
+    engine->register_reset_function(engine_handle, [this](int pass){this->reset(pass);} );
 
 }
 

@@ -12,7 +12,7 @@
 #  for more details.
 
 #a Global variables
-include ${CDL_ROOT}/Makefile_build_config
+include ${CDL_MAKEFILE_CONFIG}
 PREREQS = S
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
@@ -49,6 +49,12 @@ INCLUDES = se_cmodel_assist.h \
 			se_errors.h \
 			se_external_module.h
 
+ifneq ($(strip ${VERILATOR_SHARE}),)
+ENGINE_SRCS += se_wrapped_verilator.cpp
+INCLUDES    += se_wrapped_verilator.h
+endif
+
+SRC_DIR = .
 SRCS = ${ENGINE_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/simulation_engine
 
@@ -56,28 +62,18 @@ OBJ_DIR = ${CDL_BUILD_ROOT}/simulation_engine
 objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OBJ_DIR}/%.o,${SRC:.y=.cpp}))
 ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
+#a Make include - copy relevant header files
+$(eval $(call add_includes,${INCLUDES}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${ENGINE_SRCS},-I ${VERILATOR_SHARE}/include))
+
 #a Resultant 'libraries'
-SE_LIB = ${CDL_LIB_DIR}/se_simulation_engine.o
-LIBRARIES = ${SE_LIB}
-
-#a Dependencies and build requirements
-build: ${LIBRARIES}
-
-${SE_LIB}: ${ENGINE_OBJS}
-	${LINKASOBJ} $@ ${ENGINE_OBJS}
-
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
+# This library is not installed, as it has to be combined with an execution harness
+build: ${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY}
+$(eval $(call make_static_library,${CDL_BUILD_LIB_DIR}/${SIMULATION_LIBRARY},${ENGINE_OBJS}))
 
 #a Clean, depend, etc
 clean:
 	@rm -f ${LIBRARIES} ${CMDLINE_OBJS} ${PYTHON_OBJS} ${ENGINE_OBJS} ${OBJ_DIR}/*.P core.*
 	mkdir -p ${OBJ_DIR}
 
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
 
-#a Include make - copy relevant header files
-include:${INCLUDES}
-	cp ${INCLUDES} ${CDL_INCLUDE_DIR}

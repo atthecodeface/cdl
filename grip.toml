@@ -1,0 +1,26 @@
+doc = """
+The cdl repository allows configuring and installing the cdl tool.
+
+It has two grip stages: configure and install.
+
+It requires grip environment variables of:
+
+@BUILD_DIR@ - where to build
+@TOOLS_DIR@ - where to install
+"""
+
+[configure]
+exec = "mkdir -p @BUILD_DIR@ && autoreconf --force --install --verbose && cd @BUILD_DIR@ && @GRIP_REPO_PATH@/configure --prefix=@TOOLS_DIR@"
+
+[install]
+requires = [".configure"]
+wd = "@BUILD_DIR@"
+exec = "make clean && make -j8 && make install"
+
+[regress]
+requires = [".install"]
+wd = "@BUILD_DIR@"
+env = {REGRESSION_DIR="@GRIP_REPO_PATH@/regression"}
+exec = "make -f @REGRESSION_DIR@/Makefile CDL_ROOT=@TOOLS_DIR@ SRC_ROOT=@REGRESSION_DIR@ BUILD_ROOT=@BUILD_DIR@ regress_python"
+action = "Yes"
+

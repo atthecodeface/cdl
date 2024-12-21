@@ -52,6 +52,12 @@ enum
      option_type_remap,
      option_debug,
      option_include,
+     option_force_include,
+     option_source_root,
+     option_library_desc,
+     option_dependencies,
+     option_dependencies_target,
+     option_dependencies_relative,
      option_help,
      option_version
 };
@@ -65,6 +71,12 @@ static option options[] = {
      { "type-remap", required_argument, NULL, option_type_remap },
      { "debug", required_argument, NULL, option_debug },
      { "include-dir", required_argument, NULL, option_include },
+     { "force-include", required_argument, NULL, option_force_include },
+     { "source-root", required_argument, NULL, option_source_root },
+     { "library-desc", required_argument, NULL, option_library_desc },
+     { "dependencies", required_argument, NULL, option_dependencies },
+     { "dependencies-target", required_argument, NULL, option_dependencies_target },
+     { "dependencies-relative", required_argument, NULL, option_dependencies_relative },
      { "help", no_argument, NULL, option_help },
      { "version", no_argument, NULL, option_version },
      { NULL, no_argument, NULL, 0 }
@@ -120,6 +132,10 @@ static void usage( void )
      printf( "\t--help \t\tDisplay this help message\n");
      printf( "\t--version \t\tDisplay the version and copyright information\n");
      printf( "\t--include-dir <directory> \tAppend directory to search path for include files\n");
+     printf( "\t--force-include <file> \tForce a file to be included as if included at the start of the source file\n");
+     printf( "\t--library-desc <desc file> \tSpecify the library description file if libraries are to be used\n");
+     printf( "\t--source-root <directory> \tSpecify the source directory for all relative paths for libraries in the library description file\n");
+     printf( "\t--dependencies <filename> \tWrite list of dependencies for the CDL file for a makefile\n");
 }
 
 /*f version
@@ -136,7 +152,11 @@ extern int main( int argc, char **argv )
 {
      c_cyclicity *cyc;
      int c, so_far;
-     string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir;
+     string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir, *force_includes, *last_force_include;
+     const char *library_desc, *source_root;
+     const char *dependencies_filename;
+     const char *dependencies_target;
+     const char *dependencies_relative;
      t_sl_option_list env_options;
      int build_result;
 
@@ -147,6 +167,13 @@ extern int main( int argc, char **argv )
      type_remappings = NULL;
      include_dirs = NULL;
      last_include_dir = NULL;
+     force_includes = NULL;
+     last_force_include = NULL;
+     library_desc = NULL;
+     source_root = NULL;
+     dependencies_filename = NULL;
+     dependencies_target = NULL;
+     dependencies_relative = "";
 
      so_far = 0;
      c = 0;
@@ -195,6 +222,31 @@ extern int main( int argc, char **argv )
                     last_include_dir = new_str;
                     new_str->string = optarg;
                     break;
+               case option_force_include:
+                    new_str = (string_list *)malloc(sizeof(string_list));
+                    if (!force_includes)
+                         force_includes = new_str;
+                    else
+                         last_force_include->next = new_str;
+                    new_str->next = NULL;
+                    last_force_include = new_str;
+                    new_str->string = optarg;
+                    break;
+               case option_source_root:
+                    source_root = optarg;
+                    break;
+               case option_library_desc:
+                    library_desc = optarg;
+                    break;
+               case option_dependencies:
+                   dependencies_filename = optarg;
+                    break;
+               case option_dependencies_target:
+                   dependencies_target = optarg;
+                    break;
+               case option_dependencies_relative:
+                   dependencies_relative = optarg;
+                    break;
                case '?':
                     exit(4);
                default:
@@ -212,6 +264,12 @@ extern int main( int argc, char **argv )
      {
           cyc->add_include_directory( new_str->string );
      }
+     for (new_str = force_includes; new_str; new_str=new_str->next)
+     {
+          cyc->add_force_include( new_str->string );
+     }
+     if (source_root)  cyc->set_library_root(source_root);
+     if (library_desc) cyc->read_library_descriptor(library_desc);
 
      for (new_str = type_remappings; new_str; new_str=new_str->next)
      {
@@ -219,6 +277,36 @@ extern int main( int argc, char **argv )
      }
 
      cyc->parse_input_file( argv[optind] );
+
+     display_errors( cyc, 1 );
+
+     if (dependencies_filename) {
+         FILE *f = fopen(dependencies_filename, "w");
+         if (f) {
+             int nf=cyc->get_number_of_files();
+             int i;
+             if (dependencies_target) {
+                 fprintf(f,"%s: \\\n",dependencies_target);
+             } else {
+                 fprintf(f,"no_dependency: \\\n");
+             }
+             for (i=0; i<nf; i++) {
+                 const char *dep;
+                 dep = cyc->get_pathname(i);
+                 if (dep[0]=='/') {
+                    fprintf(f,"     %s \\\n",dep);
+                 } else {
+                     fprintf(f,"    %s%s \\\n",dependencies_relative,dep);
+                 }
+             }
+             fprintf(f,"\n");
+             fclose(f);
+         } else {
+             cyc->error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, 0,
+                                    error_arg_type_const_filename, dependencies_filename,
+                                    error_arg_type_none );
+         }
+     }
 
      display_errors( cyc, 1 );
 

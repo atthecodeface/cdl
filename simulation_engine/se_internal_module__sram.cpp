@@ -23,6 +23,7 @@ Add error messages if reads are of an unwritten location
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <cstddef>
 #include "sl_debug.h"
 #include "sl_mif.h"
 #include "sl_general.h"
@@ -45,64 +46,17 @@ Add error messages if reads are of an unwritten location
 */
 /*v log_event_descriptor
  */
-static t_sram_posedge_clock_state *___sram_posedge_clock_state_log;
 static t_engine_text_value_pair log_event_descriptor[] = 
 {
     {"read", 2 },
-    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"data_out", (t_se_signal_value *)&(___sram_posedge_clock_state_log->data_out[0])      - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"address",   offsetof(t_sram_posedge_clock_state,address) },
+    {"data_out",  offsetof(t_sram_posedge_clock_state,data_out[0]) },
     {"write", 3 },
-    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"data",     (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_data[0])    - (t_se_signal_value *)___sram_posedge_clock_state_log },
-    {"enables",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_enable[0]) - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"address",   offsetof(t_sram_posedge_clock_state,address) },
+    {"data",      offsetof(t_sram_posedge_clock_state,write_data[0]) },
+    {"enables",   offsetof(t_sram_posedge_clock_state,write_enable[0]) },
     {NULL, 0}
 };
-
-/*a Static functions
- */
-/*f sram_delete - simple callback wrapper for the main method
-*/
-static t_sl_error_level sram_delete( void *handle )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    t_sl_error_level result = sram->delete_instance();
-    delete( sram );
-    return result;
-}
-
-/*f sram_reset
- */
-static t_sl_error_level sram_reset( void *handle, int pass )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    return sram->reset( pass );
-}
-
-/*f sram_message
- */
-static t_sl_error_level sram_message( void *handle, void *arg )
-{
-    c_se_internal_module__sram *sram = (c_se_internal_module__sram *)handle;
-    return sram->message( (t_se_message *)arg );
-}
-
-/*f sram_preclock
- */
-static t_sl_error_level sram_preclock( void *handle )
-{
-    t_sram_clock_domain *cd = (t_sram_clock_domain *)handle;
-    WHERE_I_AM;
-    return cd->mod->preclock_posedge_clock(cd);
-}
-
-/*f sram_clock
- */
-static t_sl_error_level sram_clock( void *handle )
-{
-    t_sram_clock_domain *cd = (t_sram_clock_domain *)handle;
-    WHERE_I_AM;
-    return cd->mod->clock_posedge_clock(cd);
-}
 
 /*a Constructors and destructors for sram_srw
 */
@@ -164,9 +118,9 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
     data_byte_width = BITS_TO_BYTES(data_width); // In 64-bit words
     data_word_width = (data_width+8*sizeof(t_sl_uint64)-1)/(sizeof(t_sl_uint64)*8); // In 64-bit words, for the signals
 
-    engine->register_delete_function( engine_handle, (void *)this,  sram_delete );
-    engine->register_reset_function( engine_handle, (void *)this,   sram_reset );
-    engine->register_message_function( engine_handle, (void *)this, sram_message );
+    engine->register_delete_function( engine_handle, [this](){delete(this);} );
+    engine->register_reset_function( engine_handle,  [this](int pass){this->reset(pass);} );
+    engine->register_message_function( engine_handle, [this](t_se_message *m){this->message(m);});
 
     clock_domains = (t_sram_clock_domain *)malloc(sizeof(t_sram_clock_domain)*num_ports);
     for (int i=0; i<num_ports; i++)
@@ -179,7 +133,10 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
 
         sprintf( clk_name, "sram_clock_%d", i );
         if (!multiport) sprintf( clk_name, "sram_clock" );
-        engine->register_clock_fns( engine_handle, (void *)(&clock_domains[i]), clk_name, sram_preclock, sram_clock );
+        engine->register_clock_fns(engine_handle, clk_name,
+                                   [this,i](){this->preclock_posedge_clock(&this->clock_domains[i]);},
+                                   [this,i](){this->clock_posedge_clock(&this->clock_domains[i]);},
+                                   t_se_engine_std_function(), t_se_engine_std_function() );
 
         sprintf( signal_name, "select_%d", i );
         if (!multiport) sprintf( signal_name, "select" );
@@ -241,15 +198,32 @@ t_sl_error_level c_se_internal_module__sram::delete_instance( void )
 */
 /*f c_se_internal_module__sram::reset
 */
+const t_sl_uint64 dummy_input=0;
+#define CHECK_INPUT(inputs, element) \
+    if (inputs . element == NULL) { \
+            fprintf( stderr,"FATAL: Unconnected input port '%s' on SRAM '%s'\n", \
+                     #element, engine->get_instance_full_name(engine_handle)); \
+            inputs . element = (t_sl_uint64 *)&dummy_input;               \
+    }
 t_sl_error_level c_se_internal_module__sram::reset( int pass )
 {
-    if (pass==0)
-    {
+    if (pass==0) {
+        for (int i=0; i<num_ports; i++) {
+            CHECK_INPUT(clock_domains[i].inputs, select);
+            CHECK_INPUT(clock_domains[i].inputs, address);
+            CHECK_INPUT(clock_domains[i].inputs, read_not_write);
+            CHECK_INPUT(clock_domains[i].inputs, write_data);
+            if (number_of_enables) {
+                CHECK_INPUT(clock_domains[i].inputs, write_enable);
+            }
+        }
         if (memory)
         {
             free(memory);
             memory = NULL;
         }
+        fprintf(stderr, "%s : read mif '%s'",  engine->get_instance_full_name(engine_handle), filename);
+
         sl_mif_allocate_and_read_mif_file( engine->error,
                                            strcmp(filename,"")?filename:NULL,
                                            "c_se_internal_module__sram",

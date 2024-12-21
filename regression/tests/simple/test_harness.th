@@ -16,8 +16,6 @@ int where
 int expected_value
 int last_expected_value
 
-signal__test_reset.reset 1
-
 bfm_wait 1
 
 set where 0
@@ -31,12 +29,13 @@ bfm_wait 1
 
 gosub test_values
 
+printf "%d0%:%d1%:Async reset should still be asserted (in all.hwex) (1 == %d2%)" global_cycle() bfm_cycle() signal__test_reset.value()
+
 bfm_wait 1
 
 gosub test_values
 
-printf "%d0%:%d1%:Releasing async reset" global_cycle() bfm_cycle()
-signal__test_reset.drive 0
+printf "%d0%:%d1%:Released async reset (in all.hwex) (0 == %d2%)" global_cycle() bfm_cycle() signal__test_reset.value()
 
 set where 100
 set last_expected_value 0

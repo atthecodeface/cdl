@@ -207,6 +207,7 @@ extern void sl_ef_lib_event_add_exec_file_enhancements( struct t_sl_exec_file_da
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = sl_event_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     sl_exec_file_add_library( file_data, &lib_desc );
 }
 

@@ -28,16 +28,17 @@
 class c_lexical_analyzer
 {
 public:
-    c_lexical_analyzer( class c_cyclicity *cyclicity );
+    c_lexical_analyzer( class c_cyclicity *cyclicity, class c_library_set *libraries );
     ~c_lexical_analyzer();
 
-    void add_include_directory( char *directory );
+    void add_force_include( const char *filename );
 
     void reset_files( void );
-    int set_file( FILE *f );
-    int set_file( char *filename );
+    int set_file(FILE *f, const char *filename, const char *pathname, void *library, int toplevel );
+    int set_file(const char *filename);
     int get_number_of_files( void );
     char *get_filename( int file_number );
+    char *get_pathname( int file_number );
     struct t_lex_file *get_file_handle( int file_number );
     int get_file_data( int file_number, int *file_size, int *number_lines, char **file_data );
     int get_line_data( int file_number, int line_number, char **line_start, int *line_length );
@@ -58,11 +59,14 @@ public:
 
 private:
     class c_cyclicity *cyclicity;
+    class c_library_set *libraries;
 
     struct t_lex_symbol *sym_table;
 
     struct t_string_chain *include_directories;
     struct t_string_chain *last_include_directory;
+    struct t_string_chain *force_includes;
+    struct t_string_chain *last_force_include;
 
     struct t_lex_file *current_file;
     struct t_lex_file *file_list;
@@ -71,7 +75,7 @@ private:
     const char *const *yytname;
     const short *yytoknum;
 
-    struct t_lex_file *allocate_and_read_file( const char *filename, FILE *f, int length );
+    struct t_lex_file *allocate_and_read_file( const char *filename, const char *pathname, void *library, FILE *f, int length, int toplevel );
     struct t_lex_file *include_file( struct t_lex_file *included_by, const char *filename, int filename_length );
     struct t_lex_file *get_nth_file( int n );
 

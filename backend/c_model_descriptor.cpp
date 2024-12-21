@@ -64,7 +64,8 @@ static t_sl_error_text default_error_messages[] = {
 
 /*v indent_string
  */
-static const char *indent_string = "    ";
+#define MAX_INDENT (200)
+static const char *indent_string = "                                                                                                                                                                                                        "; //  MAX_INDENT spaces
 
 /*v output_separator
  */
@@ -5831,20 +5832,17 @@ void c_model_descriptor::labelled_expressions_free( t_md_labelled_expression *li
  */
 static void output_indented( void *handle, int indent, const char *format, ... )
 {
-     FILE *f;
      va_list ap;
-     int i;
-
      va_start( ap, format );
 
-     f = (FILE *)handle;
-     if (indent>=0)
-     {
-          for (i=0; i<indent; i++)
-              fputs( indent_string, f );
+     auto f = (FILE *)handle;
+     if (indent>0) {
+         int start = MAX_INDENT-(indent*4);
+         if (start<0) start=0;
+         fputs(indent_string+start, f );
      }
      vfprintf( f, format, ap );
-     fflush(f);
+     //fflush(f);
      va_end( ap );
 }
 
@@ -5957,6 +5955,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      {
          module->output_name     = module->name;
          module->registered_name = module->name;
+         module->tool_name       = module->name;
          module->implementation_name = "cdl_model";
          int done = 0;
          for (i=0; !done; i++)
@@ -5991,6 +5990,16 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
                  if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
                  {
                      module->implementation_name = remap+j+1;
+                 }
+             }
+             if (sl_option_get_string( env_options, "be_remap_tool_name", i, &remap))
+             {
+                 done = 0;
+                 // remap should be foo=bar
+                 for (j=0; remap[j] && (remap[j]!='='); j++); // remap=>foo j=>=bar
+                 if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
+                 {
+                     module->tool_name = remap+j+1;
                  }
              }
          }
@@ -6057,27 +6066,54 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      {
          include_coverage = 1;
      }
+    options.cpp.include_assertions = include_assertions;
+    options.cpp.include_coverage = include_coverage;
+    options.cpp.include_stmt_coverage = include_stmt_coverage;
+    options.cpp.multithread  = multithread;
+    options.verilog.vmod_mode = (sl_option_get_string( env_options, "be_vmod" )!=NULL);
+    options.verilog.clock_gate_module_instance_type         = sl_option_get_string_with_default( env_options, "be_v_clkgate_type", "clock_gate_module" );
+    options.verilog.clock_gate_module_instance_extra_ports  = sl_option_get_string_with_default( env_options, "be_v_clkgate_ports", "" );
+    options.verilog.verilog_comb_reg_suffix                 = sl_option_get_string_with_default( env_options, "be_v_comb_suffix", "__var" );
+    options.verilog.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
+    options.verilog.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
+    options.verilog.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
+    options.verilog.assertions_ifdef                        = sl_option_get_string( env_options, "be_v_assertions_ifdef" );
+    options.verilog.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
+    options.verilog.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
+    options.verilog.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
+    options.verilog.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
+    options.verilog.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
+    options.verilog.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
 
      filename = sl_option_get_string( env_options, "be_coverage_map" );
-     if (filename)
-     {
-         if (include_coverage || include_stmt_coverage)
-         {
+     if (filename) {
+         if (include_coverage || include_stmt_coverage) {
              output_coverage_map( filename );
          }
      }
 
      filename = sl_option_get_string( env_options, "be_cppfile" );
-     if (filename)
-     {
+     if (filename) {
          f = fopen(filename, "w");
-         if (f)
-         {
-             target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage, multithread );
+         if (f) {
+             auto mdt = c_md_target_c(this, output_indented, (void *)f);
+             mdt.output_cpp_model();
              fclose(f);
+         } else {
+             error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
+                               error_arg_type_malloc_string, filename,
+                               error_arg_type_none );
          }
-         else
-         {
+     }
+
+     filename = sl_option_get_string( env_options, "be_cwvfile" );
+     if (filename) {
+         f = fopen(filename, "w");
+         if (f) {
+             auto mdt = c_md_target_c(this, output_indented, (void *)f);
+             mdt.output_cwv_model();
+             fclose(f);
+         } else {
              error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
                                error_arg_type_malloc_string, filename,
                                error_arg_type_none );
@@ -6090,7 +6126,8 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
           f = fopen(filename, "w");
           if (f)
           {
-              target_xml_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage );
+             auto mdt = c_md_target_xml(this, output_indented, (void *)f);
+             mdt.output_xml_model();
               fclose(f);
           }
           else
@@ -6104,11 +6141,11 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_cdlhfile" );
      if (filename)
      {
-         t_md_cdl_header_options options;
          f = fopen(filename, "w");
          if (f)
          {
-             target_cdl_header_output( this, output_indented, (void *)f, &options );
+             auto mdt = c_md_target_cdlh(this, output_indented, (void *)f);
+             mdt.output_cdlh_model();
              fclose(f);
          }
          else
@@ -6130,26 +6167,12 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_verilogfile" );
      if (filename)
      {
-         t_md_verilog_options options;
-         options.vmod_mode = (sl_option_get_string( env_options, "be_vmod" )!=NULL);
-         options.clock_gate_module_instance_type         = sl_option_get_string( env_options, "be_v_clkgate_type" );
-         options.clock_gate_module_instance_extra_ports  = sl_option_get_string( env_options, "be_v_clkgate_ports" );
-         options.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
-         options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
-         options.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
-         options.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
-         options.assertions_ifdef                        = sl_option_get_string( env_options, "be_v_assertions_ifdef" );
-         options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
-         options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
-         options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
-         options.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
-         options.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
-         options.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
          f = fopen(filename, "w");
           if (f)
           {
-              target_verilog_output( this, output_indented, (void *)f, &options );
-              fclose(f);
+             auto mdt = c_md_target_verilog(this, output_indented, (void *)f);
+             mdt.output_verilog_model();
+             fclose(f);
           }
           else
           {
@@ -6168,6 +6191,7 @@ extern void be_getopt_usage( void )
 {
      printf( "\t--model \t\tRequired for C++ - model name that is used for naming the initialization functions\n");
      printf( "\t--cpp <file>\t\tGenerate C++ model output file\n");
+     printf( "\t--cwv <file>\t\tGenerate C++ model output file that uses a Verilated model as the internals; the CDL module description provides clocks, inputs and outputs. Note that v_clks_must_have_enables is respected.\n");
      printf( "\t--xml <file>\t\tGenerate XML tree of 'compiled' model into a file\n");
      printf( "\t--cdlh <file>\t\tGenerate CDL external header timing file\n");
      printf( "\t--verilog <file>\t\tGenerate verilog model output file\n");
@@ -6178,14 +6202,15 @@ extern void be_getopt_usage( void )
      printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
      printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'; this changes the fundamental CPP classname for a CDL C model. 'new_name' has to be unique in the library of built modules.\n");
-     printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
-     printf( "\t--remap-registered-name <name=new_name>\tRemap module type 'name' to register in simulation as another module name 'new_name'. The CPP classname is not effected. This permits many different CDL models with different CPP classes to build different implementations of the same simulatable module name.\n");
+     printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap all module instance types matching given type in given module to be another type 'new_name'\n");
+     printf( "\t--remap-registered-name <name=new_name>\tRemap module type 'name' to register in CDL simulation as another module name 'new_name'. The CPP classname is not effected. This permits many different CDL models with different CPP classes to build different implementations of the same simulatable module name, for example by having different generic types or constant values provided on the command line.\n");
      printf( "\t--remap-implementation-name <name=implementation_name>\tMake C model for module 'name' declare itself as the specified implementation name; if not given, declare as 'cdl_model'\n");
-     printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
+     printf( "\t--remap-tool-name <name=tool_name>\tWhen creating a C model for module 'name' from data from an external tool (such as Verilator), use 'tool_name' as the name of the module used by the tool rather than the default of 'name'\n");
+     printf( "\t--vmod-mode\t\tDEPRECATED Option for verilog which hacks things that VMOD cannot cope with\n");
      printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
-     printf( "\t--v_clks_must_have_enables\t\tChanges clock ports from just <clock> to two ports, <clock> and <clock__enable>, and does not instantiate clock gate modules; use for FPGA builds\n");
+     printf( "\t--v_clks_must_have_enables\t\tChanges clock ports from just <clock> to two ports, <clock> and <clock__enable>, and does not instantiate clock gate modules; use for FPGA builds, and must be correct for verilated CDL models\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
      printf( "\t--v_additional_port_include <filename>\t\tForces insertion of 'include \"filename\" before the ');' of every verilog module header\n");
      printf( "\t--v_additional_body_include <filename>\t\tForces insertion of 'include \"filename\" before the 'endmodule' of every verilog module body\n");
@@ -6206,6 +6231,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_cpp:
           *env_options = sl_option_list( *env_options, "be_cppfile", optarg );
+          return 1;
+     case option_be_cwv:
+          *env_options = sl_option_list( *env_options, "be_cwvfile", optarg );
           return 1;
      case option_be_xml:
           *env_options = sl_option_list( *env_options, "be_xmlfile", optarg );
@@ -6284,6 +6312,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_remap_implementation_name:
           *env_options = sl_option_list( *env_options, "be_remap_implementation_name", optarg );
+          return 1;
+     case option_be_remap_tool_name:
+          *env_options = sl_option_list( *env_options, "be_remap_tool_name", optarg );
           return 1;
      }
      return 0;

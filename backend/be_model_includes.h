@@ -27,7 +27,6 @@
 #include "eh_scripting.h"
 #include "se_errors.h"
 #include "se_external_module.h"
-#include "se_external_module.h"
 
 /*a Wrapper
  */

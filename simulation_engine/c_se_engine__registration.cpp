@@ -32,6 +32,7 @@
 #else
 #define WHERE_I_AM {}
 #endif
+#define EMINAME(h) (((t_engine_module_instance *)h)->name)
 
 /*a Types
  */
@@ -113,24 +114,50 @@ static t_sl_exec_file_method sl_message_object_methods[] =
  */
 /*f c_engine::register_delete_function
  */
-void c_engine::register_delete_function( void *engine_handle, void *handle, t_engine_callback_fn  delete_fn )
+void c_engine::register_delete_function( void *engine_handle, t_se_engine_std_function delete_fn)
 {
-     t_engine_module_instance *emi;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     se_engine_function_call_add( &emi->delete_fn_list, handle, delete_fn );
+     auto emi = (t_engine_module_instance *)engine_handle;
+     emi->delete_cb.add(delete_fn);
 }
 
 /*f c_engine::register_reset_function
  */
+void c_engine::register_reset_function( void *engine_handle, t_se_engine_int_std_function reset_fn)
+{
+     auto emi = (t_engine_module_instance *)engine_handle;
+     emi->reset_cb.add(reset_fn);
+}
+
+/*f c_engine::register_prepreclock_fn
+ */
+void c_engine::register_prepreclock_fn( void *engine_handle, t_se_engine_std_function prepreclock_fn )
+{
+     auto emi = (t_engine_module_instance *)engine_handle;
+     emi->prepreclock_cb.add(prepreclock_fn);
+}
+
+/*f c_engine::register_propagate_fn
+ */
+void c_engine::register_propagate_fn( void *engine_handle, t_se_engine_std_function propagate_fn )
+{
+     auto emi = (t_engine_module_instance *)engine_handle;
+     emi->propagate_cb.add(propagate_fn);
+}
+
+/*f c_engine::register_delete_function - DEPRECATED
+ */
+void c_engine::register_delete_function( void *engine_handle, void *handle, t_engine_callback_fn  delete_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks");
+    register_delete_function(engine_handle, [delete_fn, handle](void)->t_sl_error_level{return (*delete_fn)(handle);});
+}
+
+/*f c_engine::register_reset_function - DEPRECATED
+ */
 void c_engine::register_reset_function( void *engine_handle, void *handle, t_engine_callback_arg_fn  reset_fn )
 {
-     t_engine_module_instance *emi;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     se_engine_function_call_add( &emi->reset_fn_list, handle, reset_fn );
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks");
+    register_reset_function(engine_handle, [reset_fn, handle](int p)->t_sl_error_level{return (*reset_fn)(handle, p);});
 }
 
 /*f c_engine::register_input_signal
@@ -153,13 +180,6 @@ void c_engine::register_input_signal( void *engine_handle, const char *name, int
      efn->data.input.connected_to = NULL;
 }
 
-/*f c_engine::register_input_signal
- */
-void c_engine::register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr )
-{
-    register_input_signal( engine_handle, name, size, value_ptr_ptr, 0 );
-}
-
 /*f c_engine::register_output_signal
  */
 void c_engine::register_output_signal( void *engine_handle, const char *name, int size, t_se_signal_value *value_ptr )
@@ -178,9 +198,14 @@ void c_engine::register_output_signal( void *engine_handle, const char *name, in
      efn->data.output.has_clocked_state_desc = -1; // Have not checked it it has a clocked_state_desc yet
 }
 
-/*f c_engine::register_clock_fns
+/*f c_engine::register_clock_fns - all 4
  */
-void c_engine::register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn preclock_fn, t_engine_callback_fn clock_fn )
+void c_engine::register_clock_fns( void *engine_handle,
+                                   const char *clock_name,
+                                   t_se_engine_std_function pos_pclk_fn,
+                                   t_se_engine_std_function pos_clk_fn,
+                                   t_se_engine_std_function neg_pclk_fn,
+                                   t_se_engine_std_function neg_clk_fn )
 {
      t_engine_module_instance *emi;
      t_engine_function *efn;
@@ -188,124 +213,108 @@ void c_engine::register_clock_fns( void *engine_handle, void *handle, const char
      emi = (t_engine_module_instance *)engine_handle;
 
      efn = se_engine_function_add_function( emi, &emi->clock_fn_list, clock_name );
-     efn->handle = handle;
-     efn->data.clock.posedge_prepreclock_fn = NULL;
-     efn->data.clock.posedge_preclock_fn = preclock_fn;
-     efn->data.clock.posedge_clock_fn = clock_fn;
-     efn->data.clock.negedge_prepreclock_fn = NULL;
-     efn->data.clock.negedge_preclock_fn = NULL;
-     efn->data.clock.negedge_clock_fn = NULL;
+     efn->data.clock.posedge_preclock_fn = pos_pclk_fn;
+     efn->data.clock.posedge_clock_fn    = pos_clk_fn;
+     efn->data.clock.negedge_preclock_fn = neg_pclk_fn;
+     efn->data.clock.negedge_clock_fn    = neg_clk_fn;
      efn->data.clock.driven_by = NULL;
 }
 
-/*f c_engine::register_clock_fns
+/*f c_engine::register_clock_fns - just posedge
  */
-void c_engine::register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn, t_engine_callback_fn negedge_preclock_fn, t_engine_callback_fn negedge_clock_fn )
+void c_engine::register_clock_fns( void *engine_handle,
+                                   const char *clock_name,
+                                   t_se_engine_std_function pos_pclk_fn,
+                                   t_se_engine_std_function pos_clk_fn )
 {
-     t_engine_module_instance *emi;
-     t_engine_function *efn;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     efn = se_engine_function_add_function( emi, &emi->clock_fn_list, clock_name );
-     efn->handle = handle;
-     efn->data.clock.posedge_prepreclock_fn = NULL;
-     efn->data.clock.posedge_preclock_fn = posedge_preclock_fn;
-     efn->data.clock.posedge_clock_fn = posedge_clock_fn;
-     efn->data.clock.negedge_prepreclock_fn = NULL;
-     efn->data.clock.negedge_preclock_fn = negedge_preclock_fn;
-     efn->data.clock.negedge_clock_fn = negedge_clock_fn;
-     efn->data.clock.driven_by = NULL;
-}
-
-/*f c_engine::register_preclock_fns
- */
-void c_engine::register_preclock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn negedge_preclock_fn )
-{
-     t_engine_module_instance *emi;
-     t_engine_function *efn;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     efn = se_engine_function_add_function( emi, &emi->clock_fn_list, clock_name );
-     efn->handle = handle;
-     efn->data.clock.posedge_preclock_fn = posedge_preclock_fn;
-     efn->data.clock.posedge_clock_fn = NULL;
-     efn->data.clock.negedge_preclock_fn = negedge_preclock_fn;
-     efn->data.clock.negedge_clock_fn = NULL;
-     efn->data.clock.driven_by = NULL;
-}
-
-/*f c_engine::register_clock_fn - once registered with one of the above, set an individual function
- */
-int c_engine::register_clock_fn( void *engine_handle, void *handle, const char *clock_name, t_engine_sim_function_type type, t_engine_callback_fn x_clock_fn )
-{
-    t_engine_module_instance *emi;
-    t_engine_function *efn;
-
-    emi = (t_engine_module_instance *)engine_handle;
-    efn = emi->clock_fn_list;
-    do
-    {
-        efn = se_engine_function_find_function( efn, clock_name );
-        if (efn->handle == handle)
-        {
-            break;
-        }
-    } while (efn);
-    if (!efn) return 0;
-    switch (type)
-    {
-    case engine_sim_function_type_posedge_prepreclock:    efn->data.clock.posedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_posedge_preclock:    efn->data.clock.posedge_preclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_posedge_clock:       efn->data.clock.posedge_clock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_prepreclock:    efn->data.clock.negedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_preclock:    efn->data.clock.negedge_preclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_clock:       efn->data.clock.negedge_clock_fn = x_clock_fn; return 1;
-    }
-    return 0;
-}
-
-/*f c_engine::register_prepreclock_fn
- */
-void c_engine::register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn prepreclock_fn )
-{
-     t_engine_module_instance *emi;
-     t_engine_function *efn;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     efn = se_engine_function_add_function( emi, &emi->prepreclock_fn_list, NULL );
-     efn->data.prepreclock.prepreclock_fn = prepreclock_fn;
-     efn->handle = handle;
-}
-
-/*f c_engine::register_propagate_fn
- */
-void c_engine::register_propagate_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn )
-{
-     t_engine_module_instance *emi;
-     t_engine_function *efn;
-
-     emi = (t_engine_module_instance *)engine_handle;
-
-     efn = se_engine_function_add_function( emi, &emi->propagate_fn_list, NULL );
-     efn->data.propagate.propagate_fn = propagate_fn;
-     efn->handle = handle;
+    register_clock_fns(engine_handle, clock_name, pos_pclk_fn, pos_clk_fn, t_se_engine_std_function(), t_se_engine_std_function());
 }
 
 /*f c_engine::register_comb_fn
  */
+void c_engine::register_comb_fn( void *engine_handle, t_se_engine_std_function comb_fn )
+{
+     auto emi = (t_engine_module_instance *)engine_handle;
+     emi->comb_cb.add(comb_fn);
+}
+
+/*f c_engine::register_message_function
+ */
+void c_engine::register_message_function( void *engine_handle, t_se_engine_msg_std_function message_fn )
+{
+    auto emi = (t_engine_module_instance *)engine_handle;
+    emi->message_cb.add(message_fn);
+}
+
+/*f c_engine::register_clock_fns - DEPRECATED
+ */
+void c_engine::register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn, t_engine_callback_fn negedge_preclock_fn, t_engine_callback_fn negedge_clock_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+    auto none = t_se_engine_std_function();
+    auto pos_pclk_fn = posedge_preclock_fn ? ([handle,posedge_preclock_fn](void)->t_sl_error_level{return (*posedge_preclock_fn)(handle);}) : none;
+    auto pos_clk_fn  = posedge_clock_fn    ? ([handle,posedge_clock_fn]   (void)->t_sl_error_level{return (*posedge_clock_fn)   (handle);}) : none;
+    auto neg_pclk_fn = negedge_preclock_fn ? ([handle,negedge_preclock_fn](void)->t_sl_error_level{return (*negedge_preclock_fn)(handle);}) : none;
+    auto neg_clk_fn  = negedge_clock_fn    ? ([handle,negedge_clock_fn]   (void)->t_sl_error_level{return (*negedge_clock_fn)   (handle);}) : none;
+    return register_clock_fns(engine_handle, clock_name, pos_pclk_fn, pos_clk_fn, neg_pclk_fn, neg_clk_fn );
+}
+
+/*f c_engine::register_clock_fns - DEPRECATED FATAL
+ */
+void c_engine::register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn preclock_fn, t_engine_callback_fn clock_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"FATAL: std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+}
+
+/*f c_engine::register_preclock_fns - DEPRECATED FATAL
+ */
+void c_engine::register_preclock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn negedge_preclock_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"FATAL: std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+}
+
+/*f c_engine::register_clock_fn - DEPRECATED FATAL once registered with one of the above, set an individual function
+ */
+int c_engine::register_clock_fn( void *engine_handle, void *handle, const char *clock_name, t_engine_sim_function_type type, t_engine_callback_fn x_clock_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"FATAL: std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+    return 0;
+}
+
+/*f c_engine::register_prepreclock_fn - DEPRECATED
+ */
+void c_engine::register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn prepreclock_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+    auto fn = ([handle,prepreclock_fn](void)->t_sl_error_level{return (*prepreclock_fn)(handle);});
+    return register_prepreclock_fn(engine_handle, fn );
+}
+
+/*f c_engine::register_propagate_fn - DEPRECATED
+ */
+void c_engine::register_propagate_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks, and declare all functions for a clock in a single call");
+    auto fn = ([handle,propagate_fn](void)->t_sl_error_level{return (*propagate_fn)(handle);});
+    return register_propagate_fn(engine_handle, fn );
+}
+
+/*f c_engine::register_comb_fn - DEPRECATED
+ */
 void c_engine::register_comb_fn( void *engine_handle, void *handle, t_engine_callback_fn comb_fn )
 {
-     t_engine_module_instance *emi;
-     t_engine_function *efn;
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks; comb also needs to support groups of inputs and outputs");
+    auto fn = ([handle,comb_fn](void)->t_sl_error_level{return (*comb_fn)(handle);});
+    return register_comb_fn(engine_handle, fn );
+}
 
-     emi = (t_engine_module_instance *)engine_handle;
-
-     efn = se_engine_function_add_function( emi, &emi->comb_fn_list, NULL );
-     efn->data.comb.comb_fn = comb_fn;
-     efn->handle = handle;
+/*f c_engine::register_message_function - DEPRECATED
+ */
+void c_engine::register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn )
+{
+    DEPRECATED(EMINAME(engine_handle),"std::function instead of void* and callbacks");
+    auto fn = ([handle,message_fn](t_se_message *m)->void{(*message_fn)(handle, (void *)m);});
+    return register_message_function(engine_handle, fn );
 }
 
 /*f c_engine::register_input_used_on_clock
@@ -396,15 +405,6 @@ void c_engine::register_comb_output( void *engine_handle, const char *name )
                             error_arg_type_none );
      }
      efn_sig->data.output.combinatorial = 1;
-}
-
-/*f c_engine::register_message_function
- */
-void c_engine::register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn )
-{
-     t_engine_module_instance *emi;
-     emi = (t_engine_module_instance *)engine_handle;
-    (void) se_engine_function_call_add( &emi->message_fn_list, handle, message_fn );
 }
 
 /*f c_engine::register_state_desc
@@ -596,6 +596,7 @@ int c_engine::register_add_exec_file_enhancements( struct t_sl_exec_file_data *f
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;
     lib_desc.file_fns = NULL;
+    lib_desc.free_fn = sl_exec_file_lib_free_handle;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
 

@@ -67,6 +67,7 @@ These functions can then be split using pthreads by the simulation engine by pro
 #include "cdl_version.h"
 #include "md_output_markers.h"
 #include "c_model_descriptor.h"
+#include "md_target_xml.h"
 
 /*a Static variables
  */
@@ -112,7 +113,7 @@ static void output_trailer( c_model_descriptor *model, t_md_output_fn output, vo
  */
 static void output_instance( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent )
 {
-    output( handle, indent++, "<instance ref='%p' output_args_0='%d'>\n", instance, instance->output_args[0] );
+    output( handle, indent++, "<instance ref='%d' output_args_0='%d'>\n", (instance!=NULL), instance->output_args[0] );
     switch (instance->type)
     {
     case md_type_instance_type_bit_vector:
@@ -201,7 +202,7 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output( handle, indent++, "<input ref='%p' used_combinatorially='%d'>\n", signal->instance_iter->children[i], signal->data.input.used_combinatorially );
+            output( handle, indent++, "<input ref='%d' used_combinatorially='%d'>\n", (signal->instance_iter->children[i]!=NULL), signal->data.input.used_combinatorially );
             output_instance( model, output, handle, signal->instance_iter->children[i], indent );
             output_references( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             for (int level=0; level<2; level++)
@@ -252,8 +253,8 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
                 instance = reg->instance_iter->children[i];
                 if (!reg->clock_ref->data.clock.clock_ref)
                 {
-                    output( handle, indent, "<output type='registered' ref='%p' name='%s' width='%d' clock='%s' edge='%s'/>\n",
-                            instance,
+                    output( handle, indent, "<output type='registered' ref='%d' name='%s' width='%d' clock='%s' edge='%s'/>\n",
+                            (instance!=NULL),
                             instance->output_name,
                             instance->type_def.data.width,
                             reg->clock_ref->name,
@@ -261,8 +262,8 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
                 }
                 else
                 {
-                    output( handle, indent, "<output type='registered' ref='%p' name='%s' width='%d' clock='%s' edge='%s'/>\n",
-                            instance,
+                    output( handle, indent, "<output type='registered' ref='%d' name='%s' width='%d' clock='%s' edge='%s'/>\n",
+                            (instance!=NULL),
                             instance->output_name,
                             instance->type_def.data.width,
                             reg->clock_ref->data.clock.clock_ref->name,
@@ -275,8 +276,8 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
-                output( handle, indent++, "<output type='comb' ref='%p' name='%s' width='%d' combinatorial_on_input='%d'>\n",
-                        instance,
+                output( handle, indent++, "<output type='comb' ref='%d' name='%s' width='%d' combinatorial_on_input='%d'>\n",
+                        (instance!=NULL),
                         instance->output_name,
                         instance->type_def.data.width,
                         signal->data.output.derived_combinatorially );
@@ -291,8 +292,8 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, indent++, "<output type='net' ref='%p' name='%s' width='%d' combinatorial_on_input='%d'>\n",
-                        instance,
+                output( handle, indent++, "<output type='net' ref='%d' name='%s' width='%d' combinatorial_on_input='%d'>\n",
+                        (instance!=NULL),
                         instance->output_name,
                         instance->type_def.data.width,
                         signal->data.output.derived_combinatorially );
@@ -321,8 +322,8 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output( handle, indent++, "<net ref='%p' array_driven_in_parts='%d' vector_driven_in_parts='%d' derived_combinatorially='%d'>\n",
-                    signal->instance_iter->children[i],
+            output( handle, indent++, "<net ref='%d' array_driven_in_parts='%d' vector_driven_in_parts='%d' derived_combinatorially='%d'>\n",
+                    (signal->instance_iter->children[i]!=NULL),
                     signal->instance_iter->children[i]->array_driven_in_parts,
                     signal->instance_iter->children[i]->vector_driven_in_parts,
                     signal->instance_iter->children[i]->derived_combinatorially );
@@ -342,7 +343,7 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
         {
             if (clk->data.clock.edges_used[edge])
             {
-                output( handle, indent++, "<clock name='%s' edge='%s' ref='%p'>\n", clk->name, edge_name[edge], clk->data.clock.clock_ref );
+                output( handle, indent++, "<clock name='%s' edge='%s' ref='%d'>\n", clk->name, edge_name[edge], (clk->data.clock.clock_ref!=NULL) );
                 for (code_block = module->code_blocks; code_block; code_block=code_block->next_in_list)
                 {
                     output_simulation_methods_code_block( model, output, handle, code_block, indent, clk, edge, NULL );
@@ -401,8 +402,8 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                         output_port->module_port_instance->type_def.data.width,
                         output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
 
-                output( handle, indent++, "<drives ref='%p' signal='%s' is_output='%d'>\n",
-                        output_port->lvar->instance,
+                output( handle, indent++, "<drives ref='%d' signal='%s' is_output='%d'>\n",
+                        (output_port->lvar->instance!=NULL),
                         output_port->lvar->instance->output_name,
                         (output_port->lvar->instance->reference.data.signal->data.net.output_ref!=NULL) );
                 if (output_port->lvar->instance->array_driven_in_parts)
@@ -1147,14 +1148,12 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
 
 /*a External functions
  */
-/*f target_xml_output
+/*f c_md_target_xml::output_xml_model
  */
-extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage )
+void c_md_target_xml::output_xml_model(void)
 {
-    t_md_module *module;
-
-    output_header( model, output_fn, output_handle, include_assertions, include_coverage, include_stmt_coverage );
-    for (module=model->module_list; module; module=module->next_in_list)
+    output_header( model, output_fn, output_handle, options->cpp.include_assertions, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+    for (auto module=model->module_list; module; module=module->next_in_list)
     {
         output_fn( output_handle, 0, "<module name='%s' external='%d' comb_in_to_out='%d'>\n", module->output_name, module->external, module->combinatorial_component );
         // module->documentation
@@ -1180,10 +1179,10 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_input_dependents( model, module, 4, 0 );
 #endif
-            output_ports_nets_clocks( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_submodules( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_combinatorials( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
-            output_registers( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
+            output_ports_nets_clocks( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_submodules( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_combinatorials( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
+            output_registers( model, module, output_fn, output_handle, options->cpp.include_coverage, options->cpp.include_stmt_coverage );
             output_logging( model, module, output_fn, output_handle );
         }
         output_fn( output_handle, 0, "</module>\n" );

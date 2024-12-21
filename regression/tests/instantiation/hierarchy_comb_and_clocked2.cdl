@@ -54,8 +54,8 @@ module hierarchy_comb_and_clocked2_source( clock clk,
                 data_must_be_taken = 0;
             }
 
-            print("src: start %d0% toggle %d1% data_must_be_taken %d2% data_reg %d3% data_out %d4%",
-                  start, toggle, data_must_be_taken, data_reg, data_out );
+            //print("src: start %d0% toggle %d1% data_must_be_taken %d2% data_reg %d3% data_out %d4%",
+            //      start, toggle, data_must_be_taken, data_reg, data_out );
         }
 }
 
@@ -101,9 +101,9 @@ module hierarchy_comb_and_clocked2_sink( clock clk,
                 data_out <= data_in;
             }
 
-            print("sink: data_can_be_taken %d3% data_must_be_taken %d4% data_in %d5% data_out_pulse %d0% data_out_valid %d1% data_out %d2%",
-                  data_out_pulse, data_out_valid, data_out,
-                  data_can_be_taken, data_must_be_taken, data_in);
+            //print("sink: data_can_be_taken %d3% data_must_be_taken %d4% data_in %d5% data_out_pulse %d0% data_out_valid %d1% data_out %d2%",
+            //      data_out_pulse, data_out_valid, data_out,
+            //      data_can_be_taken, data_must_be_taken, data_in);
         }
 }
 

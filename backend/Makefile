@@ -12,21 +12,23 @@
 #  for more details.
 
 #a Global variables
-include ${CDL_ROOT}/Makefile_build_config
+include ${CDL_MAKEFILE_CONFIG}
 PREREQS = Si
 include ${CDL_SCRIPTS_DIR}/makefile_hdr
 
 #a Source files
 BACKEND_SRCS = \
 		c_model_descriptor.cpp \
+		c_md_target.cpp \
 		md_output_markers.cpp \
 		md_target_c.cpp \
 		md_target_xml.cpp \
 		md_target_cdl_header.cpp \
 		md_target_verilog.cpp
 
-INCLUDES = be_model_includes.h cdl_version.h
+INCLUDES = cdl_version.h be_model_includes.h
 
+SRC_DIR = .
 SRCS = ${BACKEND_SRCS}
 OBJ_DIR = ${CDL_BUILD_ROOT}/backend
 
@@ -37,24 +39,13 @@ BACKEND_OBJS = $(call objs_from_srcs,${BACKEND_SRCS})
 #a Resultant 'libraries'
 BACKEND_LIB = ${CDL_BUILD_OBJ_DIR}/be_backend.o
 
-#a Dependencies and build requirements
+$(eval $(call add_includes,${INCLUDES}))
+$(eval $(call compile_cpps,${OBJ_DIR},${SRC_DIR},${BACKEND_SRCS}))
+
+build: ${BACKEND_LIB}
+$(eval $(call make_static_library,${BACKEND_LIB},${BACKEND_OBJS}))
+
+#a Clean, dependencies and build requirements
 clean:
 	@rm -f ${CMDLINE_PROG} ${BACKEND_OBJS} ${OBJ_DIR}/*.P core.*
 	mkdir -p ${OBJ_DIR}
-
-build: ${BACKEND_LIB}
-
-${BACKEND_LIB}: ${BACKEND_OBJS}
-	${LINKASOBJ} $@ ${BACKEND_OBJS}
-
-#a Clean etc
--include $(SRCS:%.cpp=${OBJ_DIR}/%.P)
-
-#a Default patterns
-${OBJ_DIR}/%.o : %.cpp
-	@echo "CC $< -o $@"
-	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OBJ_DIR}/$*.P $< -o $@
-
-#a Include make - copy relevant header files
-include:${INCLUDES}
-	cp ${INCLUDES} ${CDL_INCLUDE_DIR}

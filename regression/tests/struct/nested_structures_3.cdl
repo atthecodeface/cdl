@@ -14,23 +14,6 @@
 
 /*a Types
  */
-/*t t_point
- */
-typedef struct
-{
-    bit[4] x;
-    bit[4] y;
-} t_point;
-
-/*t t_color
- */
-typedef struct
-{
-    bit[3] r;
-    bit[3] g;
-    bit[3] b;
-} t_color;
-
 /*t t_cline
  */
 typedef struct

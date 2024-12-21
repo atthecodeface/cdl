@@ -24,6 +24,7 @@
 #include "sl_option.h"
 #include "lexical_types.h"
 #include "c_cyc_object.h"
+#include "c_model_descriptor.h"
 
 /*a Types
  */
@@ -35,10 +36,12 @@ public:
 	c_cyclicity();
 	~c_cyclicity();
 
-    void add_include_directory( char *directory );
+    void add_include_directory( const char *directory );
+    void add_force_include( const char *directory );
+    void set_library_root( const char *directory );
+    void read_library_descriptor( const char *filename );
 
-	int parse_input_file( FILE *f );
-	int parse_input_file( char *filename );
+	int parse_input_file( const char *filename );
     int parse_repeat_eof( void );
     t_lex_file_posn parse_get_current_location( void );
     void set_parse_error_va_list( t_lex_file_posn lex_file_posn, t_co_compile_stage co_compile_stage, const char *format, va_list ap);
@@ -51,7 +54,8 @@ public:
     void remap_type_specifier_symbol( t_symbol *symbol );
 
     int get_number_of_files( void );
-    char *get_filename( int file_number );
+    const char *get_filename( int file_number );
+    const char *get_pathname( int file_number );
     int get_file_data( int file_number, int *file_size, int *number_lines, char **file_data );
     int get_line_data( int file_number, int line_number, char **line_start, int *line_length );
     void replace_lex_symbol( t_symbol *symbol, const char *text, int text_length );
@@ -92,6 +96,7 @@ public:
 
 private:
 	FILE *f;
+    class c_library_set *libraries;
 	class c_lexical_analyzer *lexical_analyzer;
 	class c_co_toplevel *toplevel_list;
     class c_model_descriptor *model;
