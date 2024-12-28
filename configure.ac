@@ -14,7 +14,6 @@ AC_SUBST(INSTALL_PROGRAM)
 AC_SUBST(INSTALL_DATA)
 
 AC_LANG([C++])
-# AX_CXX_COMPILE_STDCXX_11
 
 AC_PROG_YACC
 AC_PATH_PROG(YACC_INST, $YACC)
@@ -44,6 +43,9 @@ AC_SUBST([PYTHON_INCLUDE])
 AC_SUBST([PYTHON_LIBS])
 
 AC_CANONICAL_HOST
+# could move to std=c23?
+c_std_flag="-std=c11"
+cxx_std_flag="-std=c++17"
 os_cxxflags="-fPIC"
 os_cflags="-fPIC"
 
@@ -64,8 +66,8 @@ case $host_os in
     make_static_library="libtool  -L/opt/homebrew/lib -static -o "
     make_dynamic_library="\${CXX} $dynamic_library_flags  -L/opt/homebrew/lib -o"
 esac
-OS_CFLAGS="$os_cflags"
-OS_CXXFLAGS="$os_cxxflags"
+OS_CFLAGS="$os_cflags $c_std_flag"
+OS_CXXFLAGS="$os_cxxflags $cxx_std_flag"
 AC_SUBST([OS_CFLAGS])
 AC_SUBST([OS_CXXFLAGS])
 
