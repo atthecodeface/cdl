@@ -14,7 +14,6 @@ AC_SUBST(INSTALL_PROGRAM)
 AC_SUBST(INSTALL_DATA)
 
 AC_LANG([C++])
-# AX_CXX_COMPILE_STDCXX_11
 
 AC_PROG_YACC
 AC_PATH_PROG(YACC_INST, $YACC)
@@ -37,13 +36,16 @@ AS_IF([test -z "$PYTHON_INCLUDE"], [
   PYTHON_INCLUDE=`$PYTHON_CONFIG --includes`
   AC_MSG_RESULT([:$PYTHON_INCLUDE])
   AC_MSG_CHECKING([python library flags])
-  PYTHON_LIBS=`$PYTHON_CONFIG --ldflags`
+  PYTHON_LIBS=`$PYTHON_CONFIG --ldflags --embed`
   AC_MSG_RESULT([:$PYTHON_LIBS])
 ])
 AC_SUBST([PYTHON_INCLUDE])
 AC_SUBST([PYTHON_LIBS])
 
 AC_CANONICAL_HOST
+# could move to std=c23?
+c_std_flag="-std=c11"
+cxx_std_flag="-std=c++17"
 os_cxxflags="-fPIC"
 os_cflags="-fPIC"
 
@@ -55,19 +57,17 @@ make_static_library="ar rcs "
 make_dynamic_library="\${CXX} $dynamic_library_flags -o"
 case $host_os in
   darwin* )
-    os_cxxflags=""
-    os_cflags=""
+    os_cxxflags="-I/opt/homebrew/include"
+    os_cflags="-I/opt/homebrew/include"
     dynamic_library_flags="-bundle"
     pthread_cflags=""
     pthread_cxxflags=""
-    # possibly also LINKFLAGS but that may be old
-    make_static_binary="\${CXX} \${CXXFLAGS} -o"
-    make_static_library="libtool -static -o "
-    make_dynamic_library="\${CXX} $dynamic_library_flags -o"
-    make_dynamic_library="ld $dynamic_library_flags -o"
+    make_static_binary="\${CXX} \${CXXFLAGS}  -L/opt/homebrew/lib -o"
+    make_static_library="libtool  -L/opt/homebrew/lib -static -o "
+    make_dynamic_library="\${CXX} $dynamic_library_flags  -L/opt/homebrew/lib -o"
 esac
-OS_CFLAGS="$os_cflags"
-OS_CXXFLAGS="$os_cxxflags"
+OS_CFLAGS="$os_cflags $c_std_flag"
+OS_CXXFLAGS="$os_cxxflags $cxx_std_flag"
 AC_SUBST([OS_CFLAGS])
 AC_SUBST([OS_CXXFLAGS])
 
