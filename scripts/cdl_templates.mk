@@ -35,16 +35,20 @@ $(eval $(call timestamp,all_obj))
 $(eval $(call timestamp,all_cpp))
 
 ifneq (${VERILATOR_SHARE},)
-MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o
+MODEL_VERILATOR_OBJS = ${BUILD_ROOT}/verilated.o ${BUILD_ROOT}/verilated_threads.o
 endif
 
 clean: clean_verilate
 
 clean_verilate:
-	rm -rf ${BUILD_ROOT}/verilated.o
+	rm -rf ${BUILD_ROOT}/verilated.o ${BUILD_ROOT}/verilated_threads.o
 
 ${BUILD_ROOT}/verilated.o:  ${VERILATOR_SHARE}/include/verilated.cpp
-	${Q}${CXX} -c ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
+	${Q}${CXX} -c ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated.cpp  -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
+
+${BUILD_ROOT}/verilated_threads.o:  ${VERILATOR_SHARE}/include/verilated_threads.cpp
+	${Q}${CXX} -c ${VERILATOR_C_FLAGS} ${VERILATOR_SHARE}/include/verilated_threads.cpp -o $$@  -I ${VERILATOR_SHARE}/include -I. $${VERILATOR_LIBS}
+
 
 endef
 
