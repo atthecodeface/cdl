@@ -55,16 +55,14 @@ make_static_library="ar rcs "
 make_dynamic_library="\${CXX} $dynamic_library_flags -o"
 case $host_os in
   darwin* )
-    os_cxxflags=""
-    os_cflags=""
+    os_cxxflags="-I/opt/homebrew/include"
+    os_cflags="-I/opt/homebrew/include"
     dynamic_library_flags="-bundle"
     pthread_cflags=""
     pthread_cxxflags=""
-    # possibly also LINKFLAGS but that may be old
-    make_static_binary="\${CXX} \${CXXFLAGS} -o"
-    make_static_library="libtool -static -o "
-    make_dynamic_library="\${CXX} $dynamic_library_flags -o"
-    make_dynamic_library="ld $dynamic_library_flags -o"
+    make_static_binary="\${CXX} \${CXXFLAGS}  -L/opt/homebrew/lib -o"
+    make_static_library="libtool  -L/opt/homebrew/lib -static -o "
+    make_dynamic_library="\${CXX} $dynamic_library_flags  -L/opt/homebrew/lib -o"
 esac
 OS_CFLAGS="$os_cflags"
 OS_CXXFLAGS="$os_cxxflags"
