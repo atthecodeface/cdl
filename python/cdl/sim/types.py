@@ -1,6 +1,8 @@
 from typing import Tuple, Any, Union, Dict, List, Callable, Type, Optional, Sequence, Set, cast, ClassVar, Iterable
 from typing import TYPE_CHECKING
 
+from enum import IntEnum, EnumType
+
 from .base import Prefix, join_name, split_name
 from .hierarchy import Hierarchy, HierarchyElement
 
@@ -8,6 +10,12 @@ WireTypeDictOrInt = Union[int,Dict[str,Any]] # Recursive
 def expand_wire_type_dict_or_int(wtdoi:WireTypeDictOrInt, prefix:Prefix=[]) -> Iterable[Tuple[Prefix,int]]:
     if type(wtdoi)==int:
         yield (prefix, wtdoi) # type: ignore
+        pass
+    elif isinstance(wtdoi,IntEnum) and hasattr(wtdoi, "width"):
+        yield (prefix, wtdoi.width) # type: ignore
+        pass
+    elif type(wtdoi) == EnumType and hasattr(wtdoi, "width"):
+        yield (prefix, wtdoi.width) # type: ignore
         pass
     else:
         for (sub_n,sub_wtdoi) in wtdoi.items():  # type: ignore
